@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">متابعة انعامي</string>
+    <string name="title_activity_main">متابعة انعامي</string>
+    <string name="package_name">com.barnmanager.app</string>
+    <string name="custom_url_scheme">com.barnmanager.app</string>
+</resources>

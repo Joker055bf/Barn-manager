@@ -1,0 +1,47 @@
+
+[1m[33mwarn[39m[22m - Your `content` configuration includes a pattern which looks like it's accidentally matching all of `node_modules` and can cause serious performance issues.
+[1m[33mwarn[39m[22m - Pattern: `./**\*.ts`
+[1m[33mwarn[39m[22m - See our documentation for recommendations:
+[1m[33mwarn[39m[22m - https://tailwindcss.com/docs/content-configuration#pattern-recommendations
+[31m✗[39m Build failed in 1.71s
+[31merror during build:
+[31m[vite:esbuild] Transform failed with 3 errors:
+C:/Users/baslo/Desktop/Barn manager/Barn manager/App.tsx:40:9: ERROR: The symbol "isStatsModalOpen" has already been declared
+C:/Users/baslo/Desktop/Barn manager/Barn manager/App.tsx:40:27: ERROR: The symbol "setIsStatsModalOpen" has already been declared
+C:/Users/baslo/Desktop/Barn manager/Barn manager/App.tsx:928:14: ERROR: Unterminated regular expression[31m
+file: [36mC:/Users/baslo/Desktop/Barn manager/Barn manager/App.tsx:40:9[31m
+[33m
+[33mThe symbol "isStatsModalOpen" has already been declared[33m
+38 |    const [isMedicalModalOpen, setIsMedicalModalOpen] = useState(false);
+39 |    const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
+40 |    const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
+   |           ^
+41 |    const [isReportsModalOpen, setIsReportsModalOpen] = useState(false);
+42 |    const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+
+[33mThe symbol "setIsStatsModalOpen" has already been declared[33m
+38 |    const [isMedicalModalOpen, setIsMedicalModalOpen] = useState(false);
+39 |    const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
+40 |    const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
+   |                             ^
+41 |    const [isReportsModalOpen, setIsReportsModalOpen] = useState(false);
+42 |    const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+
+[33mUnterminated regular expression[33m
+926|          </div>
+927|  
+928|          </div>
+   |                ^
+929|    )
+930|  }
+[31m
+    at failureErrorWithLog (C:\Users\baslo\Desktop\Barn manager\Barn manager\node_modules\esbuild\lib\main.js:1467:15)
+    at C:\Users\baslo\Desktop\Barn manager\Barn manager\node_modules\esbuild\lib\main.js:736:50
+    at responseCallbacks.<computed> (C:\Users\baslo\Desktop\Barn manager\Barn manager\node_modules\esbuild\lib\main.js:603:9)
+    at handleIncomingPacket (C:\Users\baslo\Desktop\Barn manager\Barn manager\node_modules\esbuild\lib\main.js:658:12)
+    at Socket.readFromStdout (C:\Users\baslo\Desktop\Barn manager\Barn manager\node_modules\esbuild\lib\main.js:581:7)
+    at Socket.emit (node:events:519:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)[39m

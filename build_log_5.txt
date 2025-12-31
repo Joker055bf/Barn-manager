@@ -1,0 +1,92 @@
+
+> Configure project :app
+WARNING: Using flatDir should be avoided because it doesn't support any meta-data formats.
+
+> Configure project :capacitor-cordova-android-plugins
+WARNING: Using flatDir should be avoided because it doesn't support any meta-data formats.
+
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:javaPreCompileRelease UP-TO-DATE
+> Task :capacitor-android:preBuild UP-TO-DATE
+> Task :capacitor-android:preReleaseBuild UP-TO-DATE
+> Task :capacitor-android:writeReleaseAarMetadata UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:preBuild UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:preReleaseBuild UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:writeReleaseAarMetadata UP-TO-DATE
+> Task :app:generateReleaseResValues UP-TO-DATE
+> Task :capacitor-android:generateReleaseResValues UP-TO-DATE
+> Task :capacitor-android:generateReleaseResources UP-TO-DATE
+> Task :app:checkReleaseAarMetadata
+> Task :capacitor-android:packageReleaseResources UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:generateReleaseResValues UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:generateReleaseResources
+> Task :capacitor-cordova-android-plugins:packageReleaseResources
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:generateReleaseResources
+> Task :app:packageReleaseResources
+> Task :app:mergeReleaseResources FAILED
+> Task :app:parseReleaseLocalResources
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:mergeReleaseResources'.
+> Multiple task action failures occurred:
+   > A failure occurred while executing com.android.build.gradle.internal.res.Aapt2CompileRunnable
+      > Android resource compilation failed
+        ERROR: AAPT: com.barnmanager.app-main-27:/mipmap-mdpi/ic_launcher.png: error: failed to read PNG signature: file does not start with PNG signature.
+        C:\Users\baslo\Desktop\Barn manager\Barn manager\android\app\src\main\res\mipmap-mdpi\ic_launcher.png: error: file failed to compile.
+        
+            
+   > A failure occurred while executing com.android.build.gradle.internal.res.Aapt2CompileRunnable
+      > Android resource compilation failed
+        ERROR: AAPT: com.barnmanager.app-main-27:/mipmap-xhdpi/ic_launcher_foreground.png: error: failed to read PNG signature: file does not start with PNG signature.
+        C:\Users\baslo\Desktop\Barn manager\Barn manager\android\app\src\main\res\mipmap-xhdpi\ic_launcher_foreground.png: error: file failed to compile.
+        
+            
+   > A failure occurred while executing com.android.build.gradle.internal.res.Aapt2CompileRunnable
+      > Android resource compilation failed
+        ERROR: AAPT: com.barnmanager.app-main-27:/mipmap-xhdpi/ic_launcher.png: error: failed to read PNG signature: file does not start with PNG signature.
+        C:\Users\baslo\Desktop\Barn manager\Barn manager\android\app\src\main\res\mipmap-xhdpi\ic_launcher.png: error: file failed to compile.
+        
+            
+   > A failure occurred while executing com.android.build.gradle.internal.res.Aapt2CompileRunnable
+      > Android resource compilation failed
+        ERROR: AAPT: com.barnmanager.app-main-27:/mipmap-hdpi/ic_launcher.png: error: failed to read PNG signature: file does not start with PNG signature.
+        C:\Users\baslo\Desktop\Barn manager\Barn manager\android\app\src\main\res\mipmap-hdpi\ic_launcher.png: error: file failed to compile.
+        
+            
+   > A failure occurred while executing com.android.build.gradle.internal.res.Aapt2CompileRunnable
+      > Android resource compilation failed
+        ERROR: AAPT: com.barnmanager.app-main-27:/mipmap-xxhdpi/ic_launcher.png: error: failed to read PNG signature: file does not start with PNG signature.
+        C:\Users\baslo\Desktop\Barn manager\Barn manager\android\app\src\main\res\mipmap-xxhdpi\ic_launcher.png: error: file failed to compile.
+        
+            
+   > A failure occurred while executing com.android.build.gradle.internal.res.Aapt2CompileRunnable
+      > Android resource compilation failed
+        ERROR: AAPT: com.barnmanager.app-main-27:/mipmap-mdpi/ic_launcher_round.png: error: failed to read PNG signature: file does not start with PNG signature.
+        C:\Users\baslo\Desktop\Barn manager\Barn manager\android\app\src\main\res\mipmap-mdpi\ic_launcher_round.png: error: file failed to compile.
+        
+            
+   > A failure occurred while executing com.android.build.gradle.internal.res.Aapt2CompileRunnable
+      > Android resource compilation failed
+        ERROR: AAPT: com.barnmanager.app-main-27:/mipmap-xxxhdpi/ic_launcher_foreground.png: error: failed to read PNG signature: file does not start with PNG signature.
+        C:\Users\baslo\Desktop\Barn manager\Barn manager\android\app\src\main\res\mipmap-xxxhdpi\ic_launcher_foreground.png: error: file failed to compile.
+        
+            
+   > A failure occurred while executing com.android.build.gradle.internal.res.Aapt2CompileRunnable
+      > Android resource compilation failed
+        ERROR: AAPT: com.barnmanager.app-main-27:/mipmap-xhdpi/ic_launcher_round.png: error: failed to read PNG signature: file does not start with PNG signature.
+        C:\Users\baslo\Desktop\Barn manager\Barn manager\android\app\src\main\res\mipmap-xhdpi\ic_launcher_round.png: error: file failed to compile.
+        
+            
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 11s
+١٦ actionable tasks: ٨ executed, ٨ up-to-date
