@@ -1,4 +1,3 @@
-```
 import React, { useState, useEffect } from 'react';
 import {
   Plus, Search, MoreVertical, LayoutGrid, Calendar, LogOut, ChevronLeft, ArrowRight, Star, Dna, Settings, Check, X, Filter,
@@ -62,6 +61,7 @@ function App() {
 
   const [isReportsModalOpen, setIsReportsModalOpen] = useState(false);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+  const [isEditingOwner, setIsEditingOwner] = useState(false);
 
 
   // Editing / Action States
@@ -192,7 +192,7 @@ function App() {
 
       // 4. Force Save Back to minimize "phantom" recurrence
       if (rawPens.length !== cleanPens.length || rawSheep.length !== cleanSheep.length) {
-        console.log(`Sanitization Report: Removed ${ rawPens.length - cleanPens.length } pens and ${ rawSheep.length - cleanSheep.length } sheep.`);
+        console.log(`Sanitization Report: Removed ${rawPens.length - cleanPens.length} pens and ${rawSheep.length - cleanSheep.length} sheep.`);
         localStorage.setItem('rai_pens', JSON.stringify(cleanPens));
         localStorage.setItem('rai_sheep', JSON.stringify(cleanSheep));
       }
@@ -547,8 +547,8 @@ function App() {
     let years = now.getFullYear() - birth.getFullYear();
     let months = now.getMonth() - birth.getMonth();
     if (months < 0) { years--; months += 12; }
-    if (years > 0) return `${ years } سنة`;
-    return `${ months } شهر`;
+    if (years > 0) return `${years} سنة`;
+    return `${months} شهر`;
   };
 
   const getAnimalAgeLabel = (dateStr: string) => {
@@ -588,65 +588,7 @@ function App() {
 
   // --- Renderers ---
   // --- Renderers ---
-  const renderPenCard = (pen: Pen) => (
-    <div
-      onClick={() => enterSheepList(pen.id)}
-      className={`h - full flex flex - col bg - white rounded - [2rem] p - 5 shadow - sm border transition - all duration - 300 group relative animate - scale -in cursor - pointer hover: shadow - md ${ pen.isMain ? 'border-orange-200 bg-orange-50/10' : 'border-gray-100 hover:border-emerald-200' } `}
-    >
-      <div className="flex justify-between items-start mb-6">
-        <h3 className="font-bold text-2xl text-gray-800 flex items-center gap-2">
-          {pen.name}
-        </h3>
-        {pen.isMain && (
-          <span className="bg-orange-100 text-orange-700 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
-            <Star size={12} className="fill-current" />
-            رئيسي
-          </span>
-        )}
-      </div>
 
-      <div className="mb-6 flex-1">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-xl font-bold text-gray-800" dir="ltr">
-            {pen.currentCount || 0} <span className="text-gray-400 text-sm font-normal">/ {pen.capacity || 50}</span>
-          </span>
-          <span className="text-sm text-gray-500 font-medium">السعة الحالية</span>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="w-full h-3 bg-gray-100/80 rounded-full overflow-hidden">
-          <div
-            className={`h - full rounded - full transition - all duration - 500 ${ pen.currentCount && pen.currentCount > (pen.capacity || 50) ? 'bg-red-500' : 'bg-emerald-500' } `}
-            style={{ width: `${ Math.min(100, ((pen.currentCount || 0) / (pen.capacity || 50)) * 100) }% ` }}
-          ></div>
-        </div>
-      </div>
-
-      <div className="mt-auto flex items-center gap-3">
-        <button
-          onClick={(e) => { e.stopPropagation(); handleDeletePen(pen.id, false); }}
-          className="w-12 h-12 flex items-center justify-center rounded-2xl border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition"
-        >
-          <Trash2 size={20} />
-        </button>
-        
-        <button
-          onClick={(e) => { e.stopPropagation(); openEditModal(pen); }}
-          className="w-12 h-12 flex items-center justify-center rounded-2xl border border-gray-200 text-gray-400 hover:text-blue-500 hover:border-blue-200 hover:bg-blue-50 transition"
-        >
-          <Edit size={20} />
-        </button>
-
-        <button
-          onClick={(e) => { e.stopPropagation(); enterSheepList(pen.id); }}
-          className="flex-1 bg-[#795548] text-white h-12 rounded-2xl text-base font-bold hover:bg-[#5D4037] transition flex items-center justify-center gap-2 shadow-sm"
-        >
-          <Eye size={20} />
-          عرض
-        </button>
-      </div>
-    </div>
-  );
 
 
   const renderDeceasedSheepRow = (sheep: Sheep) => {
@@ -705,8 +647,8 @@ function App() {
 
       if (sheepToSell.length === 0) return;
 
-      if (confirm(`هل أنت متأكد من بيع ${ sheepToSell.length } رأس من ${ type }؟ سيتم نقلهم إلى سجل المستبعدة.`)) {
-        const targetMortalityPenId = `mortality:${ selectedGroupId } `;
+      if (confirm(`هل أنت متأكد من بيع ${sheepToSell.length} رأس من ${type}؟ سيتم نقلهم إلى سجل المستبعدة.`)) {
+        const targetMortalityPenId = `mortality:${selectedGroupId} `;
         const idsToSell = new Set(sheepToSell.map(s => s.id));
 
         // Update Sheep
@@ -739,8 +681,8 @@ function App() {
 
       if (!sheepToSell) return;
 
-      if (confirm(`هل أنت متأكد من بيع الحيوان #${ serialNumber }؟ سيتم نقله إلى سجل المستبعدة.`)) {
-        const targetMortalityPenId = selectedGroupId ? `mortality:${ selectedGroupId } ` : '';
+      if (confirm(`هل أنت متأكد من بيع الحيوان #${serialNumber}؟ سيتم نقله إلى سجل المستبعدة.`)) {
+        const targetMortalityPenId = selectedGroupId ? `mortality:${selectedGroupId} ` : '';
         if (!targetMortalityPenId) return;
 
         const updatedSheep = {
@@ -767,16 +709,16 @@ function App() {
     <div
       key={sheep.id}
       onClick={() => setViewingSheep(sheep)}
-      className={`border border - gray - 100 rounded - 2xl p - 3 flex flex - col items - center justify - center gap - 2 hover: shadow - lg transition - all cursor - pointer hover: border - emerald - 200 group h - auto min - h - [90px] ${ sheep.gender === 'male' ? 'bg-blue-50' : 'bg-pink-50' } `}
+      className={`border border - gray - 100 rounded - 2xl p - 3 flex flex - col items - center justify - center gap - 2 hover: shadow - lg transition - all cursor - pointer hover: border - emerald - 200 group h - auto min - h - [90px] ${sheep.gender === 'male' ? 'bg-blue-50' : 'bg-pink-50'} `}
     >
       <div
-        className={`w - 10 h - 8 rounded - lg flex items - center justify - center shadow - sm border border - white / 50 text - white ${ sheep.tagColor ? '' : (sheep.gender === 'male' ? 'bg-[#795548]' : 'bg-pink-600') } `}
+        className={`w - 10 h - 8 rounded - lg flex items - center justify - center shadow - sm border border - white / 50 text - white ${sheep.tagColor ? '' : (sheep.gender === 'male' ? 'bg-[#795548]' : 'bg-pink-600')} `}
         style={{ backgroundColor: sheep.tagColor || undefined }}
       >
         <span className="font-bold text-lg leading-none">{sheep.serialNumber}</span>
       </div>
 
-      <span className={`text - xs font - bold ${ sheep.gender === 'male' ? 'text-blue-800' : 'text-pink-800' } `}>{sheep.type}</span>
+      <span className={`text - xs font - bold ${sheep.gender === 'male' ? 'text-blue-800' : 'text-pink-800'} `}>{sheep.type}</span>
 
       {hasPendingVaccines(sheep) && (
         <div className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></div>
@@ -803,9 +745,9 @@ function App() {
     }
 
     const parts = [];
-    if (years > 0) parts.push(`${ years } سنة`);
-    if (months > 0) parts.push(`${ months } شهر`);
-    if (days > 0) parts.push(`${ days } يوم`);
+    if (years > 0) parts.push(`${years} سنة`);
+    if (months > 0) parts.push(`${months} شهر`);
+    if (days > 0) parts.push(`${days} يوم`);
 
     return parts.length > 0 ? parts.join(' و ') : 'اليوم';
   };
@@ -818,7 +760,7 @@ function App() {
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
             <div
-              className={`w - 12 h - 12 rounded - full flex items - center justify - center font - bold text - lg ${ sheep.tagColor ? 'text-white shadow-sm' : (sheep.gender === 'male' ? 'bg-blue-100 text-blue-600' : 'bg-pink-100 text-pink-600') } `}
+              className={`w - 12 h - 12 rounded - full flex items - center justify - center font - bold text - lg ${sheep.tagColor ? 'text-white shadow-sm' : (sheep.gender === 'male' ? 'bg-blue-100 text-blue-600' : 'bg-pink-100 text-pink-600')} `}
               style={{ backgroundColor: sheep.tagColor || undefined }}
             >
               {/* Gender letter removed as requested */}
@@ -891,7 +833,7 @@ function App() {
       : [];
 
   // Mortality & Available Pens
-  const mortalityPenId = selectedGroupId ? `mortality:${ selectedGroupId } ` : '';
+  const mortalityPenId = selectedGroupId ? `mortality:${selectedGroupId} ` : '';
   const deceasedSheep = mortalityPenId ? allSheep.filter(s => s.penId === mortalityPenId) : [];
 
   const availablePensForMove = selectedGroupId ? [
@@ -919,7 +861,7 @@ function App() {
     <div
       key={pen.id}
       onClick={() => pen.isGroup ? enterGroup(pen.id) : enterSheepList(pen.id)}
-      className={`h - full flex flex - col bg - white rounded - [2rem] p - 5 shadow - sm border transition - all duration - 300 group relative animate - scale -in cursor - pointer hover: shadow - md ${ pen.isMain ? 'border-orange-200 bg-orange-50/10' : 'border-gray-100 hover:border-emerald-200' } `}
+      className={`h - full flex flex - col bg - white rounded - [2rem] p - 5 shadow - sm border transition - all duration - 300 group relative animate - scale -in cursor - pointer hover: shadow - md ${pen.isMain ? 'border-orange-200 bg-orange-50/10' : 'border-gray-100 hover:border-emerald-200'} `}
     >
       <div className="flex justify-between items-start mb-6">
         <h3 className="font-bold text-2xl text-gray-800 flex items-center gap-2">
@@ -944,8 +886,8 @@ function App() {
         {/* Progress Bar */}
         <div className="w-full h-3 bg-gray-100/80 rounded-full overflow-hidden">
           <div
-            className={`h - full rounded - full transition - all duration - 500 ${ pen.currentCount && pen.currentCount > (pen.capacity || 50) ? 'bg-red-500' : 'bg-emerald-500' } `}
-            style={{ width: `${ Math.min(100, ((pen.currentCount || 0) / (pen.capacity || 50)) * 100) }% ` }}
+            className={`h - full rounded - full transition - all duration - 500 ${pen.currentCount && pen.currentCount > (pen.capacity || 50) ? 'bg-red-500' : 'bg-emerald-500'} `}
+            style={{ width: `${Math.min(100, ((pen.currentCount || 0) / (pen.capacity || 50)) * 100)}% ` }}
           ></div>
         </div>
       </div>
@@ -957,7 +899,7 @@ function App() {
         >
           <Trash2 size={20} />
         </button>
-        
+
         <button
           onClick={(e) => { e.stopPropagation(); openEditModal(pen); }}
           className="w-12 h-12 flex items-center justify-center rounded-2xl border border-gray-200 text-gray-400 hover:text-blue-500 hover:border-blue-200 hover:bg-blue-50 transition"
@@ -1008,7 +950,7 @@ function App() {
 
 
       {/* Main Content */}
-      < main className="flex-1 overflow-y-auto pb-24" >
+      <main className="flex-1 overflow-y-auto pb-24">
 
         {/* Unified Pens/Dashboard View */}
         {
@@ -1020,91 +962,87 @@ function App() {
               <div className="flex-1">
                 {barnTab === 'pens' && (
                   <>
-                
-                  {/* Root View (Barns List) - Reverted to List View */}
-                   {!selectedGroupId ? (
+
+                    {/* Root View (Barns List) - Reverted to List View */}
+                    {!selectedGroupId ? (
                       <div className="w-full max-w-md mx-auto">
-                        {/* Header */}
-                        <div className="flex justify-between items-center mb-6 px-2">
-                           <h2 className="text-2xl font-bold text-[#3E2723]">حظائري</h2>
-                           <button onClick={() => setIsActionMenuOpen(true)} className="p-2 text-gray-400 hover:text-gray-600 transition rounded-full hover:bg-gray-100">
-                              <MoreVertical size={24} />
-                           </button>
+                        {/* Simple Header */}
+                        <div className="mb-4">
+                          <h2 className="text-2xl font-bold text-[#3E2723]">حظائري</h2>
                         </div>
 
-                        {/* List View for Barns */}
-                        <div className="space-y-3 mb-24">
+                        {/* Simple List View for Barns */}
+                        <div className="space-y-2 mb-24">
                           {displayedPens.map(pen => (
-                            <div 
+                            <div
                               key={pen.id}
                               onClick={() => enterGroup(pen.id)}
-                              className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:shadow-md transition active:scale-[0.98]"
+                              className="bg-white rounded-xl p-3 border border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition"
                             >
-                               <div className="flex items-center gap-4">
-                                  <div className={`w - 12 h - 12 rounded - xl flex items - center justify - center ${ pen.isMain ? 'bg-orange-100 text-orange-600' : 'bg-[#795548]/10 text-[#795548]' } `}>
-                                    <Warehouse size={24} />
-                                  </div>
-                                  <div>
-                                    <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">
-                                        {pen.name}
-                                        {pen.isMain && <Star size={14} className="text-orange-500 fill-current" />}
-                                    </h3>
-                                    <span className="text-xs text-gray-400 font-medium">
-                                      {pen.currentCount || 0} / {pen.capacity || 50}
-                                    </span>
-                                  </div>
-                               </div>
-                               
-                               <ChevronLeft className="text-gray-300 rtl:rotate-180" size={20} />
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-[#795548]/10 text-[#795548]">
+                                  <Warehouse size={20} />
+                                </div>
+                                <div>
+                                  <h3 className="font-bold text-base text-gray-800">
+                                    {pen.name}
+                                  </h3>
+                                  <span className="text-xs text-gray-400">
+                                    {pen.currentCount || 0} رأس
+                                  </span>
+                                </div>
+                              </div>
+                              <ChevronLeft className="text-gray-300 rtl:rotate-180" size={18} />
                             </div>
                           ))}
                         </div>
-                         
-                         {displayedPens.length === 0 && (
+
+                        {displayedPens.length === 0 && (
                           <div className="text-center text-gray-400 py-12">
                             <Warehouse size={48} className="mx-auto mb-4 text-gray-200" />
                             <p>لا توجد حظائر مضافة</p>
                           </div>
-                         )}
+                        )}
 
-                      {/* Floating Action Button for Add Barn */}
-                      <div className="fixed bottom-24 left-6 z-40">
-                        <button
-                          onClick={openNewModal}
-                          className="w-14 h-14 bg-[#795548] text-white rounded-full shadow-lg shadow-[#795548]/40 flex items-center justify-center hover:bg-[#5D4037] transition active:scale-95"
-                        >
-                          <Plus size={32} />
-                        </button>
+                        {/* Add Barn Button */}
+                        <div className="fixed bottom-20 left-0 right-0 p-4 bg-[#fcfbf4]">
+                          <button
+                            onClick={openNewModal}
+                            className="w-full bg-[#795548] text-white py-3 rounded-xl font-bold hover:bg-[#5D4037] transition flex items-center justify-center gap-2"
+                          >
+                            <Plus size={20} />
+                            إضافة حظيرة
+                          </button>
+                        </div>
+
                       </div>
+                    ) : (
+                      /* Inner Group View (Sections) */
+                      <div className="w-full">
+                        <div className="flex justify-between items-center mb-6">
+                          <h2 className="text-2xl font-bold text-[#3E2723]">الأقسام</h2>
+                          <button
+                            onClick={openNewModal}
+                            className="bg-[#795548] text-white px-4 py-2 rounded-xl font-bold hover:bg-[#5D4037] transition flex items-center gap-2"
+                          >
+                            <Plus size={20} />
+                            إضافة قسم
+                          </button>
+                        </div>
 
-                    </div>
-                  ) : (
-                    /* Inner Group View (Sections) */
-                    <div className="w-full">
-                       <div className="flex justify-between items-center mb-6">
-                         <h2 className="text-2xl font-bold text-[#3E2723]">الأقسام</h2>
-                         <button
-                           onClick={openNewModal}
-                           className="bg-[#795548] text-white px-4 py-2 rounded-xl font-bold hover:bg-[#5D4037] transition flex items-center gap-2"
-                         >
-                           <Plus size={20} />
-                           إضافة قسم
-                         </button>
-                       </div>
-
-                       {/* Grid View for Sections - Kept as Cards for Sections as per usual flow, or should this be list too? 
+                        {/* Grid View for Sections - Kept as Cards for Sections as per usual flow, or should this be list too? 
                            User said "Revert UI to v1.0.6", usually sections were cards. Keeping as cards for sections. */}
-                       <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                         {displayedPens.map(pen => renderPenCard(pen))}
-                       </div>
+                        <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                          {displayedPens.map(pen => renderPenCard(pen))}
+                        </div>
 
-                       {displayedPens.length === 0 && (
-                        <div className="text-center text-gray-400 py-8">لا توجد أقسام مضافة</div>
-                       )}
-                    </div>
-                  )}
-                </>
-              )}
+                        {displayedPens.length === 0 && (
+                          <div className="text-center text-gray-400 py-8">لا توجد أقسام مضافة</div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
 
                 {barnTab === 'feed' && selectedGroup && (
                   <div className="max-w-5xl mx-auto">
@@ -1147,7 +1085,7 @@ function App() {
                       {deceasedSheep.length > 0 ? (
                         (() => {
                           const grouped = deceasedSheep.reduce((acc, sheep) => {
-                            const key = `${ sheep.type } -${ sheep.gender } -${ sheep.notes } `;
+                            const key = `${sheep.type} -${sheep.gender} -${sheep.notes} `;
                             // Only group if it's a "Batch" operation (indicated by similar notes or being poultry)
                             // For safety, let's group if type/gender/notes match.
                             // But we want to preserve individual dates if they differ?
@@ -1204,27 +1142,27 @@ function App() {
                   <header className="flex items-center justify-between mb-8">
                     <div className="flex items-center gap-3">
                       <button onClick={() => setSelectedGroupId(null)} className="p-2 rounded-full hover:bg-gray-100 text-gray-500 transition">
-                         <ChevronLeft size={24} className="rtl:rotate-180" />
+                        <ChevronLeft size={24} className="rtl:rotate-180" />
                       </button>
                       <div>
                         <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
                           {selectedGroup?.name}
                           {selectedGroup?.isMain && <Star size={16} className="text-orange-500 fill-current" />}
                         </h2>
-                         <p className="text-gray-500 mt-1">
-                             {displayedPens.length === 0 
-                               ? 'لا يوجد أقسام' 
-                               : `${ displayedPens.length } قسم`}
-                         </p>
+                        <p className="text-gray-500 mt-1">
+                          {displayedPens.length === 0
+                            ? 'لا يوجد أقسام'
+                            : `${displayedPens.length} قسم`}
+                        </p>
                       </div>
                     </div>
-                     <button
-                        onClick={openNewModal}
-                        className="bg-[#795548] text-white py-2 px-4 rounded-xl text-sm font-bold hover:bg-[#5D4037] transition flex items-center gap-2 shadow-sm"
-                      >
-                        <Plus size={18} />
-                        إضافة قسم
-                      </button>
+                    <button
+                      onClick={openNewModal}
+                      className="bg-[#795548] text-white py-2 px-4 rounded-xl text-sm font-bold hover:bg-[#5D4037] transition flex items-center gap-2 shadow-sm"
+                    >
+                      <Plus size={18} />
+                      إضافة قسم
+                    </button>
                   </header>
 
                   {displayedPens.length > 0 ? (
@@ -1233,11 +1171,11 @@ function App() {
                     </div>
                   ) : (
                     <div className="text-center py-20 text-gray-400 flex flex-col items-center">
-                       <LayoutGrid size={48} className="mb-4 text-gray-200" />
-                       <p>لم يتم إضافة أقسام بعد</p>
-                       <button onClick={openNewModal} className="mt-4 text-[#795548] font-bold hover:underline">
-                          + إضافة أول قسم
-                       </button>
+                      <LayoutGrid size={48} className="mb-4 text-gray-200" />
+                      <p>لم يتم إضافة أقسام بعد</p>
+                      <button onClick={openNewModal} className="mt-4 text-[#795548] font-bold hover:underline">
+                        + إضافة أول قسم
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1250,16 +1188,16 @@ function App() {
                   <div className="bg-white border border-gray-100 rounded-t-[30px] md:rounded-2xl shadow-[0_-5px_20px_rgba(0,0,0,0.05)] w-full md:max-w-lg pointer-events-auto flex items-end justify-between px-2 pb-2">
 
                     {/* Left Group (Financial, Vaccines) */}
-                    <button onClick={() => selectedGroup ? setBarnTab('expenses') : alert('اختر حظيرة أولاً')} className={`flex - 1 flex flex - col items - center justify - center gap - 1 py - 3 transition ${ barnTab === 'expenses' ? 'text-[#795548] font-bold' : 'text-gray-400 hover:text-gray-600' } `}>
-                      <div className={`p - 1 rounded - xl ${ barnTab === 'expenses' ? 'bg-[#795548]/10' : '' } `}>
-                         <Wallet size={24} strokeWidth={barnTab === 'expenses' ? 2.5 : 2} />
+                    <button onClick={() => selectedGroup ? setBarnTab('expenses') : alert('اختر حظيرة أولاً')} className={`flex - 1 flex flex - col items - center justify - center gap - 1 py - 3 transition ${barnTab === 'expenses' ? 'text-[#795548] font-bold' : 'text-gray-400 hover:text-gray-600'} `}>
+                      <div className={`p - 1 rounded - xl ${barnTab === 'expenses' ? 'bg-[#795548]/10' : ''} `}>
+                        <Wallet size={24} strokeWidth={barnTab === 'expenses' ? 2.5 : 2} />
                       </div>
                       <span className="text-[10px]">المالية</span>
                     </button>
 
-                    <button onClick={() => selectedGroup ? setBarnTab('vaccines') : alert('اختر حظيرة أولاً')} className={`flex - 1 flex flex - col items - center justify - center gap - 1 py - 3 transition ${ barnTab === 'vaccines' ? 'text-[#795548] font-bold' : 'text-gray-400 hover:text-gray-600' } `}>
-                      <div className={`p - 1 rounded - xl ${ barnTab === 'vaccines' ? 'bg-[#795548]/10' : '' } `}>
-                         <ShieldCheck size={24} strokeWidth={barnTab === 'vaccines' ? 2.5 : 2} />
+                    <button onClick={() => selectedGroup ? setBarnTab('vaccines') : alert('اختر حظيرة أولاً')} className={`flex - 1 flex flex - col items - center justify - center gap - 1 py - 3 transition ${barnTab === 'vaccines' ? 'text-[#795548] font-bold' : 'text-gray-400 hover:text-gray-600'} `}>
+                      <div className={`p - 1 rounded - xl ${barnTab === 'vaccines' ? 'bg-[#795548]/10' : ''} `}>
+                        <ShieldCheck size={24} strokeWidth={barnTab === 'vaccines' ? 2.5 : 2} />
                       </div>
                       <span className="text-[10px]">التحصين</span>
                     </button>
@@ -1276,16 +1214,16 @@ function App() {
                     </div>
 
                     {/* Right Group (Stock, Pens) */}
-                    <button onClick={() => selectedGroup ? setBarnTab('feed') : alert('اختر حظيرة أولاً')} className={`flex - 1 flex flex - col items - center justify - center gap - 1 py - 3 transition ${ barnTab === 'feed' ? 'text-[#795548] font-bold' : 'text-gray-400 hover:text-gray-600' } `}>
-                       <div className={`p - 1 rounded - xl ${ barnTab === 'feed' ? 'bg-[#795548]/10' : '' } `}>
-                          <Wheat size={24} strokeWidth={barnTab === 'feed' ? 2.5 : 2} />
-                       </div>
+                    <button onClick={() => selectedGroup ? setBarnTab('feed') : alert('اختر حظيرة أولاً')} className={`flex - 1 flex flex - col items - center justify - center gap - 1 py - 3 transition ${barnTab === 'feed' ? 'text-[#795548] font-bold' : 'text-gray-400 hover:text-gray-600'} `}>
+                      <div className={`p - 1 rounded - xl ${barnTab === 'feed' ? 'bg-[#795548]/10' : ''} `}>
+                        <Wheat size={24} strokeWidth={barnTab === 'feed' ? 2.5 : 2} />
+                      </div>
                       <span className="text-[10px]">المخزون</span>
                     </button>
 
-                    <button onClick={() => setBarnTab('pens')} className={`flex - 1 flex flex - col items - center justify - center gap - 1 py - 3 transition ${ barnTab === 'pens' ? 'text-gray-800 font-bold' : 'text-gray-400 hover:text-gray-600' } `}>
-                      <div className={`p - 2 rounded - 2xl ${ barnTab === 'pens' ? 'bg-[#dcfce7]' : '' } transition - colors duration - 300`}>
-                         <Warehouse size={24} strokeWidth={barnTab === 'pens' ? 2.5 : 2} className={barnTab === 'pens' ? 'text-[#3E2723]' : ''} />
+                    <button onClick={() => setBarnTab('pens')} className={`flex - 1 flex flex - col items - center justify - center gap - 1 py - 3 transition ${barnTab === 'pens' ? 'text-gray-800 font-bold' : 'text-gray-400 hover:text-gray-600'} `}>
+                      <div className={`p - 2 rounded - 2xl ${barnTab === 'pens' ? 'bg-[#dcfce7]' : ''} transition - colors duration - 300`}>
+                        <Warehouse size={24} strokeWidth={barnTab === 'pens' ? 2.5 : 2} className={barnTab === 'pens' ? 'text-[#3E2723]' : ''} />
                       </div>
                       <span className="text-[10px]">الأقسام</span>
                     </button>
@@ -1321,7 +1259,7 @@ function App() {
               </header>
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden min-h-[400px]">
                 {displayedSheep.length > 0 ? (
-                  <div className={`p - 3 ${ (selectedGroup?.animalType === 'chickens' || selectedGroup?.animalType === 'pigeons') ? '' : 'grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3' } `}>
+                  <div className={`p - 3 ${(selectedGroup?.animalType === 'chickens' || selectedGroup?.animalType === 'pigeons') ? '' : 'grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3'} `}>
                     {(selectedGroup?.animalType === 'chickens' || selectedGroup?.animalType === 'pigeons') && (
                       <div className="mb-6 grid grid-cols-2 gap-3">
                         {/* Grouped View for Poultry with Breakdowns and Actions */}
@@ -1405,141 +1343,141 @@ function App() {
             </div>
           )
         }
-      </main >
+      </main>
 
       {/* Dashboard Summary Modal */}
       {isDashboardOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-           <div className="bg-[#fcfbf4] w-full max-w-lg h-[80vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col relative">
-              
-              {/* Header */}
-              <div className="p-6 pb-2 flex justify-between items-center">
-                 <h2 className="text-2xl font-bold text-[#3E2723] flex items-center gap-2">
-                    <LayoutDashboard className="text-orange-600" />
-                    ملخص المزرعة
-                 </h2>
-                 <button onClick={() => setIsDashboardOpen(false)} className="p-2 bg-white rounded-full hover:bg-gray-100 transition shadow-sm">
-                    <X size={20} />
-                 </button>
+          <div className="bg-[#fcfbf4] w-full max-w-lg h-[80vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col relative">
+
+            {/* Header */}
+            <div className="p-6 pb-2 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-[#3E2723] flex items-center gap-2">
+                <LayoutDashboard className="text-orange-600" />
+                ملخص المزرعة
+              </h2>
+              <button onClick={() => setIsDashboardOpen(false)} className="p-2 bg-white rounded-full hover:bg-gray-100 transition shadow-sm">
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+
+              {/* Owner Name */}
+              <div className="bg-white p-5 rounded-3xl shadow-sm border border-orange-100">
+                <label className="text-xs font-bold text-gray-400 mb-2 block">مالك المزرعة</label>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center text-orange-600 font-bold text-xl border-2 border-orange-100">
+                    {ownerName.charAt(0)}
+                  </div>
+                  {isEditingOwner ? (
+                    <div className="flex-1 flex gap-2">
+                      <input
+                        type="text"
+                        value={ownerName}
+                        onChange={(e) => setOwnerName(e.target.value)}
+                        className="flex-1 border-b-2 border-orange-300 focus:outline-none bg-transparent font-bold text-lg text-gray-800"
+                        autoFocus
+                      />
+                      <button onClick={() => setIsEditingOwner(false)} className="bg-green-500 text-white p-2 rounded-full"><Check size={16} /></button>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex justify-between items-center cursor-pointer" onClick={() => setIsEditingOwner(true)}>
+                      <h3 className="text-xl font-bold text-gray-800">{ownerName}</h3>
+                      <Edit size={16} className="text-gray-300" />
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Scrollable Content */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                 
-                 {/* Owner Name */}
-                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-orange-100">
-                    <label className="text-xs font-bold text-gray-400 mb-2 block">مالك المزرعة</label>
-                    <div className="flex items-center gap-3">
-                       <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center text-orange-600 font-bold text-xl border-2 border-orange-100">
-                          {ownerName.charAt(0)}
-                       </div>
-                       {isEditingOwner ? (
-                          <div className="flex-1 flex gap-2">
-                             <input 
-                               type="text" 
-                               value={ownerName} 
-                               onChange={(e) => setOwnerName(e.target.value)}
-                               className="flex-1 border-b-2 border-orange-300 focus:outline-none bg-transparent font-bold text-lg text-gray-800"
-                               autoFocus
-                             />
-                             <button onClick={() => setIsEditingOwner(false)} className="bg-green-500 text-white p-2 rounded-full"><Check size={16} /></button>
-                          </div>
-                       ) : (
-                          <div className="flex-1 flex justify-between items-center cursor-pointer" onClick={() => setIsEditingOwner(true)}>
-                             <h3 className="text-xl font-bold text-gray-800">{ownerName}</h3>
-                             <Edit size={16} className="text-gray-300" />
-                          </div>
-                       )}
-                    </div>
-                 </div>
-
-                 {/* Key Stats */}
-                 <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 text-center">
-                       <span className="block text-gray-400 text-xs font-bold mb-1">الإجمالي</span>
-                       <span className="text-2xl font-black text-gray-800">{allSheep.length}</span>
-                    </div>
-                    <div className="bg-emerald-50 p-4 rounded-2xl shadow-sm border border-emerald-100 text-center">
-                       <span className="block text-emerald-600/70 text-xs font-bold mb-1">سليم</span>
-                       <span className="text-2xl font-black text-emerald-700">{allSheep.filter(s => s.status === 'healthy').length}</span>
-                    </div>
-                    <div className="bg-red-50 p-4 rounded-2xl shadow-sm border border-red-100 text-center">
-                       <span className="block text-red-600/70 text-xs font-bold mb-1">مريض</span>
-                       <span className="text-2xl font-black text-red-700">{allSheep.filter(s => s.status === 'sick').length}</span>
-                    </div>
-                 </div>
-
-                 {/* Distribution */}
-                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
-                    <h3 className="font-bold text-gray-800 mb-4 text-sm">التوزيع حسب الحظيرة</h3>
-                    <div className="space-y-4">
-                       {pens.filter(p => p.parentId === null).map((barn) => {
-                          const count = allSheep.filter(s => {
-                             const pen = pens.find(p => p.id === s.penId);
-                             return pen?.parentId === barn.id || pen?.id === barn.id;
-                          }).length;
-                          if (count === 0) return null;
-                          return (
-                             <div key={barn.id}>
-                                <div className="flex justify-between text-xs font-bold text-gray-600 mb-1">
-                                   <span>{barn.name}</span>
-                                   <span>{count}</span>
-                                </div>
-                                <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                                   <div className="h-full bg-[#795548]" style={{ width: `${ (count / allSheep.length) * 100 }% ` }}></div>
-                                </div>
-                             </div>
-                          );
-                       })}
-                    </div>
-                 </div>
-
-                 {/* Quick Actions */}
-                 <div className="grid grid-cols-2 gap-3 pb-4">
-                    <button onClick={() => { setIsDashboardOpen(false); openNewSheepModal(); }} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center gap-2 hover:bg-orange-50 hover:border-orange-200 transition group">
-                       <div className="p-3 bg-orange-100 text-orange-600 rounded-full group-hover:scale-110 transition"><Dna size={20} /></div>
-                       <span className="font-bold text-sm text-gray-700">إضافة رأس</span>
-                    </button>
-                    <button onClick={() => { setIsDashboardOpen(false); openNewModal(); }} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center gap-2 hover:bg-blue-50 hover:border-blue-200 transition group">
-                       <div className="p-3 bg-blue-100 text-blue-600 rounded-full group-hover:scale-110 transition"><Warehouse size={20} /></div>
-                       <span className="font-bold text-sm text-gray-700">إضافة حظيرة</span>
-                    </button>
-                    <button onClick={() => { setIsDashboardOpen(false); setIsReportsModalOpen(true); }} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center gap-2 hover:bg-teal-50 hover:border-teal-200 transition group">
-                       <div className="p-3 bg-teal-100 text-teal-600 rounded-full group-hover:scale-110 transition"><FileText size={20} /></div>
-                       <span className="font-bold text-sm text-gray-700">التقارير والمبيعات</span>
-                    </button>
-                    <button onClick={() => { setIsDashboardOpen(false); setIsStatsModalOpen(true); }} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center gap-2 hover:bg-purple-50 hover:border-purple-200 transition group">
-                       <div className="p-3 bg-purple-100 text-purple-600 rounded-full group-hover:scale-110 transition"><Activity size={20} /></div>
-                       <span className="font-bold text-sm text-gray-700">السجل العام</span>
-                    </button>
-                 </div>
-              
+              {/* Key Stats */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 text-center">
+                  <span className="block text-gray-400 text-xs font-bold mb-1">الإجمالي</span>
+                  <span className="text-2xl font-black text-gray-800">{allSheep.length}</span>
+                </div>
+                <div className="bg-emerald-50 p-4 rounded-2xl shadow-sm border border-emerald-100 text-center">
+                  <span className="block text-emerald-600/70 text-xs font-bold mb-1">سليم</span>
+                  <span className="text-2xl font-black text-emerald-700">{allSheep.filter(s => s.status === 'healthy').length}</span>
+                </div>
+                <div className="bg-red-50 p-4 rounded-2xl shadow-sm border border-red-100 text-center">
+                  <span className="block text-red-600/70 text-xs font-bold mb-1">مريض</span>
+                  <span className="text-2xl font-black text-red-700">{allSheep.filter(s => s.status === 'sick').length}</span>
+                </div>
               </div>
-                                 
-           </div>
+
+              {/* Distribution */}
+              <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
+                <h3 className="font-bold text-gray-800 mb-4 text-sm">التوزيع حسب الحظيرة</h3>
+                <div className="space-y-4">
+                  {pens.filter(p => p.parentId === null).map((barn) => {
+                    const count = allSheep.filter(s => {
+                      const pen = pens.find(p => p.id === s.penId);
+                      return pen?.parentId === barn.id || pen?.id === barn.id;
+                    }).length;
+                    if (count === 0) return null;
+                    return (
+                      <div key={barn.id}>
+                        <div className="flex justify-between text-xs font-bold text-gray-600 mb-1">
+                          <span>{barn.name}</span>
+                          <span>{count}</span>
+                        </div>
+                        <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-[#795548]" style={{ width: `${(count / allSheep.length) * 100}% ` }}></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="grid grid-cols-2 gap-3 pb-4">
+                <button onClick={() => { setIsDashboardOpen(false); openNewSheepModal(); }} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center gap-2 hover:bg-orange-50 hover:border-orange-200 transition group">
+                  <div className="p-3 bg-orange-100 text-orange-600 rounded-full group-hover:scale-110 transition"><Dna size={20} /></div>
+                  <span className="font-bold text-sm text-gray-700">إضافة رأس</span>
+                </button>
+                <button onClick={() => { setIsDashboardOpen(false); openNewModal(); }} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center gap-2 hover:bg-blue-50 hover:border-blue-200 transition group">
+                  <div className="p-3 bg-blue-100 text-blue-600 rounded-full group-hover:scale-110 transition"><Warehouse size={20} /></div>
+                  <span className="font-bold text-sm text-gray-700">إضافة حظيرة</span>
+                </button>
+                <button onClick={() => { setIsDashboardOpen(false); setIsReportsModalOpen(true); }} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center gap-2 hover:bg-teal-50 hover:border-teal-200 transition group">
+                  <div className="p-3 bg-teal-100 text-teal-600 rounded-full group-hover:scale-110 transition"><FileText size={20} /></div>
+                  <span className="font-bold text-sm text-gray-700">التقارير والمبيعات</span>
+                </button>
+                <button onClick={() => { setIsDashboardOpen(false); setIsStatsModalOpen(true); }} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center gap-2 hover:bg-purple-50 hover:border-purple-200 transition group">
+                  <div className="p-3 bg-purple-100 text-purple-600 rounded-full group-hover:scale-110 transition"><Activity size={20} /></div>
+                  <span className="font-bold text-sm text-gray-700">السجل العام</span>
+                </button>
+              </div>
+
+            </div>
+
+          </div>
         </div>
       )}
 
       {/* Action Menu (Top Right Dropdown) */}
       {isActionMenuOpen && (
         <div className="fixed inset-0 z-50 flex items-start justify-end p-4 bg-black/20 backdrop-blur-sm" onClick={() => setIsActionMenuOpen(false)}>
-           <div className="bg-white w-64 mt-12 rounded-2xl shadow-xl border border-gray-100 overflow-hidden animate-scale-in" dir="rtl" onClick={e => e.stopPropagation()}>
-              <div className="p-2 space-y-1">
-                 <button onClick={() => { setIsActionMenuOpen(false); setIsReportsModalOpen(true); }} className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition text-gray-700 font-bold text-sm">
-                    <FileText size={18} className="text-teal-600" />
-                    التقارير والمبيعات
-                 </button>
-                 <button onClick={() => { setIsActionMenuOpen(false); setIsStatsModalOpen(true); }} className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition text-gray-700 font-bold text-sm">
-                    <Activity size={18} className="text-purple-600" />
-                    السجل العام
-                 </button>
-                 <div className="h-px bg-gray-100 my-1"></div>
-                 <button onClick={() => { setIsActionMenuOpen(false); setIsDashboardOpen(true); }} className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition text-gray-700 font-bold text-sm">
-                    <LayoutDashboard size={18} className="text-orange-600" />
-                    لوحة التحكم
-                 </button>
-              </div>
-           </div>
+          <div className="bg-white w-64 mt-12 rounded-2xl shadow-xl border border-gray-100 overflow-hidden animate-scale-in" dir="rtl" onClick={e => e.stopPropagation()}>
+            <div className="p-2 space-y-1">
+              <button onClick={() => { setIsActionMenuOpen(false); setIsReportsModalOpen(true); }} className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition text-gray-700 font-bold text-sm">
+                <FileText size={18} className="text-teal-600" />
+                التقارير والمبيعات
+              </button>
+              <button onClick={() => { setIsActionMenuOpen(false); setIsStatsModalOpen(true); }} className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition text-gray-700 font-bold text-sm">
+                <Activity size={18} className="text-purple-600" />
+                السجل العام
+              </button>
+              <div className="h-px bg-gray-100 my-1"></div>
+              <button onClick={() => { setIsActionMenuOpen(false); setIsDashboardOpen(true); }} className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition text-gray-700 font-bold text-sm">
+                <LayoutDashboard size={18} className="text-orange-600" />
+                لوحة التحكم
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1587,7 +1525,7 @@ function App() {
           </div>
         )
       }
-    </div >
+    </div>
   );
 }
 
