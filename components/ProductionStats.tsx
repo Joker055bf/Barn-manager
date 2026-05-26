@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
-import { X, Activity, ChevronLeft, Search, ArrowRight, ChevronDown } from 'lucide-react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { X, Activity, Search, ArrowRight, ChevronDown, ChevronRight } from 'lucide-react';
 import { Sheep, Pen } from '../types';
+import { getAnimalAgeLabel, getPossibleAgeLabels } from '../utils/animalHelpers';
 
 interface ProductionStatsProps {
     isOpen: boolean;
@@ -8,23 +9,6 @@ interface ProductionStatsProps {
     allSheep: Sheep[];
     pens: Pen[];
 }
-
-// Age Class Helper
-const getAgeClass = (birthDateStr?: string) => {
-    if (!birthDateStr) return 'غير معروف';
-    const birth = new Date(birthDateStr);
-    const now = new Date();
-    // Calculate months difference
-    let months = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
-    if (now.getDate() < birth.getDate()) months--;
-
-    if (months <= 6) return 'طفل';
-    if (months <= 12) return 'جذع';
-    if (months <= 24) return 'ثني';
-    if (months <= 36) return 'رباع';
-    if (months <= 48) return 'سداس';
-    return 'تام';
-};
 
 // Check if child (<= 6 months) - Used to filter mothers
 const isChild = (birthDateStr?: string) => {
@@ -109,20 +93,36 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
     const [selectedAgeClassBreakdown, setSelectedAgeClassBreakdown] = useState<{ gender: 'male' | 'female', ageClass: string, animals: Sheep[] } | null>(null);
     const [isMothersOpen, setIsMothersOpen] = useState(false);
 
+    // Reset state when opening
+    useEffect(() => {
+        if (isOpen) {
+            setSearchTerm('');
+            setSelectedType(null);
+            setSelectedMotherForDetails(null);
+            setSelectedAgeClassBreakdown(null);
+            setIsMothersOpen(false);
+        }
+    }, [isOpen]);
+
+    // Filter active sheep (exclude mortality/sold)
+    const activeSheep = useMemo(() => {
+        return allSheep.filter(s => !s.penId?.includes('mortality') && !s.penId?.includes('sold'));
+    }, [allSheep]);
+
     // 1. Calculate General Stats (Counts by Type)
     const statsByType = useMemo(() => {
         const stats: Record<string, number> = {};
-        allSheep.forEach(sheep => {
+        activeSheep.forEach(sheep => {
             stats[sheep.type] = (stats[sheep.type] || 0) + 1;
         });
         return stats;
-    }, [allSheep]);
+    }, [activeSheep]);
 
     // 2. Filter data for Selected Type
     const selectedTypeSheep = useMemo(() => {
         if (!selectedType) return [];
-        return allSheep.filter(s => s.type === selectedType);
-    }, [allSheep, selectedType]);
+        return activeSheep.filter(s => s.type === selectedType);
+    }, [activeSheep, selectedType]);
 
     // 3. Detailed Breakdown Logic (for Selected Type)
     const detailedStats = useMemo(() => {
@@ -131,31 +131,46 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
         const males = selectedTypeSheep.filter(s => s.gender === 'male');
         const females = selectedTypeSheep.filter(s => s.gender === 'female');
 
-        const classify = (list: Sheep[]) => {
-            const counts: Record<string, number> = {
-                'طفل': 0, 'جذع': 0, 'ثني': 0, 'رباع': 0, 'سداس': 0, 'تام': 0, 'غير معروف': 0
-            };
-            const animalsByClass: Record<string, Sheep[]> = {
-                'طفل': [], 'جذع': [], 'ثني': [], 'رباع': [], 'سداس': [], 'تام': [], 'غير معروف': []
-            };
+        const classify = (list: Sheep[], gender: 'male' | 'female') => {
+            // Dynamic grouping
+            const possibleLabels = getPossibleAgeLabels(selectedType, gender);
 
-            list.forEach(s => {
-                const cls = getAgeClass(s.birthDate);
-                counts[cls] = (counts[cls] || 0) + 1;
-                if (!animalsByClass[cls]) animalsByClass[cls] = [];
-                animalsByClass[cls].push(s);
+            // Initialize with all possible labels
+            const counts: Record<string, number> = {};
+            const animalsByClass: Record<string, Sheep[]> = {};
+
+            possibleLabels.forEach(label => {
+                counts[label] = 0;
+                animalsByClass[label] = [];
             });
+
+            // Distribute animals
+            list.forEach(s => {
+                const cls = getAnimalAgeLabel(s.birthDate, s.type, s.gender);
+                // Only count if it matches one of our expected labels (or handle 'Unknown')
+                if (counts.hasOwnProperty(cls)) {
+                    counts[cls]++;
+                    animalsByClass[cls].push(s);
+                } else {
+                    // Fallback for 'Unknown' or mismatch labels
+                    const unknownLabel = 'غير معروف';
+                    counts[unknownLabel] = (counts[unknownLabel] || 0) + 1;
+                    if (!animalsByClass[unknownLabel]) animalsByClass[unknownLabel] = [];
+                    animalsByClass[unknownLabel].push(s);
+                }
+            });
+
             return { counts, animalsByClass };
         };
 
         return {
             male: {
                 total: males.length,
-                data: classify(males)
+                data: classify(males, 'male')
             },
             female: {
                 total: females.length,
-                data: classify(females)
+                data: classify(females, 'female')
             }
         };
     }, [selectedTypeSheep, selectedType]);
@@ -170,7 +185,7 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
 
         const data = females.map(female => {
             // Find all children of this female
-            const children = allSheep.filter(s => s.motherId === female.id || s.motherId === female.serialNumber); // Scoped to barn via props
+            const children = activeSheep.filter(s => s.motherId === female.id || s.motherId === female.serialNumber); // Scoped to barn via props
 
             // Collect birth dates from children's DOB
             const birthDates = children
@@ -189,7 +204,7 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
 
         // Sort: Productive first, then by max births
         return data.sort((a, b) => b.totalBirths - a.totalBirths);
-    }, [selectedTypeSheep, selectedType, allSheep]);
+    }, [selectedTypeSheep, selectedType, activeSheep]);
 
     const filteredMothers = mothersData.filter(m =>
         m.serialNumber.includes(searchTerm) ||
@@ -197,7 +212,6 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
     );
 
     const productiveCount = mothersData.filter(m => m.isProductive).length;
-    // const nonProductiveCount = mothersData.length - productiveCount; // Unused for now
 
     // Helper to get pen name
     const getPenName = (penId: string) => {
@@ -213,28 +227,13 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
 
                 {/* Header - Compact */}
                 <div className="flex justify-between items-center px-5 py-4 border-b border-gray-100 bg-[#fcfbf4] flex-shrink-0">
-                    <div>
+                    <div className="flex items-center gap-2">
                         <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                             <Activity className="text-emerald-600" size={20} />
                             سجل الإنتاج والإحصائيات
                         </h2>
-                        {selectedType && !selectedMotherForDetails && !selectedAgeClassBreakdown && (
-                            <p className="text-xs text-gray-400 mt-0.5 font-medium">
-                                تفاصيل: {selectedType}
-                            </p>
-                        )}
-                        {selectedMotherForDetails && (
-                            <p className="text-xs text-gray-400 mt-0.5 font-medium">
-                                سجل ولادات الأم: {selectedMotherForDetails.serialNumber}
-                            </p>
-                        )}
-                        {selectedAgeClassBreakdown && (
-                            <p className="text-xs text-gray-400 mt-0.5 font-medium">
-                                {selectedType} - {selectedAgeClassBreakdown.gender === 'male' ? 'ذكور' : 'إناث'} ({selectedAgeClassBreakdown.ageClass})
-                            </p>
-                        )}
                     </div>
-                    <button onClick={() => { setSelectedType(null); setSelectedMotherForDetails(null); setSelectedAgeClassBreakdown(null); onClose(); }} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-200 transition">
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-200 transition">
                         <X size={20} />
                     </button>
                 </div>
@@ -252,11 +251,11 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
                                     <button
                                         key={type}
                                         onClick={() => setSelectedType(type)}
-                                        className="bg-white border border-gray-100 p-4 rounded-xl shadow-sm hover:shadow-md hover:border-emerald-200 hover:bg-[#5D4037]/20 transition flex flex-col items-center justify-center group h-32"
+                                        className="bg-white border border-gray-100 p-3 rounded-xl shadow-sm hover:shadow-md hover:border-emerald-200 hover:bg-[#5D4037]/20 transition flex flex-col items-center justify-center group h-24"
                                     >
-                                        <span className="text-gray-600 font-bold text-base mb-1 group-hover:text-emerald-700">{type}</span>
-                                        <div className="text-2xl font-black text-gray-800 tracking-tight">{count}</div>
-                                        <span className="text-[10px] text-gray-400 mt-1">رأس</span>
+                                        <span className="text-gray-600 font-bold text-sm mb-0.5 group-hover:text-emerald-700">{type}</span>
+                                        <div className="text-xl font-black text-gray-800 tracking-tight">{count}</div>
+                                        <span className="text-[9px] text-gray-400 mt-0.5">رأس</span>
                                     </button>
                                 ))}
                                 {Object.keys(statsByType).length === 0 && (
@@ -271,8 +270,14 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
                     {/* VIEW 2: Detailed Stats for Selected Type */}
                     {selectedType && !selectedMotherForDetails && !selectedAgeClassBreakdown && detailedStats && (
                         <div className="animate-slide-in-right space-y-5">
-                            <button onClick={() => setSelectedType(null)} className="flex items-center gap-1 text-gray-500 hover:text-emerald-600 transition mb-1 text-xs font-bold">
-                                <ArrowRight size={14} /> العودة للقائمة
+                            <button
+                                onClick={() => setSelectedType(null)}
+                                className="w-full bg-white border border-gray-200 text-gray-600 p-3 rounded-xl flex items-center gap-3 font-bold mb-2 hover:bg-gray-50 hover:border-emerald-200 hover:text-emerald-700 transition-all shadow-sm"
+                            >
+                                <div className="bg-gray-100 p-1.5 rounded-lg group-hover:bg-emerald-100 transition-colors">
+                                    <ArrowRight size={16} />
+                                </div>
+                                <span>العودة للقائمة الرئيسية</span>
                             </button>
 
                             {/* Detailed Breakdown Grid - Compact */}
@@ -393,7 +398,7 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
                                                                 </div>
                                                             </td>
                                                             <td className="px-2 py-2 text-gray-500 text-[10px]">
-                                                                {getAgeClass(mother.birthDate)}
+                                                                {getAnimalAgeLabel(mother.birthDate, mother.type, mother.gender)}
                                                             </td>
                                                             <td className="px-2 py-2 text-center">
                                                                 <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold ${mother.totalBirths > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
@@ -442,8 +447,14 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
                     {/* VIEW 3: Detailed Age Class Breakdown (New) */}
                     {selectedAgeClassBreakdown && (
                         <div className="animate-slide-in-right space-y-5">
-                            <button onClick={() => setSelectedAgeClassBreakdown(null)} className="flex items-center gap-1 text-gray-500 hover:text-emerald-600 transition mb-1 text-xs font-bold">
-                                <ArrowRight size={14} /> العودة للإحصائيات
+                            <button
+                                onClick={() => setSelectedAgeClassBreakdown(null)}
+                                className="w-full bg-white border border-gray-200 text-gray-600 p-3 rounded-xl flex items-center gap-3 font-bold mb-2 hover:bg-gray-50 hover:border-emerald-200 hover:text-emerald-700 transition-all shadow-sm"
+                            >
+                                <div className="bg-gray-100 p-1.5 rounded-lg group-hover:bg-emerald-100 transition-colors">
+                                    <ArrowRight size={16} />
+                                </div>
+                                <span>العودة للإحصائيات</span>
                             </button>
 
                             <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -493,8 +504,14 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
                     {/* VIEW 4: Detailed Birth Record for Selected Mother */}
                     {selectedMotherForDetails && (
                         <div className="animate-slide-in-right space-y-5">
-                            <button onClick={() => setSelectedMotherForDetails(null)} className="flex items-center gap-1 text-gray-500 hover:text-emerald-600 transition mb-1 text-xs font-bold">
-                                <ArrowRight size={14} /> العودة لسجل الأمهات
+                            <button
+                                onClick={() => setSelectedMotherForDetails(null)}
+                                className="w-full bg-white border border-gray-200 text-gray-600 p-3 rounded-xl flex items-center gap-3 font-bold mb-2 hover:bg-gray-50 hover:border-emerald-200 hover:text-emerald-700 transition-all shadow-sm"
+                            >
+                                <div className="bg-gray-100 p-1.5 rounded-lg group-hover:bg-emerald-100 transition-colors">
+                                    <ArrowRight size={16} />
+                                </div>
+                                <span>العودة لسجل الأمهات</span>
                             </button>
 
                             <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -506,7 +523,7 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
                                             </div>
                                             <div>
                                                 <h3 className="font-bold text-gray-800 text-lg">{selectedMotherForDetails.serialNumber}</h3>
-                                                <p className="text-xs text-gray-500">{getAgeClass(selectedMotherForDetails.birthDate)}</p>
+                                                <p className="text-xs text-gray-500">{getAnimalAgeLabel(selectedMotherForDetails.birthDate, selectedMotherForDetails.type, selectedMotherForDetails.gender)}</p>
                                             </div>
                                         </div>
                                         <div className="text-center">
@@ -544,7 +561,7 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-3 text-gray-600">
-                                                        {getAgeClass(child.birthDate)}
+                                                        {getAnimalAgeLabel(child.birthDate, child.type, child.gender)}
                                                     </td>
                                                     <td className="px-4 py-3 text-gray-500" dir="ltr">
                                                         {child.birthDate ? new Date(child.birthDate).toLocaleDateString('en-GB') : '-'}

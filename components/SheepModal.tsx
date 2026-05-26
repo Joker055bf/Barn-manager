@@ -1,20 +1,40 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Save, Calculator, Check, Hash, ChevronDown, Calendar, Tag } from 'lucide-react';
+import { X, Save, Calculator, Check, Hash, ChevronDown, Calendar, Tag, ShoppingBag, Skull } from 'lucide-react';
 import { Sheep, SheepType, Pen } from '../types';
-import { getAnimalMetadata } from '../utils/animalHelpers';
+import { getAnimalMetadata, generateId } from '../utils/animalHelpers';
+import { CustomSelect } from './CustomSelect';
+import { translations } from '../constants/translations';
 
 interface SheepModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (sheep: Sheep | Sheep[]) => void;
+  onSave: (sheep: Sheep | Sheep[], expense?: { amount: number, date: string }) => void;
   initialData?: Sheep;
   penId: string;
   animalType?: string;
   existingSheep?: Sheep[];
+  currentGroupId?: string | null;
   pens?: Pen[];
+  onMarkAsSold?: (sheep: Sheep, price: number, buyer: string, date: string) => Promise<void>;
+  onMarkAsDead?: (sheep: Sheep, reason: string, date: string) => Promise<void>;
+  language?: 'ar' | 'en';
+  onShowAlert?: (type: any, title: string, message: string) => void;
+  onShowConfirm?: (title: string, message: string, onConfirm: () => void) => void;
 }
 
-export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave, initialData, penId, animalType = 'sheep', existingSheep = [], pens = [] }) => {
+export const SheepModal: React.FC<SheepModalProps> = ({ 
+  isOpen, onClose, onSave, initialData, penId, animalType = 'sheep', existingSheep = [], pens = [], currentGroupId, onMarkAsSold, onMarkAsDead, language = 'ar',
+  onShowAlert, onShowConfirm
+}) => {
+  const t = translations[language];
+
+  // ... (existing code omitted) ...
+
+  // ... (inside the return statement, finding the relevant blocks to keep context, but replace_file_content replaces contiguous blocks)
+  // I need to use MultiReplace because the Prop Interface change is at the top, and the usage is down below.
+  // Or I can just make two separate calls or use multi_replace_file_content.
+  // I will use multi_replace_file_content.
+
   // Standard Fields
   const [serialNumber, setSerialNumber] = useState('');
   const [type, setType] = useState<SheepType | ''>('');
@@ -34,10 +54,15 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
   // Batch Fields (for Chickens/Pigeons)
   const [count, setCount] = useState<number>(1); // Single count for batch
   const [source, setSource] = useState<'born' | 'purchase'>('born');
+  const [purchaseAmount, setPurchaseAmount] = useState('');
+  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
 
   const metadata = getAnimalMetadata(animalType);
-  const isBatchMode = animalType === 'chickens' || animalType === 'pigeons';
-  const isSheep = animalType === 'sheep' || !animalType;
+  const isBatchMode = ['chickens', 'pigeons', 'ducks', 'quail', 'turkeys', 'guinea fowl', 'دجاج', 'حمام', 'بط', 'سمان'].some(t => animalType?.includes(t));
+  // Check against Arabic string 'إبل' or English 'camels'
+  const isCamels = animalType === 'camels' || animalType === 'camel' || animalType === 'إبل';
+  // Default to sheep if not batch (bird) and not camel
+  const isSheep = !isBatchMode && !isCamels;
   const colorInputRef = useRef<HTMLInputElement>(null);
 
   const colorNames: { [key: string]: string } = {
@@ -113,6 +138,30 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
     calculateAge(birthDate);
   }, [birthDate]);
 
+  // Auto-generate next available serial number when type and color change
+  useEffect(() => {
+    if (type && tagColor && !isBatchMode) {
+      if (initialData && initialData.type === type && initialData.tagColor === tagColor) {
+        return; // Keep original serial number if editing and type/color haven't changed
+      }
+      
+      const matchingAnimals = existingSheep.filter(
+        (s) => s.type === type && (s.tagColor || '') === tagColor && s.id !== initialData?.id
+      );
+
+      let maxNum = 0;
+      matchingAnimals.forEach((s) => {
+        const num = parseInt(s.serialNumber || '0', 10);
+        if (!isNaN(num) && num > maxNum) {
+          maxNum = num;
+        }
+      });
+
+      const nextNum = String(maxNum + 1).padStart(3, '0');
+      setSerialNumber(nextNum);
+    }
+  }, [type, tagColor, isBatchMode, existingSheep, initialData]);
+
   const calculateAge = (dateStr: string) => {
     if (!dateStr) {
       setAgeString('');
@@ -137,19 +186,19 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
     }
 
     if (years < 0) {
-      setAgeString('تاريخ غير صحيح');
+      setAgeString(t.invalidDate);
       return;
     }
 
     let parts = [];
-    if (years > 0) parts.push(`${years} سنة`);
-    if (months > 0) parts.push(`${months} شهر`);
-    if (days > 0) parts.push(`${days} يوم`);
+    if (years > 0) parts.push(`${years} ${t.year}`);
+    if (months > 0) parts.push(`${months} ${t.month}`);
+    if (days > 0) parts.push(`${days} ${t.day}`);
 
     if (parts.length === 0) {
-      setAgeString('اليوم');
+      setAgeString(t.today);
     } else {
-      setAgeString(parts.join(' و '));
+      setAgeString(parts.join(language === 'ar' ? ' و ' : ' & '));
     }
   };
 
@@ -169,7 +218,29 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
     setCount(1);
     setMotherSearchQuery('');
     setFatherSearchQuery('');
+    setFatherSearchQuery('');
     setSource('born');
+    setPurchaseAmount('');
+    setPurchaseDate(new Date().toISOString().split('T')[0]);
+  };
+
+  const [isSelling, setIsSelling] = useState(false);
+  const [isReportingDeath, setIsReportingDeath] = useState(false);
+  const [actionPrice, setActionPrice] = useState('');
+  const [actionBuyer, setActionBuyer] = useState('');
+  const [actionReason, setActionReason] = useState('');
+  const [actionDate, setActionDate] = useState(new Date().toISOString().split('T')[0]);
+
+  const handleQuickSale = async () => {
+    if (!initialData || !onMarkAsSold || !actionPrice) return;
+    await onMarkAsSold(initialData, Number(actionPrice), actionBuyer, actionDate);
+    onClose();
+  };
+
+  const handleQuickDeath = async () => {
+    if (!initialData || !onMarkAsDead || !actionReason) return;
+    await onMarkAsDead(initialData, actionReason, actionDate);
+    onClose();
   };
 
   const getSheepLocation = (serial: string) => {
@@ -185,7 +256,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
 
     if (isBatchMode && !initialData) {
       if (!type) {
-        alert('الرجاء اختيار النوع');
+        if (onShowAlert) onShowAlert('warning', 'تنبيه', 'الرجاء اختيار النوع');
         return;
       }
       const newAnimals: Sheep[] = [];
@@ -196,7 +267,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
 
       for (let i = 0; i < count; i++) {
         newAnimals.push({
-          id: crypto.randomUUID(),
+          id: generateId(),
           penId: selectedPenId,
           serialNumber: `${genderPrefix}-${Date.now()}-${i}`,
           type: type,
@@ -223,7 +294,8 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
       const duplicateSheep = existingSheep.find(s =>
         s.id !== (initialData?.id) && // Exclude self if editing
         s.serialNumber === serialNumber &&
-        (s.tagColor || '') === (tagColor || '')
+        (s.tagColor || '') === (tagColor || '') &&
+        s.type === type // Only duplicate if same type
       );
 
       if (duplicateSheep) {
@@ -237,13 +309,14 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
           if (diffMonths < 3) {
             const availableDate = new Date(exclusionDate);
             availableDate.setMonth(availableDate.getMonth() + 3);
-            alert(`هذا الرقم محجوز لحيوان مستبعد (${duplicateSheep.serialNumber} - ${colorNames[duplicateSheep.tagColor || ''] || 'بدون لون'}). سيكون متاحاً بعد: ${availableDate.toLocaleDateString('ar-SA')}`);
+            const msg = `هذا الرقم محجوز لحيوان مستبعد (${duplicateSheep.serialNumber} - ${colorNames[duplicateSheep.tagColor || ''] || 'بدون لون'}). سيكون متاحاً بعد: ${availableDate.toLocaleDateString('ar-SA')}`;
+            if (onShowAlert) onShowAlert('error', 'تنبيه', msg);
             return;
           }
           // If >= 3 months, ALLOW (Implicitly continues)
         } else {
           // Normal duplicate (Active animal)
-          alert('يوجد حيوان نشط بنفس الرقم التسلسلي ولون العلامة. الرجاء تغيير أحدهما.');
+          if (onShowAlert) onShowAlert('error', 'خطأ', 'يوجد حيوان نشط بنفس الرقم التسلسلي ولون العلامة. الرجاء تغيير أحدهما.');
           return;
         }
       }
@@ -259,7 +332,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
           !s.penId.includes('mortality')
         );
         if (matches.length > 1) {
-          alert('يوجد أكثر من أم بنفس الرقم. الرجاء اختيار الأم المحددة من القائمة.');
+          if (onShowAlert) onShowAlert('warning', 'تنبيه', 'يوجد أكثر من أم بنفس الرقم. الرجاء اختيار الأم المحددة من القائمة.');
           return;
         } else if (matches.length === 1) {
           // Auto-select if unique (should be handled by UI, but safety net)
@@ -271,9 +344,14 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
           // EDIT: If unique, we can proceed by finding it again below.
         } else {
           // No match found
-          if (!confirm(`لم يتم العثور على أم بالرقم ${motherSearchQuery}. هل تريد الاستمرار بدون أم؟`)) {
-            return;
-          }
+            // No match found
+            const msg = `لم يتم العثور على أم بالرقم ${motherSearchQuery}. هل تريد الاستمرار بدون أم؟`;
+            if (onShowConfirm) {
+              onShowConfirm('تنبيه: الأم غير موجودة', msg, () => {
+                 setMotherId(''); // Continue selection
+              });
+              return; // Halt and let user choose next step
+            }
         }
       }
 
@@ -285,27 +363,33 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
           !s.penId.includes('mortality')
         );
         if (matches.length > 1) {
-          alert('يوجد أكثر من أب بنفس الرقم. الرجاء اختيار الأب المحدد من القائمة.');
+          if (onShowAlert) onShowAlert('warning', 'تكرار الأب', 'يوجد أكثر من أب بنفس الرقم. الرجاء اختيار الأب المحدد من القائمة.');
           return;
         } else if (matches.length === 0) {
-          if (!confirm(`لم يتم العثور على أب بالرقم ${fatherSearchQuery}. هل تريد الاستمرار بدون أب؟`)) {
+          const msg = `لم يتم العثور على أب بالرقم ${fatherSearchQuery}. هل تريد الاستمرار بدون أب؟`;
+          if (onShowConfirm) {
+            onShowConfirm('تنبيه: الأب غير موجود', msg, () => setFatherId(''));
             return;
           }
         }
-      } if (motherId) {
+      } 
+      
+      if (motherId) {
         // Resolve mother by ID or Serial (Legacy)
         const mother = existingSheep.find(s => s.id === motherId || s.serialNumber === motherId);
         if (mother && mother.type !== type) {
-          if (!confirm(`نوع الأم (${mother.type}) يختلف عن نوع المولود (${type}). هل تريد الاستمرار؟`)) {
-            return;
+          const msg = `نوع الأم (${mother.type}) يختلف عن نوع المولود (${type}). هل تريد الاستمرار؟`;
+          if (onShowConfirm) {
+             onShowConfirm('اختلاف الأنواع', msg, () => { });
           }
         }
       }
       if (fatherId) {
         const father = existingSheep.find(s => s.id === fatherId || s.serialNumber === fatherId);
         if (father && father.type !== type) {
-          if (!confirm(`نوع الأب (${father.type}) يختلف عن نوع المولود (${type}). هل تريد الاستمرار؟`)) {
-            return;
+          const msg = `نوع الأب (${father.type}) يختلف عن نوع المولود (${type}). هل تريد الاستمرار؟`;
+          if (onShowConfirm) {
+             onShowConfirm('اختلاف الأنواع', msg, () => { });
           }
         }
       }
@@ -333,7 +417,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
     }
 
     const sheepData: Sheep = {
-      id: initialData ? initialData.id : crypto.randomUUID(),
+      id: initialData ? initialData.id : generateId(),
       penId: selectedPenId,
       serialNumber,
       type,
@@ -346,7 +430,17 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
       tagColor,
       nickname
     };
-    onSave(sheepData);
+
+
+    let expenseData;
+    if (source === 'purchase' && purchaseAmount) {
+      expenseData = {
+        amount: parseFloat(purchaseAmount),
+        date: purchaseDate
+      };
+    }
+
+    onSave(sheepData, expenseData);
     onClose();
     resetForm();
   };
@@ -354,50 +448,72 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar border border-gray-100">
-        <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-white sticky top-0 z-10">
-          <div>
-            <h2 className="text-xl font-black text-gray-800 tracking-tight">
-              {initialData ? `تعديل بيانات ${metadata.headLabel}` : `إضافة ${metadata.headLabel} جديد`}
-            </h2>
-            <p className="text-xs text-gray-400 font-medium mt-1">أدخل البيانات بدقة للحفاظ على السجل</p>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" dir="rtl">
+      <div className="glass-effect rounded-[2.5rem] w-full max-w-lg shadow-2xl overflow-hidden animate-scale-in dark:bg-slate-900/90 dark:border dark:border-slate-800 max-h-[90vh] flex flex-col">
+        <div className="bg-gradient-to-br from-[#795548] to-[#5D4037] p-6 text-white relative overflow-hidden dark:from-slate-800 dark:to-slate-950 shrink-0">
+          <div className="flex justify-between items-center relative z-10">
+            <div>
+              <h2 className="text-3xl font-black tracking-tighter">
+                {initialData ? `تعديل ${metadata.headLabel}` : `إضافة ${metadata.headLabel}`}
+              </h2>
+              <p className="text-orange-100/60 text-[10px] font-bold mt-1 uppercase tracking-widest leading-none">
+                نظام إدارة {metadata.label.plural}
+              </p>
+            </div>
+            <button 
+              onClick={onClose} 
+              className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-full transition-all"
+            >
+              <X size={22} />
+            </button>
           </div>
-          <button onClick={onClose} className="bg-[#fcfbf4] hover:bg-red-50 text-gray-400 hover:text-red-500 p-2 rounded-full transition-colors">
-            <X size={20} />
-          </button>
+          <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-white/5 rounded-full blur-3xl" />
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-5">
+        <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1 bg-white/30 dark:bg-transparent">
 
           {/* Type Selection and Count / Serial logic */}
           {isBatchMode && !initialData ? (
             /* Batch Mode: Type + Count + Gender + Common Date */
-            <div className="space-y-5">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
+
+              {/* Pen Selector for Batch Mode */}
+              <div>
+                <CustomSelect
+                  label="القسم / الحظيرة"
+                  value={selectedPenId}
+                  onChange={(val) => setSelectedPenId(val)}
+                  options={pens
+                    .filter(p =>
+                      !p.isGroup &&
+                      !p.isExclusion &&
+                      !p.id.includes('mortality') &&
+                      (!currentGroupId || p.parentId === currentGroupId) &&
+                      !['ذهبان', 'المهات 1', 'لببق', 'الزربه الرئيسية', 'الزربه الرئيسيه'].some(banned => p.name.includes(banned))
+                    )
+                    .map(p => ({ value: p.id, label: p.name }))}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 {/* Type Selection */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700">النوع</label>
-                  <div className="relative">
-                    <select
-                      value={type}
-                      onChange={(e) => setType(e.target.value as SheepType)}
-                      className="w-full px-3 py-2.5 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#795548] focus:bg-white outline-none transition-all appearance-none font-bold text-center text-sm"
-                    >
-                      {Object.values(SheepType)
-                        .filter(t => {
-                          const birdTypes = [SheepType.CHICKEN, SheepType.PIGEON, SheepType.DUCK, SheepType.GUINEA_FOWL, SheepType.TURKEY, SheepType.QUAIL];
-                          return birdTypes.includes(t) || t === SheepType.OTHER;
-                        })
-                        .map((t) => (
-                          <option key={t} value={t}>{t}</option>
-                        ))}
-                    </select>
-                    <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-                  </div>
+                <div className="space-y-1">
+                  <CustomSelect
+                    label="النوع"
+                    value={type}
+                    onChange={(val) => setType(val as SheepType)}
+                    options={Object.values(SheepType)
+                      .filter(t => {
+                        const birdTypes = [SheepType.CHICKEN, SheepType.PIGEON, SheepType.DUCK, SheepType.GUINEA_FOWL, SheepType.TURKEY, SheepType.QUAIL];
+                        // Only show bird types in batch mode (checking against modal 'animalType' prop logic which sets isBatchMode)
+                        return birdTypes.includes(t) || t === SheepType.OTHER;
+                      })
+                      .sort((a, b) => a === SheepType.OTHER ? 1 : b === SheepType.OTHER ? -1 : 0) // Move Other to end
+                      .map(t => ({ value: t, label: t }))}
+                  />
                 </div>
                 {/* Count Input */}
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-700">العدد</label>
                   <input
                     type="number"
@@ -410,7 +526,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
               </div>
 
               {/* Gender Selection for Batch */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <label className="text-xs font-bold text-gray-700">الجنس</label>
                 <div className="grid grid-cols-2 gap-3">
                   <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all p-2.5 flex items-center justify-center gap-2 ${gender === 'male' ? 'border-[#795548] bg-[#795548]/10/50' : 'border-gray-100 bg-[#fcfbf4] hover:border-gray-200'}`}>
@@ -418,7 +534,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
                     <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${gender === 'male' ? 'border-[#795548] bg-[#795548]/100 text-white' : 'border-gray-300'}`}>
                       {gender === 'male' && <Check size={12} strokeWidth={3} />}
                     </div>
-                    <span className={`font-bold text-sm ${gender === 'male' ? 'text-emerald-700' : 'text-gray-600'}`}>ذكور</span>
+                    <span className={`font-bold text-sm ${gender === 'male' ? 'text-emerald-700' : 'text-gray-600'}`}>{t.males}</span>
                   </label>
 
                   <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all p-2.5 flex items-center justify-center gap-2 ${gender === 'female' ? 'border-[#795548] bg-[#795548]/10/50' : 'border-gray-100 bg-[#fcfbf4] hover:border-gray-200'}`}>
@@ -426,14 +542,14 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
                     <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${gender === 'female' ? 'border-[#795548] bg-[#795548]/100 text-white' : 'border-gray-300'}`}>
                       {gender === 'female' && <Check size={12} strokeWidth={3} />}
                     </div>
-                    <span className={`font-bold text-sm ${gender === 'female' ? 'text-emerald-700' : 'text-gray-600'}`}>إناث</span>
+                    <span className={`font-bold text-sm ${gender === 'female' ? 'text-emerald-700' : 'text-gray-600'}`}>{t.females}</span>
                   </label>
                 </div>
               </div>
 
               {/* Common Fields (Date/Age) for Batch Mode */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-gray-700">تاريخ الميلاد</label>
                     <label className="flex items-center gap-1.5 cursor-pointer bg-[#fcfbf4] px-2 py-0.5 rounded-lg border border-gray-200 hover:bg-gray-100 transition">
@@ -469,7 +585,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
                   )}
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-700">العمر (تلقائي)</label>
                   <div className="w-full px-3 py-2.5 bg-[#795548]/10/50 text-emerald-800 border border-emerald-100 rounded-xl flex items-center justify-center gap-1.5 shadow-sm">
                     <Calculator size={14} className="text-[#795548]" />
@@ -480,76 +596,55 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
             </div>
           ) : (
             /* Single Mode: Serial No + Type + Color + Nickname (One Row) */
-            <div className="space-y-4">
+            <div className="space-y-2">
               {/* Pen Selector */}
               <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">القسم / الحظيرة</label>
-                <select
+                <CustomSelect
+                  label="القسم / الحظيرة"
                   value={selectedPenId}
-                  onChange={(e) => setSelectedPenId(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#795548] focus:bg-white outline-none transition-all font-bold text-sm"
-                >
-                  {pens
+                  onChange={(val) => setSelectedPenId(val)}
+                  options={pens
                     .filter(p =>
                       !p.isGroup &&
                       !p.isExclusion &&
                       !p.id.includes('mortality') &&
+                      (!currentGroupId || p.parentId === currentGroupId) &&
                       !['ذهبان', 'المهات 1', 'لببق', 'الزربه الرئيسية', 'الزربه الرئيسيه'].some(banned => p.name.includes(banned))
                     )
-                    .map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                </select>
+                    .map(p => ({ value: p.id, label: p.name }))}
+                />
               </div>
 
               <div className="grid grid-cols-4 gap-2">
-                {/* Serial Number */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-700 block text-center">
-                    الرقم
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={4}
-                    value={serialNumber}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, '').slice(0, 4);
-                      setSerialNumber(val);
-                    }}
-                    placeholder="0000"
-                    className="w-full h-[42px] bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#795548] focus:bg-white outline-none transition-all font-mono text-base tracking-wider text-center shadow-sm"
-                  />
-                </div>
-
                 {/* Type */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-700 block text-center">
-                    النوع
-                  </label>
-                  <div className="relative">
-                    <select
-                      required
-                      value={type}
-                      onChange={(e) => setType(e.target.value as SheepType)}
-                      className="w-full h-[42px] px-1 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#795548] focus:bg-white outline-none transition-all appearance-none font-bold text-center shadow-sm text-sm"
-                    >
-                      <option value="" disabled>اختر</option>
-                      {Object.values(SheepType)
-                        .filter(t => {
-                          const birdTypes = [SheepType.CHICKEN, SheepType.PIGEON, SheepType.DUCK, SheepType.GUINEA_FOWL, SheepType.TURKEY, SheepType.QUAIL];
-                          if (isSheep) return !birdTypes.includes(t);
-                          return true;
-                        })
-                        .map((t) => (
-                          <option key={t} value={t}>{t}</option>
-                        ))}
-                    </select>
-                    <div className="absolute left-1 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                      <ChevronDown size={14} />
-                    </div>
-                  </div>
+                  <CustomSelect
+                    label="النوع"
+                    value={type}
+                    onChange={(val) => setType(val as SheepType)}
+                    options={Object.values(SheepType)
+                      .filter(t => {
+                        const birdTypes = [SheepType.CHICKEN, SheepType.PIGEON, SheepType.DUCK, SheepType.GUINEA_FOWL, SheepType.TURKEY, SheepType.QUAIL];
+                        const camelTypes = [SheepType.MAJAHEEM, SheepType.WADAH, SheepType.SAFAR, SheepType.SHAAL, SheepType.HOMR];
+
+                        if (isCamels) {
+                          // If it's a camel barn, only show camel types
+                          return camelTypes.includes(t);
+                        }
+
+                        if (isSheep) {
+                          // If it's a sheep barn, exclude birds and camels
+                          return !birdTypes.includes(t) && !camelTypes.includes(t);
+                        }
+
+                        // If it's birds (batch mode), logic is slightly different (usually handled by isBatchMode UI, but for type dropdown):
+                        // We likely want to show specific bird type? Or maybe all birds?
+                        // For now, let's just make sure camels don't show up in birds
+                        return !camelTypes.includes(t);
+                      })
+                      .sort((a, b) => a === SheepType.OTHER ? 1 : b === SheepType.OTHER ? -1 : 0) // Move Other to end
+                      .map(t => ({ value: t, label: t }))}
+                  />
                 </div>
 
                 {/* Color Picker */}
@@ -568,7 +663,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
                     <button
                       type="button"
                       onClick={() => setShowColorPicker(!showColorPicker)}
-                      className="w-full h-[42px] px-1 bg-[#fcfbf4] border border-gray-200 rounded-lg hover:bg-white hover:border-emerald-300 transition-all flex items-center justify-center gap-1 shadow-sm group"
+                      className="w-full h-[38px] px-1 bg-[#fcfbf4] border border-gray-200 rounded-lg hover:bg-white hover:border-emerald-300 transition-all flex items-center justify-center gap-1 shadow-sm group"
                     >
                       {tagColor ? (
                         <div className="w-5 h-5 rounded-full border border-gray-200 shadow-sm ring-1 ring-white" style={{ backgroundColor: tagColor }} />
@@ -604,6 +699,26 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
                   </div>
                 </div>
 
+                {/* Serial Number */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-700 block text-center">
+                    الرقم
+                  </label>
+                  <input
+                    required
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={3}
+                    value={serialNumber}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 3);
+                      setSerialNumber(val);
+                    }}
+                    placeholder="000"
+                    className="w-full h-[38px] bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#795548] focus:bg-white outline-none transition-all font-mono text-base tracking-wider text-center shadow-sm"
+                  />
+                </div>
+
                 {/* Nickname */}
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-700 block text-center">الكنية</label>
@@ -612,13 +727,13 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
                     value={nickname}
                     onChange={(e) => setNickname(e.target.value)}
                     placeholder="اختياري"
-                    className="w-full h-[42px] px-1 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#795548] focus:bg-white outline-none transition-all font-medium text-center shadow-sm placeholder:text-gray-300 text-sm"
+                    className="w-full h-[38px] px-1 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#795548] focus:bg-white outline-none transition-all font-medium text-center shadow-sm placeholder:text-gray-300 text-sm"
                   />
                 </div>
               </div>
 
               {/* Row 2: Date + Age */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 {/* Date */}
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-700 block text-center">الميلاد</label>
@@ -632,7 +747,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
                       max={new Date().toISOString().split('T')[0]}
                       value={birthDate}
                       onChange={(e) => setBirthDate(e.target.value)}
-                      className="w-full h-[42px] px-3 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#795548] focus:bg-white outline-none transition-all shadow-sm font-medium text-center text-sm"
+                      className="w-full h-[38px] px-3 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#795548] focus:bg-white outline-none transition-all shadow-sm font-medium text-center text-sm"
                     />
                   </div>
                 </div>
@@ -640,7 +755,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
                 {/* Age */}
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-700 block text-center">العمر</label>
-                  <div className="w-full h-[42px] px-1 bg-[#795548]/10/50 text-emerald-800 border border-emerald-100 rounded-lg flex items-center justify-center gap-1 shadow-sm overflow-hidden">
+                  <div className="w-full h-[38px] px-1 bg-[#795548]/10/50 text-emerald-800 border border-emerald-100 rounded-lg flex items-center justify-center gap-1 shadow-sm overflow-hidden">
                     <span className="font-bold text-[10px] whitespace-nowrap">{ageString || '-'}</span>
                   </div>
                 </div>
@@ -649,23 +764,23 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
               {/* Row 3: Gender Selection */}
               <div className="space-y-1">
                 <label className="text-xs font-bold text-gray-700 block text-center">الجنس</label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2">
                   {/* Male Button */}
-                  <label className={`cursor-pointer relative overflow-hidden rounded-lg border transition-all h-[42px] flex items-center justify-center gap-2 ${gender === 'male' ? 'border-[#795548] bg-[#795548]/10/50' : 'border-gray-100 bg-[#fcfbf4] hover:border-gray-200'}`}>
+                  <label className={`cursor-pointer relative overflow-hidden rounded-lg border transition-all h-[38px] flex items-center justify-center gap-2 ${gender === 'male' ? 'border-[#795548] bg-[#795548]/10/50' : 'border-gray-100 bg-[#fcfbf4] hover:border-gray-200'}`}>
                     <input type="radio" name="gender" value="male" checked={gender === 'male'} onChange={() => setGender('male')} className="hidden" />
                     <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${gender === 'male' ? 'border-[#795548] bg-[#795548]/100 text-white' : 'border-gray-300'}`}>
                       {gender === 'male' && <Check size={12} strokeWidth={3} />}
                     </div>
-                    <span className={`font-bold text-sm ${gender === 'male' ? 'text-emerald-700' : 'text-gray-600'}`}>ذكر</span>
+                    <span className={`font-bold text-sm ${gender === 'male' ? 'text-emerald-700' : 'text-gray-600'}`}>{t.male}</span>
                   </label>
 
                   {/* Female Button */}
-                  <label className={`cursor-pointer relative overflow-hidden rounded-lg border transition-all h-[42px] flex items-center justify-center gap-2 ${gender === 'female' ? 'border-[#795548] bg-[#795548]/10/50' : 'border-gray-100 bg-[#fcfbf4] hover:border-gray-200'}`}>
+                  <label className={`cursor-pointer relative overflow-hidden rounded-lg border transition-all h-[38px] flex items-center justify-center gap-2 ${gender === 'female' ? 'border-[#795548] bg-[#795548]/10/50' : 'border-gray-100 bg-[#fcfbf4] hover:border-gray-200'}`}>
                     <input type="radio" name="gender" value="female" checked={gender === 'female'} onChange={() => setGender('female')} className="hidden" />
                     <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${gender === 'female' ? 'border-[#795548] bg-[#795548]/100 text-white' : 'border-gray-300'}`}>
                       {gender === 'female' && <Check size={12} strokeWidth={3} />}
                     </div>
-                    <span className={`font-bold text-sm ${gender === 'female' ? 'text-emerald-700' : 'text-gray-600'}`}>أنثى</span>
+                    <span className={`font-bold text-sm ${gender === 'female' ? 'text-emerald-700' : 'text-gray-600'}`}>{t.female}</span>
                   </label>
                 </div>
               </div>
@@ -688,6 +803,33 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
                   <span className={`font-bold text-sm ${source === 'born' ? 'text-emerald-700' : 'text-gray-600'}`}>مولود</span>
                 </label>
               </div>
+
+              {source === 'purchase' && (
+                <div className="grid grid-cols-2 gap-3 animate-fade-in bg-[#fcfbf4] p-3 rounded-xl border border-gray-100">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-700 block text-right">سعر الشراء</label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={purchaseAmount}
+                      onChange={(e) => setPurchaseAmount(e.target.value)}
+                      placeholder="0"
+                      className="w-full h-[40px] px-3 bg-white text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#795548] outline-none transition-all shadow-sm text-center font-bold"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-700 block text-right">تاريخ الشراء</label>
+                    <input
+                      type="date"
+                      required
+                      value={purchaseDate}
+                      onChange={(e) => setPurchaseDate(e.target.value)}
+                      className="w-full h-[40px] px-3 bg-white text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#795548] outline-none transition-all shadow-sm text-center text-xs"
+                    />
+                  </div>
+                </div>
+              )}
 
               {source === 'born' && (
                 <>
@@ -884,7 +1026,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
             </div>
           )}
 
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <label className="text-xs font-bold text-gray-700">ملاحظات</label>
             <textarea
               value={notes}
@@ -895,7 +1037,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
             ></textarea>
           </div>
 
-          <div className="flex gap-3 mt-6 pt-5 border-t border-gray-100">
+          <div className="pt-8 border-t border-gray-100 dark:border-slate-800 flex gap-4">
             <button
               type="button"
               onClick={onClose}
@@ -912,6 +1054,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({ isOpen, onClose, onSave,
             </button>
           </div>
         </form>
+
       </div>
     </div>
   );

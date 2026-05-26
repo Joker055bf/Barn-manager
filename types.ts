@@ -14,6 +14,7 @@ export interface Pen {
   isMain?: boolean;
   animalType?: string;
   isExclusion?: boolean;
+  ownerName?: string;
 }
 
 export interface MedicalRecord {
@@ -22,6 +23,7 @@ export interface MedicalRecord {
   type: 'vaccine' | 'treatment' | 'checkup';
   name: string;
   notes?: string;
+  createdAt?: string;
 }
 
 export interface FeedLogEntry {
@@ -30,6 +32,7 @@ export interface FeedLogEntry {
   amount: number;
   type: 'add' | 'consume';
   isAuto?: boolean;
+  addedBy?: string;
 }
 
 export interface FeedItem {
@@ -51,11 +54,40 @@ export interface Expense {
   title: string;
   amount: number;
   date: string;
-  category: 'feed' | 'medical' | 'maintenance' | 'labor' | 'sales' | 'other';
+  category: 'feed' | 'medical' | 'maintenance' | 'labor' | 'purchase' | 'sales' | 'other';
   notes?: string;
   relatedAnimalId?: string;
-  quantity?: number; // For poultry counts
-  gender?: 'male' | 'female'; // For specifying poultry gender in sales
+  quantity?: number;
+  gender?: 'male' | 'female';
+  createdAt?: string;
+}
+
+export interface Sale {
+  id: string;
+  penId: string;
+  title: string;
+  amount: number;
+  date: string;
+  category: 'sheep' | 'wool' | 'milk' | 'manure' | 'poultry' | 'other';
+  notes?: string;
+  relatedAnimalId?: string;
+  quantity?: number;
+  buyer?: string;
+  createdAt?: string;
+}
+
+export interface Death {
+  id: string;
+  penId: string;
+  sheepId: string;
+  serialNumber: string;
+  date: string;
+  reason: string;
+  notes?: string;
+  type: SheepType;
+  gender: 'male' | 'female';
+  ageAtDeath?: string;
+  createdAt?: string;
 }
 
 export interface Sheep {
@@ -72,6 +104,9 @@ export interface Sheep {
   tagColor?: string;
   nickname?: string;
   exclusionDate?: string;
+  createdAt?: string;
+  status?: 'healthy' | 'sick';
+  addedBy?: string;
 }
 
 export enum SheepType {
@@ -86,7 +121,12 @@ export enum SheepType {
   DUCK = 'بط',
   GUINEA_FOWL = 'دجاج حبشي',
   TURKEY = 'ديك رومي',
-  QUAIL = 'سمان'
+  QUAIL = 'سمان',
+  MAJAHEEM = 'مجاهيم',
+  WADAH = 'وضح',
+  SAFAR = 'صفر',
+  SHAAL = 'شعل',
+  HOMR = 'حمر'
 }
 
 export interface ChatMessage {
@@ -95,3 +135,58 @@ export interface ChatMessage {
   text: string;
   timestamp: number;
 }
+
+export interface WorkerPermissions {
+  canAddAnimals: boolean;
+  canEditAnimals: boolean;
+  canViewFinance: boolean;
+  canAddExpenses: boolean;
+  canViewFeed: boolean;
+  canEditFeed: boolean;
+  canAddMedical: boolean;
+  canViewReports: boolean;
+  canManagePens: boolean;
+  canViewDeaths: boolean;
+  canMoveAnimals: boolean;
+  canViewActivity: boolean;
+  canViewProduction: boolean;
+}
+
+export interface ActivityEntry {
+  id: string;
+  userId: string;
+  userName: string;
+  userRole: 'owner' | 'worker';
+  action: string;
+  detail: string;
+  timestamp: string;
+}
+
+export interface User {
+  id: string;
+  username: string;
+  password: string;
+  role: 'owner' | 'worker';
+  name: string;
+  createdAt: string;
+  ownerId: string; // The ID of the owner this user belongs to
+  permissions?: WorkerPermissions;
+  settingsPin?: string;
+  accessiblePens?: string[];
+}
+
+export const DEFAULT_WORKER_PERMISSIONS: WorkerPermissions = {
+  canAddAnimals: true,
+  canEditAnimals: true,
+  canViewFinance: false,
+  canAddExpenses: false,
+  canViewFeed: true,
+  canEditFeed: false,
+  canAddMedical: true,
+  canViewReports: false,
+  canManagePens: false,
+  canViewDeaths: true,
+  canMoveAnimals: true,
+  canViewActivity: false,
+  canViewProduction: false,
+};

@@ -1,26 +1,32 @@
 import React, { useState } from 'react';
 import { X, Syringe, Plus, Calendar, Activity, Check, ShieldCheck } from 'lucide-react';
 import { Sheep, MedicalRecord } from '../types';
-import { getAnimalMetadata, calculateVaccineDueDate } from '../utils/animalHelpers';
+import { getAnimalMetadata, calculateVaccineDueDate, generateId } from '../utils/animalHelpers';
 
 interface MedicalModalProps {
   isOpen: boolean;
   onClose: () => void;
   sheep?: Sheep;
   onAddRecord: (record: MedicalRecord) => void;
+  onUpdateStatus?: (status: 'healthy' | 'sick') => void;
+  defaultStatusOnSave?: 'healthy' | 'sick';
+  allowNoName?: boolean;
 }
 
-export const MedicalModal: React.FC<MedicalModalProps> = ({ isOpen, onClose, sheep, onAddRecord }) => {
+export const MedicalModal: React.FC<MedicalModalProps> = ({ isOpen, onClose, sheep, onAddRecord, onUpdateStatus, defaultStatusOnSave, allowNoName }) => {
   if (!isOpen) return null;
 
-  const [activeTab, setActiveTab] = useState<'add' | 'history' | 'guide'>('guide');
+  const [activeTab, setActiveTab] = useState<'add' | 'history' | 'guide'>(allowNoName ? 'add' : 'guide');
   const [name, setName] = useState('');
-  const [recordType, setRecordType] = useState<'vaccine' | 'treatment' | 'checkup'>('vaccine');
+  const [recordType, setRecordType] = useState<'vaccine' | 'treatment' | 'checkup'>(allowNoName ? 'treatment' : 'vaccine');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
 
+
+
+
   const metadata = sheep ? getAnimalMetadata(sheep.type) : null;
-  const vaccines = (metadata as any)?.vaccines || [];
+  const vaccines = metadata?.vaccines || [];
   const records = sheep?.medicalRecords || [];
 
   // Helper to check if vaccine is due
@@ -47,61 +53,84 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({ isOpen, onClose, she
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (name && date) {
+    const finalName = name || (allowNoName && recordType === 'treatment' ? 'حالة مرضية' : '');
+
+    if (finalName && date) {
       onAddRecord({
-        id: crypto.randomUUID(),
+        id: generateId(),
         type: recordType,
-        name,
+        name: finalName,
         date,
         notes
       });
-      // Reset fields
-      setName('');
       setNotes('');
+
+      if (defaultStatusOnSave && onUpdateStatus) {
+        onUpdateStatus(defaultStatusOnSave);
+      }
+
       // Close modal on success
       onClose();
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden max-h-[90vh] flex flex-col">
-        <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-purple-50">
-          <div>
-            <h2 className="text-xl font-bold text-purple-900 flex items-center gap-2">
-              <Activity size={24} className="text-purple-600" />
-              {sheep ? 'السجل الطبي والتطعيمات' : 'تطعيم/علاج جماعي'}
-            </h2>
-            {sheep && <p className="text-sm text-purple-600 mt-1">رقم الرأس: #{sheep.serialNumber}</p>}
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" dir="rtl">
+      <div className="glass-effect rounded-[2.5rem] w-full max-w-lg shadow-2xl overflow-hidden animate-scale-in dark:bg-slate-900/90 dark:border dark:border-slate-800 max-h-[90vh] flex flex-col">
+        <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-8 text-white relative overflow-hidden dark:from-slate-800 dark:to-slate-950 shrink-0">
+          <div className="flex justify-between items-center relative z-10">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10">
+                <Activity size={28} className="text-white" />
+              </div>
+              <div>
+                <h2 className="text-3xl font-black tracking-tighter">
+                  {sheep ? 'ملف المتابعة' : 'إجراء جماعي'}
+                </h2>
+                {sheep ? (
+                  <p className="text-purple-100/60 text-[10px] font-black mt-1 uppercase tracking-widest leading-none">
+                    سجل صحة الحيوان • #{sheep.serialNumber}
+                  </p>
+                ) : (
+                  <p className="text-purple-100/60 text-[10px] font-black mt-1 uppercase tracking-widest leading-none">
+                    إجراء طبي جماعي
+                  </p>
+                )}
+              </div>
+            </div>
+            <button 
+              onClick={onClose} 
+              className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-full transition-all"
+            >
+              <X size={22} />
+            </button>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X size={24} />
-          </button>
+          <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-white/5 rounded-full blur-3xl" />
         </div>
 
         {/* Tabs */}
-        {sheep ? (
-          <div className="flex border-b border-gray-100">
+        {sheep && (
+          <div className="flex bg-gray-50/50 p-2 border-b border-gray-100 dark:bg-slate-900/50 dark:border-slate-800 shrink-0">
             <button
               onClick={() => setActiveTab('guide')}
-              className={`flex-1 py-3 font-medium text-sm transition ${activeTab === 'guide' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50/50' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`flex-1 py-3 px-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'guide' ? 'bg-white text-purple-600 shadow-sm dark:bg-slate-800 dark:text-purple-400' : 'text-gray-400 hover:text-gray-600'}`}
             >
-              التطعيمات المطلوبة
+              دليل التطعيمات
             </button>
             <button
               onClick={() => setActiveTab('history')}
-              className={`flex-1 py-3 font-medium text-sm transition ${activeTab === 'history' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50/50' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`flex-1 py-3 px-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'history' ? 'bg-white text-purple-600 shadow-sm dark:bg-slate-800 dark:text-purple-400' : 'text-gray-400 hover:text-gray-600'}`}
             >
-              السجل السابق
+              السجل الطبي
             </button>
             <button
               onClick={() => setActiveTab('add')}
-              className={`flex-1 py-3 font-medium text-sm transition ${activeTab === 'add' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50/50' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`flex-1 py-3 px-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'add' ? 'bg-white text-purple-600 shadow-sm dark:bg-slate-800 dark:text-purple-400' : 'text-gray-400 hover:text-gray-600'}`}
             >
-              إضافة جديد
+              إضافة إجراء
             </button>
           </div>
-        ) : null}
+        )}
 
         <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
           {activeTab === 'guide' && sheep ? (
@@ -205,7 +234,7 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({ isOpen, onClose, she
                   {recordType === 'vaccine' ? 'اسم اللقاح' : (recordType === 'treatment' ? 'اسم الدواء' : 'نتيجة الفحص')}
                 </label>
                 <input
-                  required
+                  required={!(allowNoName && recordType === 'treatment')}
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -235,12 +264,14 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({ isOpen, onClose, she
                 ></textarea>
               </div>
 
+
+
               <button
                 type="submit"
-                className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-xl transition shadow-lg mt-4"
+                className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-indigo-600 to-purple-700 text-white font-black py-4 px-6 rounded-2xl transition-all shadow-xl premium-shadow hover:scale-[1.02] active:scale-95 mt-6"
               >
-                <Plus size={20} />
-                <span>حفظ في السجل</span>
+                <Plus size={22} />
+                <span>حفظ في السجل الطبي</span>
               </button>
             </form>
           ) : (

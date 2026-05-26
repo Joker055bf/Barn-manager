@@ -15,6 +15,7 @@ export const PenModal: React.FC<PenModalProps> = ({ isOpen, onClose, onSave, ini
   const [capacity, setCapacity] = useState<number>(50);
   const [animalType, setAnimalType] = useState<string>('sheep');
   const [isExclusion, setIsExclusion] = useState(false);
+  const [ownerName, setOwnerName] = useState('');
 
   useEffect(() => {
     if (initialData) {
@@ -22,6 +23,7 @@ export const PenModal: React.FC<PenModalProps> = ({ isOpen, onClose, onSave, ini
       setCapacity(initialData.capacity || 50);
       setAnimalType(initialData.animalType || 'sheep');
       setIsExclusion(initialData.isExclusion || false);
+      setOwnerName(initialData.ownerName || '');
     } else {
       resetForm();
     }
@@ -32,17 +34,20 @@ export const PenModal: React.FC<PenModalProps> = ({ isOpen, onClose, onSave, ini
     setCapacity(50);
     setAnimalType('sheep');
     setIsExclusion(false);
+    setOwnerName('');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const penId = initialData ? initialData.id : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15));
     const penData: Pen = {
       ...(initialData || {}),
-      id: initialData ? initialData.id : crypto.randomUUID(),
+      id: penId,
       name,
       lastCleaned: initialData?.lastCleaned || new Date().toISOString(),
       isGroup: isGroupMode,
       animalType: isGroupMode ? animalType : undefined,
+      ownerName: isGroupMode ? ownerName : undefined,
       // Only include specific fields if it's NOT a group
       ...(!isGroupMode && {
         capacity,
@@ -59,74 +64,102 @@ export const PenModal: React.FC<PenModalProps> = ({ isOpen, onClose, onSave, ini
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden">
-        <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-[#fcfbf4]">
-          <h2 className="text-xl font-bold text-gray-800">
-            {initialData
-              ? (isGroupMode ? 'تعديل اسم الحظيرة' : 'تعديل بيانات القسم')
-              : (isGroupMode ? 'إضافة حظيرة رئيسية' : 'إضافة قسم جديد')}
-          </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" dir="rtl">
+      <div className="glass-effect rounded-[2.5rem] w-full max-w-md shadow-2xl overflow-hidden animate-scale-in dark:bg-slate-900/90 dark:border dark:border-slate-800">
+        <div className="bg-gradient-to-br from-[#795548] to-[#5D4037] p-8 text-white relative overflow-hidden dark:from-slate-800 dark:to-slate-950">
+          <div className="relative z-10">
+            <h2 className="text-3xl font-black tracking-tighter">
+              {initialData
+                ? (isGroupMode ? 'تعديل الحظيرة' : 'تعديل القسم')
+                : (isGroupMode ? 'حظيرة جديدة' : 'قسم جديد')}
+            </h2>
+          </div>
+          <button 
+            type="button"
+            onClick={onClose} 
+            className="absolute top-6 left-6 text-white/60 hover:text-white hover:bg-white/10 p-2 rounded-full transition-all z-50 pointer-events-auto"
+          >
             <X size={24} />
           </button>
+          <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-white/5 rounded-full blur-3xl" />
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {isGroupMode ? 'اسم الحظيرة الرئيسية' : 'اسم القسم'}
-            </label>
-            <input
-              required
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={isGroupMode ? "مثال: الحظيرة الشمالية" : "مثال: قسم حظيرة"}
-              className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#795548] focus:border-[#795548] outline-none transition placeholder-gray-400"
-            />
-          </div>
-
-          {isGroupMode && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">نوع الحيوانات</label>
-              <select
-                value={animalType}
-                onChange={(e) => setAnimalType(e.target.value)}
-                className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#795548] outline-none appearance-none"
-              >
-                <option value="sheep">أغنام (ضأن/ماعز)</option>
-                <option value="camels">إبل</option>
-                <option value="cows">أبقار</option>
-                <option value="chickens">دواجن</option>
-                <option value="horses">خيول</option>
-                <option value="other">أخرى</option>
-              </select>
+        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+          <div className="space-y-4">
+            <div className="group">
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">
+                {isGroupMode ? 'اسم الحظيرة الرئيسية' : 'مسمى القسم'}
+              </label>
+              <input
+                required
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={isGroupMode ? "مثال: الحظيرة الشمالية" : "مثال: قسم أ"}
+                className="w-full px-5 py-3.5 bg-gray-50/50 text-gray-900 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-[#795548]/10 focus:border-[#795548] outline-none transition-all font-bold text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+              />
             </div>
-          )}
 
-          {!isGroupMode && (
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">السعة الكلية</label>
+            {isGroupMode && (
+              <div className="group animate-fade-in-down">
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">اسم المالك</label>
                 <input
-                  type="number"
-                  min="1"
-                  value={capacity}
-                  onChange={(e) => setCapacity(parseInt(e.target.value))}
-                  className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#795548] outline-none"
+                  type="text"
+                  value={ownerName}
+                  onChange={(e) => setOwnerName(e.target.value)}
+                  placeholder="أدخل اسم المالك..."
+                  className="w-full px-5 py-3.5 bg-gray-50/50 text-gray-900 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-[#795548]/10 focus:border-[#795548] outline-none transition-all font-bold text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-white"
                 />
               </div>
-            </div>
-          )}
+            )}
+
+            {isGroupMode && (
+              <div className="group animate-fade-in-down">
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">تصنيف الحيوانات</label>
+                <div className="relative">
+                  <select
+                    value={animalType}
+                    onChange={(e) => setAnimalType(e.target.value)}
+                    className="w-full px-5 py-3.5 bg-gray-50/50 text-gray-900 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-[#795548]/10 focus:border-[#795548] outline-none appearance-none transition-all font-bold text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                  >
+                    <option value="sheep">أغنام (ضأن/ماعز)</option>
+                    <option value="camels">إبل</option>
+                    <option value="cows">أبقار</option>
+                    <option value="chickens">دواجن</option>
+                    <option value="horses">خيول</option>
+                    <option value="other">أخرى</option>
+                  </select>
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                    <X size={16} className="rotate-45" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!isGroupMode && (
+              <div className="bg-[#795548]/5 p-5 rounded-[1.5rem] border border-[#795548]/10 group transition-all hover:bg-[#795548]/10 dark:bg-slate-800/40 dark:border-slate-700">
+                <label className="block text-[10px] font-black text-[#795548] uppercase tracking-widest mb-2 px-1 dark:text-orange-400">السعة الاستيعابية القصوى</label>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="number"
+                    min="1"
+                    value={capacity}
+                    onChange={(e) => setCapacity(parseInt(e.target.value))}
+                    className="flex-1 px-5 py-3 bg-white text-gray-900 border border-gray-100 rounded-xl focus:ring-4 focus:ring-[#795548]/10 focus:border-[#795548] outline-none transition-all font-black text-lg text-center dark:bg-slate-900 dark:border-slate-700 dark:text-white"
+                  />
+                  <div className="text-[#795548] font-black text-xs dark:text-orange-400 uppercase tracking-tighter">رأس</div>
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="pt-4">
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 bg-[#795548] hover:bg-[#5D4037] text-white font-bold py-3 px-4 rounded-xl transition shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+              className="w-full flex items-center justify-center gap-3 bg-[#795548] hover:bg-[#5D4037] text-white font-black py-4 px-6 rounded-2xl transition-all shadow-xl premium-shadow hover:scale-[1.02] active:scale-95"
             >
-              <Save size={20} />
-              <span>حفظ البيانات</span>
+              <Save size={22} />
+              <span>إتمام الحفظ</span>
             </button>
           </div>
         </form>

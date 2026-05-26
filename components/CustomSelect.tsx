@@ -4,7 +4,6 @@ import { ChevronDown, Check } from 'lucide-react';
 interface Option {
     value: string;
     label: string;
-    disabled?: boolean;
 }
 
 interface CustomSelectProps {
@@ -58,25 +57,19 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                 {isOpen && (
                     <div className="absolute top-full right-0 left-0 mt-1 bg-[#fcfbf4] border border-gray-100 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto custom-scrollbar animate-scale-in">
                         <div className="p-1 space-y-0.5">
-
-
-
-
-
-
-
+                            {options.map((option) => {
+                                const isSelected = option.value === value;
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
                                         onClick={() => {
-                                            if (!option.disabled) {
-                                                onChange(option.value);
-                                                setIsOpen(false);
-                                            }
+                                            onChange(option.value);
+                                            setIsOpen(false);
                                         }}
-                                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                                            option.disabled 
-                                                ? 'text-gray-400 bg-gray-50 cursor-not-allowed opacity-70 dark:bg-slate-800 dark:text-gray-500' 
-                                                : isSelected
-                                                    ? 'bg-[#795548] text-white shadow-md dark:bg-orange-600'
-                                                    : 'text-gray-700 hover:bg-gray-200/50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-slate-700 dark:hover:text-white'
+                                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-bold transition-all ${isSelected
+                                                ? 'bg-[#795548] text-white shadow-md'
+                                                : 'text-gray-700 hover:bg-gray-200/50 hover:text-gray-900'
                                             }`}
                                     >
                                         <span>{option.label}</span>
