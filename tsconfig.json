@@ -25,5 +25,14 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "android",
+    "components_unused",
+    "**/*.cjs",
+    "**/*.js",
+    "build.bat"
+  ]
 }
