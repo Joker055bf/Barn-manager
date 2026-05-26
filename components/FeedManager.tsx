@@ -1,170 +1,101 @@
 
 import React, { useState } from 'react';
-import { Wheat, Save, Package, Trash2, History, AlertTriangle, CalendarDays, ChevronDown, ChevronUp, Droplets, Clock, Layers, Plus, X } from 'lucide-react';
-import { CustomSelect } from './CustomSelect';
+import { Wheat, Save, Package, Trash2, History, AlertTriangle, CalendarDays, ChevronDown, ChevronUp, Droplets, Clock, Layers } from 'lucide-react';
 import { FeedItem, FeedLogEntry } from '../types';
-import { generateId } from '../utils/animalHelpers';
 
 interface FeedManagerProps {
   items: FeedItem[];
   onUpdate: (items: FeedItem[]) => void;
-  penId: string;
-  animalType?: string;
-  onAddExpense?: (expense: any) => void;
-  isOwner?: boolean;
-  canEdit?: boolean;
-  currentUser?: any;
-  onShowAlert?: (type: 'success' | 'error' | 'warning' | 'info', title: string, message: string) => void;
-  onShowConfirm?: (title: string, message: string, onConfirm: () => void) => void;
 }
 
-export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, penId, animalType, onAddExpense, isOwner, canEdit, currentUser, onShowAlert, onShowConfirm }) => {
-  // Determine if we should restrict to grains only (Chickens, Pigeons)
-  const isBirds = animalType === 'chickens' || animalType === 'pigeons';
-
+export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate }) => {
   // Top Form States
-  // If birds, force 'grain'. Else default to 'grain'
   const [category, setCategory] = useState<'grain' | 'fodder'>('grain');
   const [newName, setNewName] = useState('');
   const [newQty, setNewQty] = useState(''); // Input value (Bags for grain, Units for fodder)
   const [newDaily, setNewDaily] = useState(''); // Daily consumption
-  const [newPrice, setNewPrice] = useState(''); // Purchase Price
-  const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]); // Purchase Date
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [selectedPredefinedName, setSelectedPredefinedName] = useState('');
-
-  const grainOptions = [
-    { value: 'شعير', label: 'شعير' },
-    { value: 'مكعب', label: 'مكعب' },
-    { value: 'ذرة', label: 'ذرة' },
-    { value: 'نخالة', label: 'نخالة' },
-    { value: 'مشكل', label: 'مشكل' },
-    { value: 'other', label: 'أخرى (كتابة يدوية)' }
-  ];
-
-  const fodderOptions = [
-    { value: 'برسيم', label: 'برسيم' },
-    { value: 'تبن', label: 'تبن' },
-    { value: 'رودس', label: 'رودس' },
-    { value: 'ذرة', label: 'ذرة' },
-    { value: 'other', label: 'أخرى (كتابة يدوية)' }
-  ];
-
+  
   // UI States
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
-  const [filterType, setFilterType] = useState<'all' | 'grain' | 'fodder'>('all');
-
-  // Filter items for current pen
-  const penItems = penId === 'global' ? items : items.filter(i => i.penId === penId);
 
   const handleAddOrUpdate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (penId === 'global') {
-      if (onShowAlert) onShowAlert('warning', 'تنبيه', 'يرجى دخول حظيرة محددة لإضافة مخزون جديد إليها.');
-      return;
-    }
-    const finalName = selectedPredefinedName === 'other' ? newName : selectedPredefinedName;
-    if (!finalName) return;
-
-    // Check if item exists in THIS pen (Update Mode)
-    const existingIndex = items.findIndex(i => i.name.trim() === finalName.trim() && i.penId === penId);
-
+    if (!newName) return;
+    
+    // Check if item exists (Update Mode)
+    const existingIndex = items.findIndex(i => i.name.trim() === newName.trim());
+    
     let rawQtyInput = Number(newQty) || 0;
     const dailyRate = Number(newDaily);
-
+    
     // Logic for Grains: Input is BAGS, Store is KG (1 Bag = 50kg)
     let actualQtyToAdd = rawQtyInput;
     let unitLabel = '';
 
     if (category === 'grain') {
-      actualQtyToAdd = rawQtyInput * 50; // Convert Bags to Kg
-      unitLabel = 'كجم';
+        actualQtyToAdd = rawQtyInput * 50; // Convert Bags to Kg
+        unitLabel = 'كجم';
     } else {
-      unitLabel = 'حزمة'; // Default unit for fodder
+        unitLabel = 'حزمة'; // Default unit for fodder
     }
 
     if (existingIndex >= 0) {
       const updatedItems = [...items];
       const item = updatedItems[existingIndex];
-
+      
       // Update quantity (Add to existing)
       if (actualQtyToAdd > 0) {
         item.quantity += actualQtyToAdd;
-
+        
         // Log the addition
         const logEntry: FeedLogEntry = {
-          id: generateId(),
+          id: crypto.randomUUID(),
           date: new Date().toISOString(),
           amount: actualQtyToAdd,
-          type: 'add',
-          addedBy: currentUser?.name || 'غير معروف'
+          type: 'add'
         };
         item.logs = [logEntry, ...(item.logs || [])].slice(0, 50);
       }
-
+      
       // Update daily consumption if provided
       if (dailyRate > 0) item.dailyConsumption = dailyRate;
-
+      
       // Update metadata
       item.category = category;
       item.unit = unitLabel;
       item.lastUpdated = new Date().toISOString();
 
       onUpdate(updatedItems);
+      alert(`تم تحديث مخزون "${item.name}" بنجاح.`);
     } else {
       // Create new item
       const newItem: FeedItem = {
-        id: generateId(),
-        penId: penId, // Assign to current pen
-        name: finalName,
+        id: crypto.randomUUID(),
+        name: newName,
         category: category,
         unit: unitLabel,
         quantity: actualQtyToAdd,
         dailyConsumption: dailyRate || 0,
         lastUpdated: new Date().toISOString(),
         logs: actualQtyToAdd > 0 ? [{
-          id: generateId(),
+          id: crypto.randomUUID(),
           date: new Date().toISOString(),
           amount: actualQtyToAdd,
-          type: 'add',
-          addedBy: currentUser?.name || 'غير معروف'
+          type: 'add'
         }] : []
       };
       onUpdate([...items, newItem]);
     }
 
-    // Create Expense if Price is provided and it's an addition
-    if (actualQtyToAdd > 0 && Number(newPrice) > 0 && onAddExpense) {
-      const expense = {
-        id: generateId(),
-        penId: penId,
-        date: newDate ? new Date(newDate).toISOString() : new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        title: `شراء مخزون: ${finalName}`,
-        amount: Number(newPrice),
-        category: 'feed',
-        notes: `الكمية: ${rawQtyInput} ${category === 'grain' ? 'كيس' : 'حزمة'} - ${unitLabel}`,
-        relatedAnimalId: null
-      };
-      onAddExpense(expense as any);
-    }
-
     // Reset Form
     setNewName('');
-    setSelectedPredefinedName('');
-    setIsFormOpen(false);
     setNewQty('');
     setNewDaily('');
-    setNewPrice('');
-    setNewDate(new Date().toISOString().split('T')[0]);
   };
 
   const handleDelete = (id: string) => {
-    if (!isOwner && !canEdit) return;
-    if (onShowConfirm) {
-      onShowConfirm('حذف صنف', 'هل أنت متأكد من حذف هذا الصنف من المخزون؟', () => {
-        onUpdate(items.filter(i => i.id !== id));
-      });
+    if (confirm('هل أنت متأكد من حذف هذا الصنف من المخزون؟')) {
+      onUpdate(items.filter(i => i.id !== id));
     }
   };
 
@@ -172,188 +103,105 @@ export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, penId
     setExpandedItemId(expandedItemId === id ? null : id);
   };
 
-  const filteredAndSortedItems = penItems
-    .filter(item => filterType === 'all' || item.category === filterType)
-    .sort((a, b) => a.name.localeCompare(b.name)); // Optional: sort alphabetically
-
   return (
     <div className="space-y-8 animate-fade-in pb-20">
-
-      {/* --- FAB (Floating Add Button) --- */}
-      {(isOwner || canEdit) && (
-        <button
-          onClick={() => setIsFormOpen(true)}
-          className="fixed bottom-32 left-6 z-40 bg-[#795548] text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center hover:bg-[#5D4037] transition active:scale-90"
-        >
-          <Plus size={28} />
-        </button>
-      )}
-
-      {/* --- Modal Form --- */}
-      {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-[#fcfbf4] w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-6 bg-white border-b border-gray-100 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                <Wheat className="text-orange-600" />
-                إضافة / تحديث مخزون
-              </h2>
-              <button onClick={() => setIsFormOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition">
-                <X size={20} className="text-gray-500" />
-              </button>
-            </div>
-
-            <div className="p-6 overflow-y-auto custom-scrollbar">
-              <form onSubmit={handleAddOrUpdate} className="flex flex-col gap-6">
-
-                {/* Category Selector - Hidden if Birds */
-                  !isBirds && (
-                    <div className="flex p-1 bg-gray-100 rounded-xl">
-                      <button
-                        type="button"
-                        onClick={() => setCategory('grain')}
-                        className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition ${category === 'grain' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500'}`}
-                      >
-                        <Wheat size={18} /> حبوب
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCategory('fodder')}
-                        className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition ${category === 'fodder' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-500'}`}
-                      >
-                        <Layers size={18} /> أعلاف
-                      </button>
-                    </div>
-                  )}
-
-                <CustomSelect
-                  label="اسم الصنف"
-                  value={selectedPredefinedName}
-                  onChange={setSelectedPredefinedName}
-                  options={category === 'grain' ? grainOptions : fodderOptions}
-                  placeholder="اختر الصنف"
-                />
-
-                {selectedPredefinedName === 'other' && (
-                  <div className="animate-fade-in">
-                    <label className="text-xs font-bold text-gray-500 mb-1 block">اسم الصنف (يدوي)</label>
-                    <input
-                      value={newName}
-                      onChange={e => setNewName(e.target.value)}
-                      placeholder="اكتب اسم الصنف..."
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 bg-gray-50 focus:bg-white transition text-gray-900"
-                      required
-                      autoFocus
-                    />
-                  </div>
-                )}
-
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="relative">
-                    <label className="text-xs font-bold text-gray-500 mb-1 block">الكمية ({category === 'grain' ? 'أكياس' : 'حزم'})</label>
-                    <input
-                      type="number"
-                      value={newQty}
-                      onChange={e => setNewQty(e.target.value)}
-                      placeholder="0"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 bg-gray-50 focus:bg-white text-gray-900"
-                    />
-                  </div>
-
-                  <div className="relative">
-                    <label className="text-xs font-bold text-gray-500 mb-1 block">استهلاك يومي</label>
-                    <input
-                      type="number"
-                      value={newDaily}
-                      onChange={e => setNewDaily(e.target.value)}
-                      placeholder="0"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 bg-gray-50 focus:bg-white text-gray-900"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="relative">
-                    <label className="text-xs font-bold text-gray-500 mb-1 block">سعر الشراء (ريال)</label>
-                    <input
-                      type="number"
-                      value={newPrice}
-                      onChange={e => setNewPrice(e.target.value)}
-                      placeholder="0.00"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 bg-gray-50 focus:bg-white text-gray-900"
-                    />
-                  </div>
-                  <div className="relative">
-                    <label className="text-xs font-bold text-gray-500 mb-1 block">تاريخ الشراء</label>
-                    <input
-                      type="date"
-                      value={newDate}
-                      onChange={e => setNewDate(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 bg-gray-50 focus:bg-white text-gray-900"
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-orange-50/50 p-3 rounded-xl border border-orange-100 flex items-start gap-2.5 mx-1">
-                  <AlertTriangle size={16} className="text-orange-500 mt-0.5 shrink-0" />
-                  <p className="text-[10px] text-orange-700 leading-relaxed font-bold">
-                    إشعار: عند إدخال "سعر الشراء"، يتم تلقائياً تسجيل عملية صرف في القسم المالي لهذا الحظيرة.
-                  </p>
-                </div>
-
-                <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-xl transition shadow-lg shadow-orange-100 flex items-center justify-center gap-2 font-bold whitespace-nowrap h-[50px]">
-                  <Save size={20} />
-                  <span>حفظ / تحديث</span>
-                </button>
-
-                {category === 'grain' && (
-                  <p className="text-xs text-gray-400 px-2 flex items-center gap-1 justify-center">
-                    <InfoIcon size={12} />
-                    سيتم تحويل عدد الأكياس تلقائياً إلى كيلو (الكيس = 50 كجم)
-                  </p>
-                )}
-              </form>
-            </div>
-          </div>
+      
+      {/* --- قسم إضافة / تحديث المخزون --- */}
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+        <div className="flex items-center gap-3 mb-6">
+           <div className="bg-orange-100 p-2.5 rounded-xl">
+             <Wheat className="text-orange-600 w-6 h-6" />
+           </div>
+           <div>
+             <h2 className="text-xl font-bold text-gray-800">إدارة المخزون</h2>
+             <p className="text-sm text-gray-500">إضافة صنف جديد أو توريد كمية (شراء)</p>
+           </div>
         </div>
-      )}
+        
+        <form onSubmit={handleAddOrUpdate} className="flex flex-col gap-4">
+          
+          {/* Category Selector */}
+          <div className="flex p-1 bg-gray-100 rounded-xl">
+             <button
+               type="button"
+               onClick={() => setCategory('grain')}
+               className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition ${category === 'grain' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500'}`}
+             >
+               <Wheat size={18} /> حبوب (شعير/مكعب)
+             </button>
+             <button
+               type="button"
+               onClick={() => setCategory('fodder')}
+               className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition ${category === 'fodder' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-500'}`}
+             >
+               <Layers size={18} /> أعلاف (برسيم/تبن)
+             </button>
+          </div>
 
-      {/* Filters */}
-      <div className="flex p-1 bg-gray-100 rounded-2xl mb-4 relative">
-        <button
-          onClick={() => setFilterType('all')}
-          className={`flex-1 py-2 text-sm font-bold rounded-xl transition-all ${filterType === 'all' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
-        >
-          الكل
-        </button>
-        <button
-          onClick={() => setFilterType('grain')}
-          className={`flex-1 py-2 text-sm font-bold rounded-xl transition-all ${filterType === 'grain' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
-        >
-          حبوب
-        </button>
-        <button
-          onClick={() => setFilterType('fodder')}
-          className={`flex-1 py-2 text-sm font-bold rounded-xl transition-all ${filterType === 'fodder' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
-        >
-          أعلاف
-        </button>
+          <div className="flex flex-col xl:flex-row gap-4">
+            <input 
+               value={newName}
+               onChange={e => setNewName(e.target.value)}
+               placeholder={category === 'grain' ? "اسم الصنف (مثال: شعير)" : "اسم الصنف (مثال: برسيم)"}
+               className="flex-1 px-4 py-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 bg-gray-50 focus:bg-white transition text-gray-900"
+               required
+            />
+            
+            <div className="flex gap-2 flex-1">
+              <div className="relative flex-1">
+                <input 
+                   type="number"
+                   value={newQty}
+                   onChange={e => setNewQty(e.target.value)}
+                   placeholder={category === 'grain' ? "عدد الأكياس" : "العدد (حزمة)"}
+                   className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 bg-gray-50 focus:bg-white text-gray-900 pl-20"
+                />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded pointer-events-none">
+                   {category === 'grain' ? 'كيس (50كجم)' : 'حزمة'}
+                </span>
+              </div>
+
+              <div className="relative flex-1">
+                <input 
+                   type="number"
+                   value={newDaily}
+                   onChange={e => setNewDaily(e.target.value)}
+                   placeholder={category === 'grain' ? "استهلاك (كجم)" : "استهلاك (حزمة)"}
+                   className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 bg-gray-50 focus:bg-white text-gray-900 pl-16"
+                   title="معدل الاستهلاك اليومي"
+                />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 pointer-events-none">
+                   يومياً
+                </span>
+              </div>
+            </div>
+            
+            <button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-xl transition shadow-lg shadow-orange-100 flex items-center justify-center gap-2 font-bold whitespace-nowrap">
+               <Save size={20} />
+               <span>حفظ / تحديث</span>
+            </button>
+          </div>
+          
+          {category === 'grain' && (
+             <p className="text-xs text-gray-400 px-2 flex items-center gap-1">
+                <InfoIcon size={12} />
+                سيتم تحويل عدد الأكياس تلقائياً إلى كيلو (الكيس = 50 كجم) لضبط دقة الاستهلاك.
+             </p>
+          )}
+        </form>
       </div>
 
       {/* --- شبكة البطاقات --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredAndSortedItems.length === 0 && (
-          <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400 bg-white rounded-3xl border-2 border-dashed border-gray-200">
-            <Package size={64} className="mb-4 opacity-20" />
-            <p className="text-lg font-medium">
-              المخزون فارغ من {filterType === 'all' ? 'الأصناف' : filterType === 'grain' ? 'الحبوب' : 'الأعلاف'}
-            </p>
-            <p className="text-sm">أضف أصناف جديدة من النموذج بالأعلى</p>
-          </div>
+        {items.length === 0 && (
+           <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400 bg-white rounded-3xl border-2 border-dashed border-gray-200">
+              <Package size={64} className="mb-4 opacity-20" />
+              <p className="text-lg font-medium">المخزون فارغ حالياً</p>
+              <p className="text-sm">أضف الأعلاف من النموذج بالأعلى</p>
+           </div>
         )}
 
-        {filteredAndSortedItems.map(item => {
+        {items.map(item => {
           const daily = item.dailyConsumption || 0;
           const daysLeft = daily > 0 ? Math.floor(item.quantity / daily) : null;
           const isLow = daysLeft !== null && daysLeft < 3;
@@ -366,117 +214,115 @@ export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, penId
           const bagEquivalent = isGrain ? (item.quantity / 50).toFixed(1) : null;
 
           return (
-            <div key={item.id} className={`bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all duration-300 relative flex flex-col animate-scale-in ${isExpanded ? 'h-auto ring-2 ring-orange-100' : ''}`}>
+            <div key={item.id} className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow relative flex flex-col h-full animate-scale-in">
+               {/* زر الحذف */}
+               <button 
+                  onClick={() => handleDelete(item.id)}
+                  className="absolute top-4 left-4 text-gray-300 hover:text-red-500 transition z-10 p-2"
+               >
+                 <Trash2 size={18} />
+               </button>
 
-              {/* Card Header (Clickable) */}
-              <div
-                onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
-                className="p-5 cursor-pointer flex flex-col gap-3 relative"
-              >
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-3 rounded-full ${isGrain ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'}`}>
-                      {isGrain ? <Wheat size={20} /> : <Layers size={20} />}
+               {/* رأس البطاقة */}
+               <div className="p-6 flex-1">
+                 <div className="flex justify-between items-start mb-4">
+                   <div>
+                     <h3 className="font-extrabold text-2xl text-gray-800 flex items-center gap-2">
+                       {item.name}
+                       <span className={`text-[10px] px-2 py-0.5 rounded-full ${isGrain ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'}`}>
+                         {isGrain ? 'حبوب' : 'أعلاف'}
+                       </span>
+                     </h3>
+                     <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                       <History size={12} />
+                       آخر تحديث: {new Date(item.lastUpdated).toLocaleDateString('ar-SA')}
+                     </p>
+                   </div>
+                   <div className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${isLow ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
+                      {isLow ? <AlertTriangle size={12} /> : (isGrain ? <Wheat size={12} /> : <Layers size={12} />)}
+                      {isLow ? 'منخفض' : 'متوفر'}
+                   </div>
+                 </div>
+                 
+                 <div className="flex items-baseline gap-2 mb-2">
+                    <span className="text-5xl font-black text-gray-900 tracking-tight">{displayQty}</span>
+                    <span className="text-lg text-gray-500 font-medium">{displayUnit}</span>
+                 </div>
+                 
+                 {isGrain && (
+                    <div className="mb-6 text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg w-fit border border-gray-100">
+                       يعادل تقريباً <strong className="text-gray-900 text-base mx-1">{bagEquivalent}</strong> كيس
                     </div>
-                    <div>
-                      <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">
-                        {item.name}
-                      </h3>
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="text-gray-400 font-medium">{displayQty} {displayUnit}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isLow ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-                          {isLow ? 'منخفض' : 'متوفر'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                 )}
+                 {!isGrain && <div className="mb-6"></div>}
 
-                  <div className="text-gray-400">
-                    {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                  </div>
-                </div>
-              </div>
-
-              {/* Expanded Content */}
-              {isExpanded && (
-                <div className="px-5 pb-5 animate-fade-in space-y-4 border-t border-gray-50 pt-4">
-
-                  {/* Delete Button (Moved Inside) */}
-                  <div className="flex justify-end">
-                    {(isOwner || canEdit) && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
-                        className="text-red-400 hover:text-red-600 text-xs flex items-center gap-1 px-2 py-1 hover:bg-red-50 rounded-lg transition"
-                      >
-                        <Trash2 size={14} />
-                        حذف الصنف
-                      </button>
-                    )}
-                  </div>
-
-                  {isGrain && (
-                    <div className="text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg w-full border border-gray-100 flex justify-between items-center">
-                      <span>الرصيد الحالي:</span>
-                      <span><strong className="text-gray-900 mx-1">{bagEquivalent}</strong> كيس</span>
-                    </div>
-                  )}
-
-                  {/* Stats Grid */}
-                  <div className="grid grid-cols-2 gap-3">
+                 {/* شريط المعلومات */}
+                 <div className="grid grid-cols-2 gap-3">
                     <div className="bg-orange-50 p-3 rounded-2xl border border-orange-100 flex flex-col items-center justify-center relative overflow-hidden">
-                      <div className="absolute top-0 left-0 bg-orange-100 p-1 rounded-br-lg">
-                        <Clock size={10} className="text-orange-600" />
-                      </div>
-                      <p className="text-orange-400 text-xs mb-1 font-medium flex items-center gap-1">
-                        <Droplets size={12} /> استهلاك تلقائي
-                      </p>
-                      <p className="font-bold text-gray-800 text-lg">{daily > 0 ? daily : '-'} <span className="text-xs font-normal">{item.unit}</span></p>
-                      <p className="text-[9px] text-orange-300 mt-1">يومياً 8:00 ص</p>
+                       <div className="absolute top-0 left-0 bg-orange-100 p-1 rounded-br-lg">
+                          <Clock size={10} className="text-orange-600" />
+                       </div>
+                       <p className="text-orange-400 text-xs mb-1 font-medium flex items-center gap-1">
+                         <Droplets size={12} /> استهلاك تلقائي
+                       </p>
+                       <p className="font-bold text-gray-800 text-lg">{daily > 0 ? daily : '-'} <span className="text-xs font-normal">{item.unit}</span></p>
+                       <p className="text-[9px] text-orange-300 mt-1">يومياً 8:00 ص</p>
                     </div>
-
+                    
                     <div className={`p-3 rounded-2xl border flex flex-col items-center justify-center ${isLow ? 'bg-red-50 border-red-100' : 'bg-emerald-50 border-emerald-100'}`}>
-                      <p className={`text-xs mb-1 font-medium flex items-center gap-1 ${isLow ? 'text-red-400' : 'text-emerald-400'}`}>
-                        <CalendarDays size={12} /> يكفي لمدة
-                      </p>
-                      <p className={`font-bold text-lg ${isLow ? 'text-red-700' : 'text-emerald-700'}`}>
-                        {daysLeft !== null ? daysLeft : '-'} <span className="text-xs font-normal">يوم</span>
-                      </p>
+                       <p className={`text-xs mb-1 font-medium flex items-center gap-1 ${isLow ? 'text-red-400' : 'text-emerald-400'}`}>
+                         <CalendarDays size={12} /> يكفي لمدة
+                       </p>
+                       <p className={`font-bold text-lg ${isLow ? 'text-red-700' : 'text-emerald-700'}`}>
+                          {daysLeft !== null ? daysLeft : '-'} <span className="text-xs font-normal">يوم</span>
+                       </p>
                     </div>
-                  </div>
+                 </div>
+               </div>
 
+               {/* قسم السجل (القابل للطي) */}
+               <div className="border-t border-gray-100 bg-gray-50/50">
+                 <button 
+                   onClick={() => toggleHistory(item.id)}
+                   className="w-full py-3 flex items-center justify-center gap-2 text-xs text-gray-500 hover:text-orange-600 hover:bg-gray-50 transition font-medium"
+                 >
+                   {isExpanded ? 'إخفاء السجل' : 'عرض سجل العمليات'}
+                   {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                 </button>
 
-                  {/* History Section (Always visible when Expanded) */}
-                  <div className="border-t border-gray-100 pt-3">
-                    <p className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1">
-                      <History size={12} /> سجل العمليات
-                    </p>
-                    <div className="bg-gray-50/50 rounded-xl p-0 max-h-40 overflow-y-auto custom-scrollbar">
+                 {isExpanded && (
+                   <div className="bg-white p-0 max-h-48 overflow-y-auto custom-scrollbar border-t border-gray-100">
                       {(item.logs && item.logs.length > 0) ? (
                         <div className="divide-y divide-gray-100">
                           {item.logs.map(log => (
-                            <div key={log.id} className="flex justify-between items-center p-2 hover:bg-gray-50 transition">
-                              <div className="flex items-center gap-2">
-                                <div className={`w-1.5 h-1.5 rounded-full ${log.type === 'add' ? 'bg-emerald-500' : 'bg-orange-500'}`}></div>
-                                <span className="text-[10px] text-gray-600">
-                                  {log.type === 'add' ? 'إضافة' : 'استهلاك'} <span className="font-bold">{log.amount}</span>
-                                </span>
-                              </div>
-                              <span className="text-[9px] text-gray-400">{new Date(log.date).toLocaleDateString('ar-SA')}</span>
+                            <div key={log.id} className="flex justify-between items-center p-3 hover:bg-gray-50 transition">
+                               <div className="flex items-center gap-3">
+                                 <div className={`w-2 h-2 rounded-full ${log.type === 'add' ? 'bg-emerald-500' : 'bg-orange-500'}`}></div>
+                                 <div className="flex flex-col">
+                                   <span className={`font-bold text-sm ${log.type === 'add' ? 'text-emerald-700' : 'text-gray-700'}`}>
+                                     {log.type === 'add' ? 'شراء / إضافة' : 'استهلاك'} {log.amount} {item.unit}
+                                   </span>
+                                   {log.isAuto && <span className="text-[10px] text-orange-600 font-medium">خصم تلقائي (8:00 ص)</span>}
+                                 </div>
+                               </div>
+                               <div className="text-right text-[10px] text-gray-400">
+                                 <div>{new Date(log.date).toLocaleDateString('ar-SA')}</div>
+                                 <div>{new Date(log.date).toLocaleTimeString('ar-SA', {hour: '2-digit', minute:'2-digit'})}</div>
+                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <p className="text-center text-gray-400 text-[10px] py-2">لا يوجد سجل</p>
+                        <p className="text-center text-gray-400 text-xs py-4">لا توجد عمليات مسجلة</p>
                       )}
-                    </div>
-                  </div>
-                </div>
-              )}
+                   </div>
+                 )}
+               </div>
             </div>
           );
         })}
-      </div >
-    </div >
+      </div>
+    </div>
   );
 };
 

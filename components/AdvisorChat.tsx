@@ -38,18 +38,6 @@ export const AdvisorChat: React.FC = () => {
     setInput('');
     setIsLoading(true);
 
-    if (!navigator.onLine) {
-      const botMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'model',
-        text: "عذراً، لا يوجد اتصال بالإنترنت. يرجى التحقق من الاتصال للمتابعة مع المستشار الذكي.",
-        timestamp: Date.now()
-      };
-      setMessages(prev => [...prev, botMsg]);
-      setIsLoading(false);
-      return;
-    }
-
     const responseText = await getSheepAdvice(input);
 
     const botMsg: ChatMessage = {
@@ -88,14 +76,16 @@ export const AdvisorChat: React.FC = () => {
             key={msg.id}
             className={`flex items-start gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
           >
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'user' ? 'bg-blue-100 text-blue-600' : 'bg-emerald-100 text-emerald-600'
-              }`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+              msg.role === 'user' ? 'bg-blue-100 text-blue-600' : 'bg-emerald-100 text-emerald-600'
+            }`}>
               {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
             </div>
-            <div className={`max-w-[80%] p-3 rounded-2xl text-sm leading-relaxed ${msg.role === 'user'
-                ? 'bg-blue-600 text-white rounded-tr-none'
+            <div className={`max-w-[80%] p-3 rounded-2xl text-sm leading-relaxed ${
+              msg.role === 'user' 
+                ? 'bg-blue-600 text-white rounded-tr-none' 
                 : 'bg-white text-gray-800 border border-gray-200 rounded-tl-none shadow-sm'
-              }`}>
+            }`}>
               {msg.text}
             </div>
           </div>
