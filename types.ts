@@ -102,11 +102,19 @@ export interface Sheep {
   notes?: string;
   medicalRecords?: MedicalRecord[];
   tagColor?: string;
+  color?: string;
   nickname?: string;
   exclusionDate?: string;
   createdAt?: string;
   status?: 'healthy' | 'sick';
+  healthStatus?: 'healthy' | 'sick';
   addedBy?: string;
+  reproductionStatus?: 'empty' | 'pregnant' | 'mother';
+  lastBirthDate?: string;
+  weaningDate?: string;
+  reproductionHistory?: any[];
+  lastMatingDate?: string;
+  expectedBirthDate?: string;
 }
 
 export enum SheepType {
