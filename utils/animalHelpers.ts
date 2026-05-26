@@ -13,7 +13,7 @@ interface AnimalMetadata {
     vaccines?: { name: string; age: string; frequency?: string; notes?: string }[];
 }
 
-export const calculateVaccineDueDate = (birthDate: string, ageStr: string): Date => {
+export function calculateVaccineDueDate(birthDate: string, ageStr: string): Date {
     const date = new Date(birthDate);
     if (ageStr.includes('أسبوع')) {
         const weeks = parseInt(ageStr) || 1;

@@ -20,7 +20,7 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({ isOpen, onClose, she
   const [notes, setNotes] = useState('');
 
   const metadata = sheep ? getAnimalMetadata(sheep.type) : null;
-  const vaccines = metadata?.vaccines || [];
+  const vaccines = (metadata as any)?.vaccines || [];
   const records = sheep?.medicalRecords || [];
 
   // Helper to check if vaccine is due

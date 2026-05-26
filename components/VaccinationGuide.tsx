@@ -12,7 +12,7 @@ export const VaccinationGuide: React.FC<VaccinationGuideProps> = ({ sheepList = 
   const [activeTab, setActiveTab] = useState<'log' | 'guide'>('log');
   const [searchTerm, setSearchTerm] = useState('');
   const metadata = getAnimalMetadata(animalType);
-  const vaccines = metadata.vaccines;
+  const vaccines = (metadata as any)?.vaccines || [];
 
   // Flatten and filter medical records
   const medicalHistory = useMemo(() => {

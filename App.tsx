@@ -4,6 +4,7 @@ import {
   Warehouse, Wheat, ShieldCheck, Activity, Wallet, Eye, Edit, Trash2, Syringe, ArrowRightLeft, Skull, FileText, LayoutDashboard
 } from 'lucide-react';
 import { PenModal } from './components/PenModal';
+import { MovePenModal } from './components/MovePenModal';
 import { SheepModal } from './components/SheepModal';
 import { MoveSheepModal } from './components/MoveSheepModal';
 import { MedicalModal } from './components/MedicalModal';
@@ -58,6 +59,11 @@ function App() {
   const [isMedicalModalOpen, setIsMedicalModalOpen] = useState(false);
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [isDashboardOpen, setIsDashboardOpen] = useState(false);
+  const [isMovePenModalOpen, setIsMovePenModalOpen] = useState(false);
+  const [isReorderingPens, setIsReorderingPens] = useState(false);
+  const longPressTimeout = useRef<any>(null);
+  const isLongPressed = useRef<boolean>(false);
+  const initialTouchPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const [isReportsModalOpen, setIsReportsModalOpen] = useState(false);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);

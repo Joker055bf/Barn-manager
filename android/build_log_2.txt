@@ -62,4 +62,4 @@ System.Management.Automation.RemoteException
 > Get more help at https://help.gradle.org.
 System.Management.Automation.RemoteException
 BUILD FAILED in 2s
-?Ð actionable tasks: ?É executed, ?Ï up-to-date
+?ï¿½ actionable tasks: ?ï¿½ executed, ?ï¿½ up-to-date
