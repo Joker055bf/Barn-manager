@@ -19,9 +19,13 @@ const DAYS = [
   { id: 6, name: 'السبت' }
 ];
 
+const GRAIN_OPTIONS = ['شعير', 'مكعب', 'ذرة', 'نخالة', 'مشكل'];
+const FODDER_OPTIONS = ['برسيم', 'تبن', 'رودس', 'ذرة'];
+
 export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, initialData }) => {
   const [category, setCategory] = useState<'grain' | 'fodder'>('grain');
   const [name, setName] = useState('');
+  const [isCustomName, setIsCustomName] = useState(false);
   const [quantity, setQuantity] = useState('');
   
   const [consumptionMethod, setConsumptionMethod] = useState<'uniform' | 'varied'>('uniform');
@@ -33,6 +37,13 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
     if (initialData) {
       setCategory(initialData.category || 'grain');
       setName(initialData.name);
+      
+      const opts = initialData.category === 'grain' ? GRAIN_OPTIONS : FODDER_OPTIONS;
+      if (initialData.name && !opts.includes(initialData.name)) {
+        setIsCustomName(true);
+      } else {
+        setIsCustomName(false);
+      }
       
       // Calculate display quantity (grains stored in kg, display as bags)
       if (initialData.category === 'grain') {
@@ -63,6 +74,7 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
   const resetForm = () => {
     setCategory('grain');
     setName('');
+    setIsCustomName(false);
     setQuantity('');
     setConsumptionMethod('uniform');
     setDailyConsumption('');
@@ -186,14 +198,37 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
             <label className="block text-xs font-bold text-gray-500 mb-2 text-right">
               اسم الصنف
             </label>
-            <input
-              required
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="اكتب اسم الصنف..."
-              className="w-full px-5 py-4 bg-white text-gray-800 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none text-sm font-bold text-right shadow-sm transition"
-            />
+            <select
+              value={isCustomName ? 'other' : name}
+              onChange={(e) => {
+                if (e.target.value === 'other') {
+                  setIsCustomName(true);
+                  setName('');
+                } else {
+                  setIsCustomName(false);
+                  setName(e.target.value);
+                }
+              }}
+              className="w-full px-5 py-4 bg-white text-gray-800 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none text-sm font-bold text-right shadow-sm transition appearance-none cursor-pointer"
+              dir="rtl"
+            >
+              <option value="" disabled>اختر الصنف</option>
+              {(category === 'grain' ? GRAIN_OPTIONS : FODDER_OPTIONS).map(opt => (
+                 <option key={opt} value={opt}>{opt}</option>
+              ))}
+              <option value="other">أخرى (كتابة يدوية)</option>
+            </select>
+            
+            {isCustomName && (
+              <input
+                required
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="اكتب اسم الصنف هنا..."
+                className="w-full mt-3 px-5 py-4 bg-white text-gray-800 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none text-sm font-bold text-right shadow-sm transition animate-fade-in"
+              />
+            )}
           </div>
 
           <div>
