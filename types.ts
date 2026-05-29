@@ -43,6 +43,16 @@ export interface FeedItem {
   category?: 'grain' | 'fodder';
   unit: string;
   dailyConsumption: number;
+  consumptionMethod?: 'uniform' | 'varied';
+  variedDailyConsumption?: {
+    0?: number; // Sunday
+    1?: number; // Monday
+    2?: number; // Tuesday
+    3?: number; // Wednesday
+    4?: number; // Thursday
+    5?: number; // Friday
+    6?: number; // Saturday
+  };
   lastUpdated: string;
   lastAutoDeduction?: string;
   logs?: FeedLogEntry[];

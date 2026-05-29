@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
-import { Wheat, Save, Package, Trash2, History, AlertTriangle, CalendarDays, ChevronDown, ChevronUp, Droplets, Clock, Layers } from 'lucide-react';
+import { Wheat, Package, Trash2, History, AlertTriangle, CalendarDays, ChevronDown, ChevronUp, Droplets, Clock, Layers, Plus, Edit2 } from 'lucide-react';
 import { FeedItem, FeedLogEntry } from '../types';
+import { FeedModal } from './FeedModal';
 
 interface FeedManagerProps {
   items: FeedItem[];
@@ -9,328 +10,265 @@ interface FeedManagerProps {
 }
 
 export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate }) => {
-  // Top Form States
-  const [category, setCategory] = useState<'grain' | 'fodder'>('grain');
-  const [newName, setNewName] = useState('');
-  const [newQty, setNewQty] = useState(''); // Input value (Bags for grain, Units for fodder)
-  const [newDaily, setNewDaily] = useState(''); // Daily consumption
-  
-  // UI States
+  const [activeTab, setActiveTab] = useState<'all' | 'grain' | 'fodder'>('all');
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<FeedItem | undefined>(undefined);
 
-  const handleAddOrUpdate = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newName) return;
-    
-    // Check if item exists (Update Mode)
-    const existingIndex = items.findIndex(i => i.name.trim() === newName.trim());
-    
-    let rawQtyInput = Number(newQty) || 0;
-    const dailyRate = Number(newDaily);
-    
-    // Logic for Grains: Input is BAGS, Store is KG (1 Bag = 50kg)
-    let actualQtyToAdd = rawQtyInput;
-    let unitLabel = '';
-
-    if (category === 'grain') {
-        actualQtyToAdd = rawQtyInput * 50; // Convert Bags to Kg
-        unitLabel = 'كجم';
-    } else {
-        unitLabel = 'حزمة'; // Default unit for fodder
-    }
-
+  const handleSaveFeed = (newItem: FeedItem) => {
+    const existingIndex = items.findIndex(i => i.id === newItem.id);
     if (existingIndex >= 0) {
       const updatedItems = [...items];
-      const item = updatedItems[existingIndex];
-      
-      // Update quantity (Add to existing)
-      if (actualQtyToAdd > 0) {
-        item.quantity += actualQtyToAdd;
-        
-        // Log the addition
-        const logEntry: FeedLogEntry = {
-          id: crypto.randomUUID(),
-          date: new Date().toISOString(),
-          amount: actualQtyToAdd,
-          type: 'add'
-        };
-        item.logs = [logEntry, ...(item.logs || [])].slice(0, 50);
-      }
-      
-      // Update daily consumption if provided
-      if (dailyRate > 0) item.dailyConsumption = dailyRate;
-      
-      // Update metadata
-      item.category = category;
-      item.unit = unitLabel;
-      item.lastUpdated = new Date().toISOString();
-
+      updatedItems[existingIndex] = newItem;
       onUpdate(updatedItems);
-      alert(`تم تحديث مخزون "${item.name}" بنجاح.`);
     } else {
-      // Create new item
-      const newItem: FeedItem = {
-        id: crypto.randomUUID(),
-        name: newName,
-        category: category,
-        unit: unitLabel,
-        quantity: actualQtyToAdd,
-        dailyConsumption: dailyRate || 0,
-        lastUpdated: new Date().toISOString(),
-        logs: actualQtyToAdd > 0 ? [{
-          id: crypto.randomUUID(),
-          date: new Date().toISOString(),
-          amount: actualQtyToAdd,
-          type: 'add'
-        }] : []
-      };
       onUpdate([...items, newItem]);
     }
-
-    // Reset Form
-    setNewName('');
-    setNewQty('');
-    setNewDaily('');
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     if (confirm('هل أنت متأكد من حذف هذا الصنف من المخزون؟')) {
       onUpdate(items.filter(i => i.id !== id));
     }
   };
 
-  const toggleHistory = (id: string) => {
+  const toggleHistory = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     setExpandedItemId(expandedItemId === id ? null : id);
   };
 
+  const openEditModal = (item: FeedItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingItem(item);
+    setIsModalOpen(true);
+  };
+
+  const filteredItems = items.filter(item => {
+    if (activeTab === 'all') return true;
+    return item.category === activeTab;
+  });
+
+  const getDayName = (id: number) => {
+    const days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    return days[id] || '';
+  };
+
   return (
-    <div className="space-y-8 animate-fade-in pb-20">
+    <div className="space-y-6 animate-fade-in pb-20 max-w-2xl mx-auto">
       
-      {/* --- قسم إضافة / تحديث المخزون --- */}
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-        <div className="flex items-center gap-3 mb-6">
-           <div className="bg-orange-100 p-2.5 rounded-xl">
-             <Wheat className="text-orange-600 w-6 h-6" />
-           </div>
-           <div>
-             <h2 className="text-xl font-bold text-gray-800">إدارة المخزون</h2>
-             <p className="text-sm text-gray-500">إضافة صنف جديد أو توريد كمية (شراء)</p>
-           </div>
-        </div>
-        
-        <form onSubmit={handleAddOrUpdate} className="flex flex-col gap-4">
-          
-          {/* Category Selector */}
-          <div className="flex p-1 bg-gray-100 rounded-xl">
-             <button
-               type="button"
-               onClick={() => setCategory('grain')}
-               className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition ${category === 'grain' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500'}`}
-             >
-               <Wheat size={18} /> حبوب (شعير/مكعب)
-             </button>
-             <button
-               type="button"
-               onClick={() => setCategory('fodder')}
-               className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition ${category === 'fodder' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-500'}`}
-             >
-               <Layers size={18} /> أعلاف (برسيم/تبن)
-             </button>
-          </div>
-
-          <div className="flex flex-col xl:flex-row gap-4">
-            <input 
-               value={newName}
-               onChange={e => setNewName(e.target.value)}
-               placeholder={category === 'grain' ? "اسم الصنف (مثال: شعير)" : "اسم الصنف (مثال: برسيم)"}
-               className="flex-1 px-4 py-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 bg-gray-50 focus:bg-white transition text-gray-900"
-               required
-            />
-            
-            <div className="flex gap-2 flex-1">
-              <div className="relative flex-1">
-                <input 
-                   type="number"
-                   value={newQty}
-                   onChange={e => setNewQty(e.target.value)}
-                   placeholder={category === 'grain' ? "عدد الأكياس" : "العدد (حزمة)"}
-                   className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 bg-gray-50 focus:bg-white text-gray-900 pl-20"
-                />
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded pointer-events-none">
-                   {category === 'grain' ? 'كيس (50كجم)' : 'حزمة'}
-                </span>
-              </div>
-
-              <div className="relative flex-1">
-                <input 
-                   type="number"
-                   value={newDaily}
-                   onChange={e => setNewDaily(e.target.value)}
-                   placeholder={category === 'grain' ? "استهلاك (كجم)" : "استهلاك (حزمة)"}
-                   className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 bg-gray-50 focus:bg-white text-gray-900 pl-16"
-                   title="معدل الاستهلاك اليومي"
-                />
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 pointer-events-none">
-                   يومياً
-                </span>
-              </div>
-            </div>
-            
-            <button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-xl transition shadow-lg shadow-orange-100 flex items-center justify-center gap-2 font-bold whitespace-nowrap">
-               <Save size={20} />
-               <span>حفظ / تحديث</span>
-            </button>
-          </div>
-          
-          {category === 'grain' && (
-             <p className="text-xs text-gray-400 px-2 flex items-center gap-1">
-                <InfoIcon size={12} />
-                سيتم تحويل عدد الأكياس تلقائياً إلى كيلو (الكيس = 50 كجم) لضبط دقة الاستهلاك.
-             </p>
-          )}
-        </form>
+      {/* Header Section */}
+      <div className="flex justify-between items-center px-2">
+         <button 
+           onClick={() => { setEditingItem(undefined); setIsModalOpen(true); }}
+           className="bg-[#765341] hover:bg-[#5D4037] text-white px-5 py-3 rounded-2xl transition shadow-lg flex items-center justify-center gap-2 font-bold text-sm"
+         >
+           <Plus size={16} />
+           <span>إضافة أعلاف</span>
+         </button>
+         
+         <div className="text-right flex flex-col items-end">
+           <h2 className="text-2xl font-black text-gray-800 flex items-center gap-2">
+             إدارة الأعلاف والمخزون
+             <Wheat className="text-[#765341]" size={24} />
+           </h2>
+           <p className="text-xs font-bold text-gray-400 mt-1">متابعة وإدارة استهلاك الأعلاف والحبوب</p>
+         </div>
       </div>
 
-      {/* --- شبكة البطاقات --- */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {items.length === 0 && (
-           <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400 bg-white rounded-3xl border-2 border-dashed border-gray-200">
+      {/* Tabs */}
+      <div className="flex bg-white rounded-2xl shadow-sm border border-gray-100 p-1.5 mx-2">
+        <button
+          onClick={() => setActiveTab('fodder')}
+          className={`flex-1 py-3 rounded-xl transition font-bold text-sm ${activeTab === 'fodder' ? 'bg-white shadow-sm border border-gray-100 text-gray-800' : 'text-gray-400'}`}
+        >
+          أعلاف
+        </button>
+        <button
+          onClick={() => setActiveTab('grain')}
+          className={`flex-1 py-3 rounded-xl transition font-bold text-sm ${activeTab === 'grain' ? 'bg-white shadow-sm border border-gray-100 text-gray-800' : 'text-gray-400'}`}
+        >
+          حبوب
+        </button>
+        <button
+          onClick={() => setActiveTab('all')}
+          className={`flex-1 py-3 rounded-xl transition font-bold text-sm ${activeTab === 'all' ? 'bg-white shadow-sm border border-gray-100 text-gray-800' : 'text-gray-400'}`}
+        >
+          الكل
+        </button>
+      </div>
+
+      {/* Items List */}
+      <div className="space-y-4 px-2">
+        {filteredItems.length === 0 && (
+           <div className="flex flex-col items-center justify-center py-20 text-gray-400 bg-white rounded-3xl border-2 border-dashed border-gray-200">
               <Package size={64} className="mb-4 opacity-20" />
-              <p className="text-lg font-medium">المخزون فارغ حالياً</p>
-              <p className="text-sm">أضف الأعلاف من النموذج بالأعلى</p>
+              <p className="text-lg font-bold">لا توجد أصناف هنا</p>
+              <p className="text-sm">اضغط على زر إضافة أعلاف للبدء</p>
            </div>
         )}
 
-        {items.map(item => {
-          const daily = item.dailyConsumption || 0;
-          const daysLeft = daily > 0 ? Math.floor(item.quantity / daily) : null;
-          const isLow = daysLeft !== null && daysLeft < 3;
+        {filteredItems.map(item => {
           const isExpanded = expandedItemId === item.id;
           const isGrain = item.category === 'grain';
-
-          // For display purposes
-          const displayQty = item.quantity; // Stored in Kg for grains, Units for fodder
+          const displayQty = item.quantity;
           const displayUnit = item.unit;
-          const bagEquivalent = isGrain ? (item.quantity / 50).toFixed(1) : null;
+          const isLow = displayQty <= 0;
+
+          const isVaried = item.consumptionMethod === 'varied';
+          const dailyAvg = item.dailyConsumption || 0;
+          
+          let daysLeft: number | null = null;
+          if (isVaried && item.variedDailyConsumption) {
+             const sum = Object.values(item.variedDailyConsumption).reduce((acc, val) => acc + (val || 0), 0);
+             const weeklyAvg = sum / 7;
+             if (weeklyAvg > 0) daysLeft = Math.floor(displayQty / weeklyAvg);
+          } else if (dailyAvg > 0) {
+             daysLeft = Math.floor(displayQty / dailyAvg);
+          }
 
           return (
-            <div key={item.id} className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow relative flex flex-col h-full animate-scale-in">
-               {/* زر الحذف */}
-               <button 
-                  onClick={() => handleDelete(item.id)}
-                  className="absolute top-4 left-4 text-gray-300 hover:text-red-500 transition z-10 p-2"
+            <div key={item.id} className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow relative flex flex-col animate-scale-in">
+               
+               {/* Card Header (Always visible) */}
+               <div 
+                 onClick={(e) => toggleHistory(item.id, e)}
+                 className="p-5 flex items-center justify-between cursor-pointer group"
                >
-                 <Trash2 size={18} />
-               </button>
+                 <div className="w-10 h-10 flex items-center justify-center text-gray-300 group-hover:bg-gray-50 rounded-xl transition">
+                   {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                 </div>
 
-               {/* رأس البطاقة */}
-               <div className="p-6 flex-1">
-                 <div className="flex justify-between items-start mb-4">
-                   <div>
-                     <h3 className="font-extrabold text-2xl text-gray-800 flex items-center gap-2">
-                       {item.name}
-                       <span className={`text-[10px] px-2 py-0.5 rounded-full ${isGrain ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'}`}>
-                         {isGrain ? 'حبوب' : 'أعلاف'}
+                 <div className="flex items-center gap-4 text-right">
+                   <div className="flex flex-col items-end">
+                     <h3 className="font-extrabold text-xl text-gray-800">{item.name}</h3>
+                     <div className="flex items-center gap-2 mt-1">
+                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${isLow ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+                         {isLow ? 'نفد' : 'متوفر'}
                        </span>
-                     </h3>
-                     <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
-                       <History size={12} />
-                       آخر تحديث: {new Date(item.lastUpdated).toLocaleDateString('ar-SA')}
-                     </p>
+                       <span className="text-xs text-gray-400 font-medium">{displayQty} {isGrain ? 'كجم' : 'حزمة'}</span>
+                     </div>
                    </div>
-                   <div className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${isLow ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
-                      {isLow ? <AlertTriangle size={12} /> : (isGrain ? <Wheat size={12} /> : <Layers size={12} />)}
-                      {isLow ? 'منخفض' : 'متوفر'}
+                   <div className={`w-12 h-12 rounded-[1rem] flex items-center justify-center ${isGrain ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'}`}>
+                      {isGrain ? <Wheat size={24} /> : <Layers size={24} />}
                    </div>
                  </div>
-                 
-                 <div className="flex items-baseline gap-2 mb-2">
-                    <span className="text-5xl font-black text-gray-900 tracking-tight">{displayQty}</span>
-                    <span className="text-lg text-gray-500 font-medium">{displayUnit}</span>
-                 </div>
-                 
-                 {isGrain && (
-                    <div className="mb-6 text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg w-fit border border-gray-100">
-                       يعادل تقريباً <strong className="text-gray-900 text-base mx-1">{bagEquivalent}</strong> كيس
-                    </div>
-                 )}
-                 {!isGrain && <div className="mb-6"></div>}
+               </div>
 
-                 {/* شريط المعلومات */}
-                 <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-orange-50 p-3 rounded-2xl border border-orange-100 flex flex-col items-center justify-center relative overflow-hidden">
-                       <div className="absolute top-0 left-0 bg-orange-100 p-1 rounded-br-lg">
-                          <Clock size={10} className="text-orange-600" />
-                       </div>
-                       <p className="text-orange-400 text-xs mb-1 font-medium flex items-center gap-1">
-                         <Droplets size={12} /> استهلاك تلقائي
-                       </p>
-                       <p className="font-bold text-gray-800 text-lg">{daily > 0 ? daily : '-'} <span className="text-xs font-normal">{item.unit}</span></p>
-                       <p className="text-[9px] text-orange-300 mt-1">يومياً 8:00 ص</p>
-                    </div>
+               {/* Expanded Content */}
+               {isExpanded && (
+                 <div className="px-5 pb-5 border-t border-gray-50 pt-4 animate-fade-in">
                     
-                    <div className={`p-3 rounded-2xl border flex flex-col items-center justify-center ${isLow ? 'bg-red-50 border-red-100' : 'bg-emerald-50 border-emerald-100'}`}>
-                       <p className={`text-xs mb-1 font-medium flex items-center gap-1 ${isLow ? 'text-red-400' : 'text-emerald-400'}`}>
-                         <CalendarDays size={12} /> يكفي لمدة
-                       </p>
-                       <p className={`font-bold text-lg ${isLow ? 'text-red-700' : 'text-emerald-700'}`}>
-                          {daysLeft !== null ? daysLeft : '-'} <span className="text-xs font-normal">يوم</span>
-                       </p>
+                    {/* Actions */}
+                    <div className="flex justify-between items-center mb-6">
+                       <button 
+                         onClick={(e) => handleDelete(item.id, e)}
+                         className="flex items-center gap-1 text-red-400 hover:text-red-600 transition text-[11px] font-bold px-3 py-1.5 rounded-lg hover:bg-red-50"
+                       >
+                         <Trash2 size={14} /> حذف الصنف
+                       </button>
+                       <button 
+                         onClick={(e) => openEditModal(item, e)}
+                         className="flex items-center gap-1 text-blue-400 hover:text-blue-600 transition text-[11px] font-bold px-3 py-1.5 rounded-lg hover:bg-blue-50"
+                       >
+                         تحديث الصنف <Edit2 size={14} />
+                       </button>
                     </div>
-                 </div>
-               </div>
 
-               {/* قسم السجل (القابل للطي) */}
-               <div className="border-t border-gray-100 bg-gray-50/50">
-                 <button 
-                   onClick={() => toggleHistory(item.id)}
-                   className="w-full py-3 flex items-center justify-center gap-2 text-xs text-gray-500 hover:text-orange-600 hover:bg-gray-50 transition font-medium"
-                 >
-                   {isExpanded ? 'إخفاء السجل' : 'عرض سجل العمليات'}
-                   {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                 </button>
+                    {/* Current Balance */}
+                    <div className="bg-gray-50 rounded-2xl p-4 flex items-center justify-between mb-4 border border-gray-100">
+                       <div className="font-black text-gray-800 text-lg flex items-baseline gap-1">
+                          {isGrain ? (displayQty / 50).toFixed(1) : displayQty} <span className="text-[11px] text-gray-500 font-medium">{isGrain ? 'كيس' : 'حزمة'}</span>
+                       </div>
+                       <span className="text-xs font-bold text-gray-500">الرصيد الحالي:</span>
+                    </div>
 
-                 {isExpanded && (
-                   <div className="bg-white p-0 max-h-48 overflow-y-auto custom-scrollbar border-t border-gray-100">
-                      {(item.logs && item.logs.length > 0) ? (
-                        <div className="divide-y divide-gray-100">
-                          {item.logs.map(log => (
-                            <div key={log.id} className="flex justify-between items-center p-3 hover:bg-gray-50 transition">
-                               <div className="flex items-center gap-3">
-                                 <div className={`w-2 h-2 rounded-full ${log.type === 'add' ? 'bg-emerald-500' : 'bg-orange-500'}`}></div>
-                                 <div className="flex flex-col">
-                                   <span className={`font-bold text-sm ${log.type === 'add' ? 'text-emerald-700' : 'text-gray-700'}`}>
-                                     {log.type === 'add' ? 'شراء / إضافة' : 'استهلاك'} {log.amount} {item.unit}
-                                   </span>
-                                   {log.isAuto && <span className="text-[10px] text-orange-600 font-medium">خصم تلقائي (8:00 ص)</span>}
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-2 gap-3 mb-6">
+                       <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100 flex flex-col items-center justify-center text-center">
+                          <p className="text-emerald-500 text-[11px] mb-1 font-bold flex items-center gap-1">
+                            <CalendarDays size={14} /> يكفي لمدة
+                          </p>
+                          <p className="font-black text-emerald-700 text-2xl">
+                             {daysLeft !== null && daysLeft !== Infinity ? daysLeft : '-'} <span className="text-xs font-medium text-emerald-600">يوم</span>
+                          </p>
+                       </div>
+
+                       <div className="bg-orange-50/50 p-4 rounded-2xl border border-orange-100 flex flex-col items-center justify-center text-center relative overflow-hidden">
+                          <div className="absolute top-2 left-2 text-orange-400">
+                             <Clock size={12} />
+                          </div>
+                          <p className="text-orange-500 text-[11px] mb-1 font-bold flex items-center gap-1">
+                            استهلاك تلقائي <Droplets size={12} />
+                          </p>
+                          {isVaried ? (
+                             <p className="font-black text-gray-800 text-sm">حسب اليوم</p>
+                          ) : (
+                             <p className="font-black text-gray-800 text-xl">{dailyAvg > 0 ? dailyAvg : '-'} <span className="text-[10px] font-medium">{displayUnit}</span></p>
+                          )}
+                          <p className="text-[9px] text-orange-400 mt-1 font-bold">يومياً 8:00 ص</p>
+                       </div>
+                    </div>
+
+                    {/* Varied Consumption Details (if applicable) */}
+                    {isVaried && item.variedDailyConsumption && (
+                      <div className="mb-6 bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                         <h4 className="text-[11px] font-bold text-gray-500 mb-3 text-right">جدول الاستهلاك المتغير (كجم/يوم)</h4>
+                         <div className="grid grid-cols-4 gap-2">
+                            {Object.entries(item.variedDailyConsumption).map(([dayId, val]) => (
+                               val > 0 && (
+                                 <div key={dayId} className="bg-white p-2 rounded-xl text-center shadow-sm border border-gray-100">
+                                   <div className="text-[9px] text-gray-400 font-bold mb-1">{getDayName(Number(dayId))}</div>
+                                   <div className="text-xs font-black text-orange-600">{val}</div>
                                  </div>
-                               </div>
-                               <div className="text-right text-[10px] text-gray-400">
-                                 <div>{new Date(log.date).toLocaleDateString('ar-SA')}</div>
-                                 <div>{new Date(log.date).toLocaleTimeString('ar-SA', {hour: '2-digit', minute:'2-digit'})}</div>
-                               </div>
+                               )
+                            ))}
+                         </div>
+                      </div>
+                    )}
+
+                    {/* Logs */}
+                    <div>
+                       <h4 className="text-xs font-bold text-gray-500 mb-3 flex items-center justify-end gap-1">
+                          سجل العمليات <History size={14} />
+                       </h4>
+                       <div className="bg-white rounded-2xl p-1 max-h-40 overflow-y-auto custom-scrollbar">
+                          {(item.logs && item.logs.length > 0) ? (
+                            <div className="divide-y divide-gray-50">
+                              {item.logs.map(log => (
+                                <div key={log.id} className="flex justify-between items-center py-2.5 px-2">
+                                   <div className="text-left text-[9px] text-gray-400 font-medium">
+                                     {new Date(log.date).toLocaleDateString('en-GB')}
+                                   </div>
+                                   <div className="flex items-center gap-2 text-right">
+                                     <span className={`font-bold text-[11px] ${log.type === 'add' ? 'text-gray-800' : 'text-gray-600'}`}>
+                                       {log.type === 'add' ? 'إضافة' : 'استهلاك'} {log.amount} {isGrain && log.type === 'add' ? 'كجم' : ''}
+                                     </span>
+                                     <div className={`w-1.5 h-1.5 rounded-full ${log.type === 'add' ? 'bg-emerald-500' : 'bg-orange-500'}`}></div>
+                                   </div>
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-center text-gray-400 text-xs py-4">لا توجد عمليات مسجلة</p>
-                      )}
-                   </div>
-                 )}
-               </div>
+                          ) : (
+                            <p className="text-center text-gray-400 text-[10px] py-4">لا توجد عمليات</p>
+                          )}
+                       </div>
+                    </div>
+
+                 </div>
+               )}
             </div>
           );
         })}
       </div>
+
+      <FeedModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={handleSaveFeed}
+        initialData={editingItem}
+      />
     </div>
   );
 };
-
-// Helper Icon
-const InfoIcon = ({ size }: { size: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10"></circle>
-    <line x1="12" y1="16" x2="12" y2="12"></line>
-    <line x1="12" y1="8" x2="12.01" y2="8"></line>
-  </svg>
-);

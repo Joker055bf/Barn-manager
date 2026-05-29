@@ -425,15 +425,26 @@ function App() {
         cursorDate.setDate(cursorDate.getDate() + 1);
       }
 
-      // Loop to count how many 8 AMs we passed until now
+      // Loop to count how much we passed until now
+      let totalToDeduct = 0;
+      
       while (cursorDate <= now) {
         deductionsCount++;
+        
+        // Calculate amount for this specific day
+        if (item.consumptionMethod === 'varied' && item.variedDailyConsumption) {
+          const dayOfWeek = cursorDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+          const amountForDay = item.variedDailyConsumption[dayOfWeek] || 0;
+          totalToDeduct += amountForDay;
+        } else {
+          totalToDeduct += (item.dailyConsumption || 0);
+        }
+
         cursorDate.setDate(cursorDate.getDate() + 1); // Move to next day
       }
 
-      if (deductionsCount > 0) {
+      if (deductionsCount > 0 && totalToDeduct > 0) {
         hasChanges = true;
-        const totalToDeduct = item.dailyConsumption * deductionsCount;
         // Don't go below zero
         const newQuantity = Math.max(0, item.quantity - totalToDeduct);
         const actualDeducted = item.quantity - newQuantity;
