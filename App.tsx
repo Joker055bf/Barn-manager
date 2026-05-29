@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Plus, Search, MoreVertical, LayoutGrid, Calendar, ChevronLeft, ArrowRight, Star, Dna, Settings, Check, X, Filter, Target,
-  Warehouse, Wheat, ShieldCheck, Activity, Wallet, Eye, Edit, Trash2, Syringe, ArrowRightLeft, Skull, FileText, LayoutDashboard, MoreHorizontal, LogOut, Users, Shield, History, Share2, Banknote, BarChart3
+  Warehouse, Wheat, ShieldCheck, Activity, Wallet, Eye, Edit, Trash2, Syringe, ArrowRightLeft, Skull, FileText, LayoutDashboard, MoreHorizontal, LogOut, Users, Shield, History, Share2, Banknote, BarChart3, Baby, HeartPulse
 } from 'lucide-react';
 import { PenModal } from './components/PenModal';
 import { SheepModal } from './components/SheepModal';
@@ -1184,11 +1184,43 @@ function App() {
           </div>
         )}
 
-        {/* Quick Breeding Toggle Button for Females */}
-        {sheep.gender === 'female' && (
-          <div className="mb-4 text-right">
-            <span className="font-black text-gray-400 block mb-2 text-[10px] uppercase tracking-widest">حالة الإخصاب والتناسل</span>
-            {(!sheep.reproductionStatus || sheep.reproductionStatus === 'empty') && (
+        {/* Status Buttons */}
+        <div className="flex items-center justify-center gap-3 mb-6 mt-2">
+          {/* Health Status Button */}
+          {sheep.status === 'sick' ? (
+            <button
+              onClick={async () => {
+                showConfirm('تأكيد الشفاء', `هل أنت متأكد من تسجيل الشفاء لهذه الحالة؟`, async () => {
+                  try {
+                      await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), { status: 'healthy' });
+                      setViewingSheep(undefined);
+                  } catch (e) {
+                      console.error('Update status error:', e);
+                      showAlert('error', 'خطأ', 'حدث خطأ أثناء تحديث الحالة.');
+                  }
+                });
+              }}
+              className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 rounded-2xl shadow-sm transition"
+            >
+              مريض
+              <Activity size={16} className="text-red-500" />
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setViewingSheep(undefined);
+                openMedicalModal(sheep, { defaultStatusOnSave: 'sick', allowNoName: true });
+              }}
+              className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 rounded-2xl shadow-sm transition"
+            >
+              سليم
+              <HeartPulse size={16} className="text-emerald-500" />
+            </button>
+          )}
+
+          {/* Reproduction Status Button (Females Only) */}
+          {sheep.gender === 'female' && (
+            (!sheep.reproductionStatus || sheep.reproductionStatus === 'empty') ? (
               <button
                 onClick={async () => {
                   try {
@@ -1200,47 +1232,29 @@ function App() {
                     setViewingSheep(prev => prev ? { ...prev, reproductionStatus: 'pregnant', pregnancyDate: new Date().toISOString() } : undefined);
                   } catch (e) { console.error(e); }
                 }}
-                className="w-full py-3 px-4 rounded-2xl bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 font-bold text-xs flex items-center justify-center gap-2 transition"
+                className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-2xl shadow-sm transition"
               >
-                <span>غير مضرع (اضغط للحمل)</span>
+                غير مضارع
+                <Baby size={16} className="text-amber-500" />
               </button>
-            )}
-
-            {sheep.reproductionStatus === 'pregnant' && (
-              <div className="space-y-2">
-                <button
-                  onClick={async () => {
-                    try {
-                      await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), {
-                        reproductionStatus: 'mother',
-                        lactationStartDate: new Date().toISOString(),
-                        lastBirthDate: new Date().toISOString()
-                      });
-                      setViewingSheep(prev => prev ? { ...prev, reproductionStatus: 'mother', lactationStartDate: new Date().toISOString() } : undefined);
-                    } catch (e) { console.error(e); }
-                  }}
-                  className="w-full py-3 px-4 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg animate-pulse transition"
-                >
-                  <span>مضرع (اضغط لتسجيل الولادة)</span>
-                </button>
-                {(() => {
-                  if (sheep.pregnancyDate) {
-                    const start = new Date(sheep.pregnancyDate);
-                    const diffDays = Math.ceil(Math.abs(Date.now() - start.getTime()) / (1000 * 60 * 60 * 24));
-                    if (diffDays >= 150) {
-                      return (
-                        <div className="bg-red-50 border border-red-200 text-red-700 text-[10px] font-bold p-2.5 rounded-xl text-center">
-                          ⚠️ تنبيه: مضى أكثر من 5 أشهر على الحمل!
-                        </div>
-                      );
-                    }
-                  }
-                  return null;
-                })()}
-              </div>
-            )}
-
-            {sheep.reproductionStatus === 'mother' && (
+            ) : sheep.reproductionStatus === 'pregnant' ? (
+              <button
+                onClick={async () => {
+                  try {
+                    await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), {
+                      reproductionStatus: 'mother',
+                      lactationStartDate: new Date().toISOString(),
+                      lastBirthDate: new Date().toISOString()
+                    });
+                    setViewingSheep(prev => prev ? { ...prev, reproductionStatus: 'mother', lactationStartDate: new Date().toISOString() } : undefined);
+                  } catch (e) { console.error(e); }
+                }}
+                className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-2xl shadow-sm transition animate-pulse"
+              >
+                مضارع
+                <Baby size={16} className="text-rose-500" />
+              </button>
+            ) : (
               <button
                 onClick={async () => {
                   try {
@@ -1251,13 +1265,28 @@ function App() {
                     setViewingSheep(prev => prev ? { ...prev, reproductionStatus: 'empty', lactationStartDate: undefined } : undefined);
                   } catch (e) { console.error(e); }
                 }}
-                className="w-full py-3 px-4 rounded-2xl bg-pink-100 hover:bg-pink-200 text-pink-700 border border-pink-200 font-bold text-xs flex items-center justify-center gap-2 transition"
+                className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-pink-700 bg-pink-50 border border-pink-200 hover:bg-pink-100 rounded-2xl shadow-sm transition"
               >
-                <span>أم حضانة ورضاعة (اضغط لإعادتها غير مضرع)</span>
+                أم حضانة
+                <Baby size={16} className="text-pink-500" />
               </button>
-            )}
-          </div>
-        )}
+            )
+          )}
+        </div>
+
+        {/* Warning if pregnant for > 5 months */}
+        {sheep.gender === 'female' && sheep.reproductionStatus === 'pregnant' && sheep.pregnancyDate && (() => {
+          const start = new Date(sheep.pregnancyDate);
+          const diffDays = Math.ceil(Math.abs(Date.now() - start.getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDays >= 150) {
+            return (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-[10px] font-bold p-2.5 rounded-xl text-center mb-6">
+                ⚠️ تنبيه: مضى أكثر من 5 أشهر على الحمل!
+              </div>
+            );
+          }
+          return null;
+        })()}
 
         <div className="grid grid-cols-3 gap-3">
           {can('canAddMedical') && (
@@ -1283,39 +1312,6 @@ function App() {
               تعديل
             </button>
           )}
-        </div>
-
-        <div className="mt-6 flex justify-center">
-            {sheep.status === 'sick' ? (
-              <button
-                onClick={async () => {
-                  showConfirm('تأكيد الشفاء', `هل أنت متأكد من تسجيل الشفاء لهذه الحالة؟`, async () => {
-                    try {
-                        await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), { status: 'healthy' });
-                        setViewingSheep(undefined);
-                    } catch (e) {
-                        console.error('Update status error:', e);
-                        showAlert('error', 'خطأ', 'حدث خطأ أثناء تحديث الحالة.');
-                    }
-                  });
-                }}
-                className="w-full flex items-center justify-center gap-2 py-3 px-6 text-xs font-black text-white bg-red-500 hover:bg-red-600 rounded-2xl shadow-lg transition animate-pulse"
-              >
-                <Activity size={16} />
-                تأكيد الشفاء (مريضة)
-              </button>
-            ) : (
-              <button
-                onClick={() => {
-                  setViewingSheep(undefined);
-                  openMedicalModal(sheep, { defaultStatusOnSave: 'sick', allowNoName: true });
-                }}
-                className="w-full flex items-center justify-center gap-2 py-3 px-6 text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 rounded-2xl shadow-lg transition"
-              >
-                <Activity size={16} />
-                تسجيل حالة مرضية
-              </button>
-            )}
         </div>
       </div>
     );
