@@ -546,120 +546,117 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-4 gap-2">
-                {/* Type */}
-                <div className="space-y-1">
-                  <CustomSelect
-                    label="النوع"
-                    value={type}
-                    onChange={(val) => setType(val as SheepType)}
-                    options={Object.values(SheepType)
-                      .filter(t => {
-                        const birdTypes = [SheepType.CHICKEN, SheepType.PIGEON, SheepType.DUCK, SheepType.GUINEA_FOWL, SheepType.TURKEY, SheepType.QUAIL];
-                        const camelTypes = [SheepType.MAJAHEEM, SheepType.WADAH, SheepType.SAFAR, SheepType.SHAAL, SheepType.HOMR];
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Type */}
+                  <div className="space-y-1">
+                    <CustomSelect
+                      label="النوع"
+                      value={type}
+                      onChange={(val) => setType(val as SheepType)}
+                      options={Object.values(SheepType)
+                        .filter(t => {
+                          const birdTypes = [SheepType.CHICKEN, SheepType.PIGEON, SheepType.DUCK, SheepType.GUINEA_FOWL, SheepType.TURKEY, SheepType.QUAIL];
+                          const camelTypes = [SheepType.MAJAHEEM, SheepType.WADAH, SheepType.SAFAR, SheepType.SHAAL, SheepType.HOMR];
 
-                        if (isCamels) {
-                          // If it's a camel barn, only show camel types
-                          return camelTypes.includes(t);
-                        }
+                          if (isCamels) {
+                            return camelTypes.includes(t);
+                          }
 
-                        if (isSheep) {
-                          // If it's a sheep barn, exclude birds and camels
-                          return !birdTypes.includes(t) && !camelTypes.includes(t);
-                        }
+                          if (isSheep) {
+                            return !birdTypes.includes(t) && !camelTypes.includes(t);
+                          }
 
-                        // If it's birds (batch mode), logic is slightly different (usually handled by isBatchMode UI, but for type dropdown):
-                        // We likely want to show specific bird type? Or maybe all birds?
-                        // For now, let's just make sure camels don't show up in birds
-                        return !camelTypes.includes(t);
-                      })
-                      .sort((a, b) => a === SheepType.OTHER ? 1 : b === SheepType.OTHER ? -1 : 0) // Move Other to end
-                      .map(t => ({ value: t, label: t }))}
-                  />
-                </div>
-
-                {/* Color Picker */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-700 block text-center">اللون</label>
-                  <div className="relative w-full">
-                    <input
-                      ref={colorInputRef}
-                      type="text"
-                      required
-                      value={tagColor}
-                      onChange={() => { }}
-                      className="absolute inset-0 w-full h-full opacity-0 z-0 cursor-pointer pointer-events-none"
-                      tabIndex={-1}
+                          return !camelTypes.includes(t);
+                        })
+                        .sort((a, b) => a === SheepType.OTHER ? 1 : b === SheepType.OTHER ? -1 : 0)
+                        .map(t => ({ value: t, label: t }))}
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowColorPicker(!showColorPicker)}
-                      className="w-full h-[38px] px-1 bg-[#fcfbf4] border border-gray-200 rounded-lg hover:bg-white hover:border-emerald-300 transition-all flex items-center justify-center gap-1 shadow-sm group"
-                    >
-                      {tagColor ? (
-                        <div className="w-5 h-5 rounded-full border border-gray-200 shadow-sm ring-1 ring-white" style={{ backgroundColor: tagColor }} />
-                      ) : (
-                        <div className="w-5 h-5 rounded-full border-2 border-dashed border-gray-300 group-hover:border-emerald-400" />
-                      )}
-                      <span className={`font-bold text-sm truncate max-w-[50px] ${tagColor ? 'text-gray-900' : 'text-gray-400'}`}>
-                        {tagColor ? (colorNames[tagColor] || '..') : 'اختر'}
-                      </span>
-                    </button>
+                  </div>
 
-                    {showColorPicker && (
-                      <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-gray-100 shadow-xl rounded-xl p-2 grid grid-cols-4 gap-1.5 w-40 animate-scale-in">
-                        {Object.entries(colorNames).map(([c, name]) => (
+                  {/* Color Picker */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block text-center mb-1">اللون</label>
+                    <div className="relative w-full">
+                      <input
+                        ref={colorInputRef}
+                        type="text"
+                        required
+                        value={tagColor}
+                        onChange={() => { }}
+                        className="absolute inset-0 w-full h-full opacity-0 z-0 cursor-pointer pointer-events-none"
+                        tabIndex={-1}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowColorPicker(!showColorPicker)}
+                        className="w-full py-3.5 px-3 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl hover:bg-gray-50 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2 shadow-sm group"
+                      >
+                        {tagColor ? (
+                          <div className="w-5 h-5 rounded-full border border-gray-200 shadow-sm ring-1 ring-white" style={{ backgroundColor: tagColor }} />
+                        ) : (
+                          <div className="w-5 h-5 rounded-full border-2 border-dashed border-gray-300 group-hover:border-emerald-400" />
+                        )}
+                        <span className={`font-bold text-sm truncate ${tagColor ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
+                          {tagColor ? (colorNames[tagColor] || '..') : 'اختر اللون'}
+                        </span>
+                      </button>
+
+                      {showColorPicker && (
+                        <div className="absolute right-0 top-full mt-2 z-[9999] bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 shadow-2xl rounded-2xl p-3 grid grid-cols-4 gap-2 w-48 animate-scale-in">
+                          {Object.entries(colorNames).map(([c, name]) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => { setTagColor(c); setShowColorPicker(false); }}
+                              className={`w-8 h-8 rounded-full border transition hover:scale-110 hover:shadow-md ${tagColor === c ? 'ring-2 ring-offset-2 ring-emerald-500' : 'border-gray-100 dark:border-slate-600'}`}
+                              style={{ backgroundColor: c }}
+                              title={name}
+                            />
+                          ))}
                           <button
-                            key={c}
                             type="button"
-                            onClick={() => { setTagColor(c); setShowColorPicker(false); }}
-                            className={`w-6 h-6 rounded-full border transition hover:scale-110 hover:shadow-md ${tagColor === c ? 'ring-2 ring-offset-2 ring-emerald-500' : 'border-gray-100'}`}
-                            style={{ backgroundColor: c }}
-                            title={name}
-                          />
-                        ))}
-                        <button
-                          type="button"
-                          onClick={() => { setTagColor(''); setShowColorPicker(false); }}
-                          className="w-full col-span-4 text-[10px] text-red-500 py-1 hover:bg-red-50 rounded-lg font-bold transition-colors"
-                        >
-                          إزالة
-                        </button>
-                      </div>
-                    )}
+                            onClick={() => { setTagColor(''); setShowColorPicker(false); }}
+                            className="w-full col-span-4 text-xs text-red-500 py-2 mt-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl font-bold transition-colors"
+                          >
+                            إزالة اللون
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                {/* Serial Number */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-700 block text-center">
-                    الرقم
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={3}
-                    value={serialNumber}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, '').slice(0, 3);
-                      setSerialNumber(val);
-                    }}
-                    placeholder="000"
-                    className="w-full h-[38px] bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#795548] focus:bg-white outline-none transition-all font-mono text-base tracking-wider text-center shadow-sm"
-                  />
-                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Serial Number */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block text-center mb-1">الرقم</label>
+                    <input
+                      required
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={3}
+                      value={serialNumber}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 3);
+                        setSerialNumber(val);
+                      }}
+                      placeholder="000"
+                      className="w-full py-3.5 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-[#795548] focus:border-[#795548] outline-none transition-all font-mono text-base tracking-wider text-center shadow-sm"
+                    />
+                  </div>
 
-                {/* Nickname */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-700 block text-center">الكنية</label>
-                  <input
-                    type="text"
-                    value={nickname}
-                    onChange={(e) => setNickname(e.target.value)}
-                    placeholder="اختياري"
-                    className="w-full h-[38px] px-1 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#795548] focus:bg-white outline-none transition-all font-medium text-center shadow-sm placeholder:text-gray-300 text-sm"
-                  />
+                  {/* Nickname */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block text-center mb-1">الكنية</label>
+                    <input
+                      type="text"
+                      value={nickname}
+                      onChange={(e) => setNickname(e.target.value)}
+                      placeholder="اختياري"
+                      className="w-full py-3.5 px-3 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-[#795548] focus:border-[#795548] outline-none transition-all font-bold text-center shadow-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 text-sm"
+                    />
+                  </div>
                 </div>
               </div>
 
