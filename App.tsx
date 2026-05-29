@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   Plus, Search, MoreVertical, LayoutGrid, Calendar, ChevronLeft, ArrowRight, Star, Dna, Settings, Check, X, Filter, Target,
-  Warehouse, Wheat, ShieldCheck, Activity, Wallet, Eye, Edit, Trash2, Syringe, ArrowRightLeft, Skull, FileText, LayoutDashboard, MoreHorizontal, LogOut, Users, Shield, History, Share2, Banknote, BarChart3, Baby, HeartPulse
+  Warehouse, Wheat, ShieldCheck, Activity, Wallet, Eye, Edit, Trash2, Syringe, ArrowRightLeft, Skull, FileText, LayoutDashboard, MoreHorizontal, LogOut, Users, Shield, History, Share2, Banknote, BarChart3, Baby, HeartPulse, MessageCircle
 } from 'lucide-react';
+import { ChatModal } from './components/ChatModal';
 import { PenModal } from './components/PenModal';
 import { SheepModal } from './components/SheepModal';
 import { MoveSheepModal } from './components/MoveSheepModal';
@@ -338,6 +339,7 @@ function App() {
   const [isReportsModalOpen, setIsReportsModalOpen] = useState(false);
   const [reportsInitialTab, setReportsInitialTab] = useState<ReportType>('overview');
   const [isRecentsOpen, setIsRecentsOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const [recentsDateFilter, setRecentsDateFilter] = useState<'all' | 'today' | 'week' | 'month' | 'year'>('all');
   const [recentsTypeFilter, setRecentsTypeFilter] = useState<'all' | 'birth' | 'death' | 'medical' | 'expense'>('all');
@@ -1529,22 +1531,33 @@ function App() {
     <div className="min-h-screen flex flex-col md:flex-row font-sans text-gray-800 bg-[#fcfbf4] transition-colors duration-300 dark:bg-slate-950 dark:text-gray-100" dir={appLanguage === 'ar' ? 'rtl' : 'ltr'}>
       {/* Persistent Logout & Settings Buttons */}
       {(activeTab === 'dashboard' || (activeTab === 'pens' && !selectedGroupId)) && (
-        <div className="fixed top-6 left-6 right-6 z-[100] pointer-events-none flex justify-between items-center">
-          <button 
-            onClick={() => setIsSettingsOpen(true)} 
-            className="pointer-events-auto text-gray-400 hover:text-[#795548] transition-all duration-300 bg-white p-3.5 rounded-2xl shadow-lg border border-white/20 hover:shadow-xl active:scale-90 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-300"
-            title={t.settings}
-          >
-            <Settings size={22} strokeWidth={2.5} />
-          </button>
+        <div className="fixed top-6 left-6 right-6 z-[100] pointer-events-none flex justify-between items-center" dir="rtl">
+          <div className="flex items-center gap-2 pointer-events-auto">
+            <button 
+              onClick={handleLogout} 
+              className="text-gray-400 hover:text-red-500 transition-all duration-300 bg-white p-3.5 rounded-2xl shadow-lg border border-white/20 hover:shadow-xl active:scale-90 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-300"
+              title={t.logout}
+            >
+              <LogOut size={22} strokeWidth={2.5} className="rotate-180" />
+            </button>
+          </div>
           
-          <button 
-            onClick={handleLogout} 
-            className="pointer-events-auto text-gray-400 hover:text-red-500 transition-all duration-300 bg-white p-3.5 rounded-2xl shadow-lg border border-white/20 hover:shadow-xl active:scale-90 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-300"
-            title={t.logout}
-          >
-            <LogOut size={22} strokeWidth={2.5} />
-          </button>
+          <div className="flex items-center gap-2 pointer-events-auto">
+            <button 
+              onClick={() => setIsSettingsOpen(true)} 
+              className="text-gray-400 hover:text-[#795548] transition-all duration-300 bg-white p-3.5 rounded-2xl shadow-lg border border-white/20 hover:shadow-xl active:scale-90 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-300"
+              title={t.settings}
+            >
+              <Settings size={22} strokeWidth={2.5} />
+            </button>
+            <button 
+              onClick={() => setIsChatOpen(true)} 
+              className="text-orange-500 hover:text-orange-600 transition-all duration-300 bg-white p-3.5 rounded-2xl shadow-lg border border-white/20 hover:shadow-xl active:scale-90 dark:bg-slate-800 dark:border-slate-700"
+              title="رسايل"
+            >
+              <MessageCircle size={22} strokeWidth={2.5} />
+            </button>
+          </div>
         </div>
       )}
 
@@ -1575,8 +1588,8 @@ function App() {
             <div className="flex items-center gap-2 shrink-0">
               {activeTab === 'pens' && selectedGroupId && (
                 <>
-                  {can('canManagePens') && <button onClick={openAddSectionModal} className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-bold border border-blue-100 dark:bg-blue-900/20 whitespace-nowrap"><Warehouse size={12} /> {t.addSection} <Plus size={10} /></button>}
                   {can('canAddAnimals') && <button onClick={() => openNewSheepModal()} className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-600 rounded-xl text-[10px] font-bold border border-orange-100 dark:bg-orange-900/20 whitespace-nowrap"><Dna size={12} /> {t.head} <Plus size={10} /></button>}
+                  {can('canManagePens') && <button onClick={openAddSectionModal} className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-bold border border-blue-100 dark:bg-blue-900/20 whitespace-nowrap"><Warehouse size={12} /> قسم <Plus size={10} /></button>}
                 </>
               )}
               {activeTab === 'sheepList' && selectedPen && (
@@ -1590,6 +1603,15 @@ function App() {
                       className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-600 rounded-xl text-[10px] font-bold border border-orange-100 dark:bg-orange-900/20 whitespace-nowrap"
                     >
                       <Plus size={14} /> {t.head}
+                    </button>
+                  )}
+                  {isOwner && can('canManagePens') && (
+                    <button 
+                      onClick={() => showConfirm('تأكيد الحذف', `هل أنت متأكد من حذف ${selectedPen.name}؟`, () => { handleDeletePen(selectedPen.id, false); setSelectedPen(null); setActiveTab('pens'); })}
+                      className="flex items-center justify-center p-1.5 bg-red-50 text-red-600 rounded-xl border border-red-100 hover:bg-red-100 transition dark:bg-red-900/20 dark:border-red-900/50"
+                      title="حذف القسم"
+                    >
+                      <Trash2 size={14} />
                     </button>
                   )}
                 </div>
@@ -2726,6 +2748,13 @@ function App() {
         confirmLabel={alertConfig.confirmLabel}
         cancelLabel={alertConfig.cancelLabel}
       />
+      <ChatModal 
+        isOpen={isChatOpen} 
+        onClose={() => setIsChatOpen(false)} 
+        currentUser={currentUser} 
+        users={users} 
+      />
+
     </div>
   );
 }

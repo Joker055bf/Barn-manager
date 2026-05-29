@@ -164,6 +164,17 @@ export interface ChatMessage {
   timestamp: number;
 }
 
+export interface UserMessage {
+  id: string;
+  chatId: string;
+  senderId: string;
+  receiverId: string;
+  type: 'text' | 'audio';
+  content: string;
+  timestamp: string;
+  read: boolean;
+}
+
 export interface WorkerPermissions {
   canAddAnimals: boolean;
   canEditAnimals: boolean;
