@@ -43,7 +43,7 @@ export const VaccinationGuide: React.FC<VaccinationGuideProps> = ({ sheepList = 
   return (
     <div className="max-w-4xl mx-auto space-y-2 animate-fade-in pb-4">
       {/* Tab Switcher */}
-      <div className="flex bg-white/50 backdrop-blur-md rounded-xl shadow-sm border border-gray-100 p-1 dark:bg-slate-900/50 dark:border-slate-800">
+      <div className="flex bg-white rounded-xl shadow-sm border border-gray-100 p-1 dark:bg-slate-900 dark:border-slate-800">
         <button
           onClick={() => setActiveTab('log')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg transition-all duration-300 font-black text-xs uppercase tracking-wider ${activeTab === 'log' ? 'bg-purple-600 text-white shadow-sm premium-shadow' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
@@ -61,7 +61,7 @@ export const VaccinationGuide: React.FC<VaccinationGuideProps> = ({ sheepList = 
       </div>
 
       {activeTab === 'guide' && (
-        <div className="glass-effect rounded-[2.5rem] shadow-2xl border border-gray-100/50 overflow-hidden animate-scale-in dark:border-slate-800 dark:bg-slate-900/60">
+        <div className="bg-[#FCFBF4] rounded-[2.5rem] shadow-2xl border border-gray-100/50 overflow-hidden animate-scale-in dark:border-slate-800 dark:bg-slate-900">
           <div className="bg-gradient-to-br from-purple-600 to-indigo-700 p-8 text-white relative overflow-hidden flex flex-col items-center text-center">
             <div className="relative z-10 flex flex-col items-center">
               <h2 className="text-2xl font-black flex items-center gap-3 tracking-tighter justify-center">
@@ -114,7 +114,7 @@ export const VaccinationGuide: React.FC<VaccinationGuideProps> = ({ sheepList = 
       )}
 
       {activeTab === 'log' && (
-        <div className="glass-effect rounded-[2.5rem] shadow-2xl border border-gray-100/50 overflow-hidden dark:bg-slate-900/60 dark:border-slate-800">
+        <div className="bg-[#FCFBF4] rounded-[2.5rem] shadow-2xl border border-gray-100/50 overflow-hidden dark:bg-slate-900 dark:border-slate-800">
           <div className="p-4 sm:p-5 border-b border-gray-50 flex flex-col md:flex-row items-center justify-between gap-4 dark:border-slate-800">
             <div>
               <h2 className="text-lg font-black text-gray-900 dark:text-gray-100 flex items-center gap-2 tracking-tighter">
@@ -148,7 +148,7 @@ export const VaccinationGuide: React.FC<VaccinationGuideProps> = ({ sheepList = 
               <div className="overflow-x-auto overflow-y-auto max-h-[55vh]">
                 <table className="w-full text-right border-collapse">
                   <thead>
-                    <tr className="bg-gray-50/50 dark:bg-slate-800/30 text-gray-400">
+                    <tr className="bg-gray-50/50 dark:bg-slate-800 text-gray-400">
                       <th className="p-2 font-black text-[9px] uppercase tracking-widest whitespace-nowrap">رقم الرأس</th>
                       <th className="p-2 font-black text-[9px] uppercase tracking-widest whitespace-nowrap">الإجراء</th>
                       <th className="p-2 font-black text-[9px] uppercase tracking-widest whitespace-nowrap">الاسم</th>

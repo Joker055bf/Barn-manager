@@ -184,7 +184,7 @@ export const WorkerManageModal: React.FC<WorkerManageModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" dir="rtl">
-      <div className="glass-effect rounded-[2.5rem] w-full max-w-lg max-h-[90vh] shadow-2xl overflow-hidden animate-scale-in dark:bg-slate-900/90 dark:border dark:border-slate-800 flex flex-col">
+      <div className="bg-[#FCFBF4] rounded-[2.5rem] w-full max-w-lg max-h-[90vh] shadow-2xl overflow-hidden animate-scale-in dark:bg-slate-900 dark:border dark:border-slate-800 flex flex-col">
 
         {/* Header */}
         <div className="bg-gradient-to-br from-[#3E2723] to-[#795548] p-8 text-white relative overflow-hidden dark:from-slate-800 dark:to-slate-950 shrink-0">
@@ -331,7 +331,7 @@ export const WorkerManageModal: React.FC<WorkerManageModalProps> = ({
 
           {/* Workers List */}
           {workers.length === 0 && !showAddForm && (
-            <div className="text-center py-20 bg-gray-50/50 rounded-[2.5rem] border-2 border-dashed border-gray-100 dark:bg-slate-800/20 dark:border-slate-800">
+            <div className="text-center py-20 bg-gray-50/50 rounded-[2.5rem] border-2 border-dashed border-gray-100 dark:bg-slate-800 dark:border-slate-800">
               <Shield size={64} className="mx-auto mb-4 text-gray-200 dark:text-slate-700" />
               <p className="font-black text-gray-400 uppercase tracking-widest text-xs">لا يوجد عمال مسجلون</p>
               <p className="text-[10px] text-gray-300 mt-2">ابدأ بإضافة طاقم العمل وتحديد مستويات الوصول</p>

@@ -258,7 +258,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             />
 
             {/* Modal Content */}
-            <div className="glass-effect rounded-[2.5rem] w-full max-w-sm shadow-2xl scale-100 relative overflow-hidden dark:bg-slate-900/90 dark:border dark:border-slate-800 max-h-[90vh] flex flex-col animate-scale-in">
+            <div className="bg-[#FCFBF4] rounded-[2.5rem] w-full max-w-sm shadow-2xl scale-100 relative overflow-hidden dark:bg-slate-900 dark:border dark:border-slate-800 max-h-[90vh] flex flex-col animate-scale-in">
 
                 {/* Header */}
                 <div className="bg-gradient-to-br from-[#795548] to-[#3E2723] p-8 text-white text-center relative dark:from-slate-800 dark:to-slate-950 shrink-0">
@@ -268,7 +268,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     >
                         <X size={24} />
                     </button>
-                    <div className="w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mx-auto mb-4 border border-white/20 shadow-xl">
+                    <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 border border-white/20 shadow-xl">
                         <Settings className="w-8 h-8 text-orange-100" />
                     </div>
                     <h2 className="text-3xl font-black mb-1 tracking-tight">{language === 'en' ? 'Settings' : 'الإعدادات'}</h2>
@@ -279,7 +279,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                     {/* Farm Profile Section */}
                     {isForgotMode ? (
-                        <div className="space-y-4 p-6 bg-orange-50/50 rounded-[2rem] border border-orange-100 dark:bg-slate-800/50 dark:border-slate-700 animate-fade-in">
+                        <div className="space-y-4 p-6 bg-orange-50/50 rounded-[2rem] border border-orange-100 dark:bg-slate-800 dark:border-slate-700 animate-fade-in">
                             <div className="flex items-center gap-3 text-orange-800 dark:text-orange-400 mb-2">
                                 <Lock size={24} />
                                 <h3 className="font-black text-lg">استعادة البيانات</h3>
@@ -387,7 +387,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 </div>
                             </div>
                         ) : (
-                            <div className="p-8 bg-gray-50/50 rounded-[2.5rem] border border-gray-100 dark:bg-slate-800/50 dark:border-slate-700 text-center animate-fade-in">
+                            <div className="p-8 bg-gray-50/50 rounded-[2.5rem] border border-gray-100 dark:bg-slate-800 dark:border-slate-700 text-center animate-fade-in">
                                 <div className="w-16 h-16 bg-white rounded-2xl shadow-sm mx-auto mb-4 flex items-center justify-center text-gray-300 dark:bg-slate-700 dark:text-slate-500">
                                     <User size={32} />
                                 </div>

@@ -1111,7 +1111,7 @@ function App() {
     <div
       key={sheep.id}
       onClick={() => setViewingSheep(sheep)}
-      className={`relative rounded-3xl p-4 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer group aspect-square sm:aspect-auto ${sheep.gender === 'male' ? 'bg-blue-50/30' : 'bg-pink-50/30'} border border-gray-100 hover-glow dark:border-slate-800 dark:bg-slate-900/40 premium-shadow`}
+      className={`relative rounded-3xl p-4 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer group aspect-square sm:aspect-auto ${sheep.gender === 'male' ? 'bg-blue-50/30' : 'bg-pink-50/30'} border border-gray-100 hover-glow dark:border-slate-800 dark:bg-slate-900 premium-shadow`}
     >
       <div
         className={`px-4 py-2 rounded-2xl flex items-center justify-center shadow-md text-white min-w-[70px] ${sheep.tagColor ? '' : (sheep.gender === 'male' ? 'bg-blue-500' : 'bg-emerald-500')} `}
@@ -1158,7 +1158,7 @@ function App() {
 
   const renderDetailCard = (sheep: Sheep) => {
     return (
-      <div className="glass-effect rounded-[2.5rem] p-6 w-full max-w-sm mx-auto shadow-2xl animate-scale-in dark:bg-slate-900/80">
+      <div className="bg-[#FCFBF4] rounded-[2.5rem] p-6 w-full max-w-sm mx-auto shadow-2xl animate-scale-in dark:bg-slate-900">
         <div className="flex items-start justify-between mb-6">
           <div className="flex items-center gap-4">
             <div
@@ -1195,7 +1195,7 @@ function App() {
         )}
 
         {sheep.notes && (
-          <div className="text-sm text-gray-600 bg-white/50 border border-gray-100 rounded-2xl p-4 mb-6 text-right dark:bg-slate-800/50 dark:border-slate-700/50">
+          <div className="text-sm text-gray-600 bg-white/50 border border-gray-100 rounded-2xl p-4 mb-6 text-right dark:bg-slate-800 dark:border-slate-700/50">
             <span className="font-black text-gray-400 block mb-2 text-[10px] uppercase tracking-widest">الملاحظات</span>
             <p className="dark:text-gray-300 leading-relaxed text-xs">{sheep.notes}</p>
           </div>
@@ -1426,7 +1426,7 @@ function App() {
       <div
         key={pen.id}
         onClick={() => pen.isGroup ? enterGroup(pen.id) : enterSheepList(pen.id)}
-        className="flex-none w-[48%] md:w-[280px] snap-center flex flex-col glass-effect rounded-[2.5rem] p-5 shadow-sm border border-gray-100/50 transition-all duration-500 relative cursor-pointer hover:shadow-xl hover:border-[#795548]/20 group hover-glow dark:bg-slate-900/40 dark:border-slate-800"
+        className="flex-none w-[48%] md:w-[280px] snap-center flex flex-col bg-[#FCFBF4] rounded-[2.5rem] p-5 shadow-sm border border-gray-100/50 transition-all duration-500 relative cursor-pointer hover:shadow-xl hover:border-[#795548]/20 group hover-glow dark:bg-slate-900 dark:border-slate-800"
       >
         <div className="flex justify-between items-start mb-2">
           <h3 className="font-black text-lg text-[#3E2723] dark:text-gray-200 group-hover:text-[#795548] transition-colors line-clamp-1 w-full text-center">
@@ -1530,7 +1530,7 @@ function App() {
         <div className="fixed top-6 left-6 right-6 z-[100] pointer-events-none flex justify-between items-center">
           <button 
             onClick={() => setIsSettingsOpen(true)} 
-            className="pointer-events-auto text-gray-400 hover:text-[#795548] transition-all duration-300 bg-white/90 backdrop-blur-md p-3.5 rounded-2xl shadow-lg border border-white/20 hover:shadow-xl active:scale-90 dark:bg-slate-800/90 dark:border-slate-700 dark:text-gray-300"
+            className="pointer-events-auto text-gray-400 hover:text-[#795548] transition-all duration-300 bg-white p-3.5 rounded-2xl shadow-lg border border-white/20 hover:shadow-xl active:scale-90 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-300"
             title={t.settings}
           >
             <Settings size={22} strokeWidth={2.5} />
@@ -1538,7 +1538,7 @@ function App() {
           
           <button 
             onClick={handleLogout} 
-            className="pointer-events-auto text-gray-400 hover:text-red-500 transition-all duration-300 bg-white/90 backdrop-blur-md p-3.5 rounded-2xl shadow-lg border border-white/20 hover:shadow-xl active:scale-90 dark:bg-slate-800/90 dark:border-slate-700 dark:text-gray-300"
+            className="pointer-events-auto text-gray-400 hover:text-red-500 transition-all duration-300 bg-white p-3.5 rounded-2xl shadow-lg border border-white/20 hover:shadow-xl active:scale-90 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-300"
             title={t.logout}
           >
             <LogOut size={22} strokeWidth={2.5} />
@@ -1549,7 +1549,7 @@ function App() {
       {/* Global Header - Simplified/Restored */}
       {/* Hide Header on Dashboard AND Root Pens View (My Barns List) */}
       {activeTab !== 'dashboard' && !(activeTab === 'pens' && !selectedGroupId) && (
-        <div className="bg-white/90 backdrop-blur-sm p-4 shadow-sm sticky top-0 z-30 mb-0 dark:bg-slate-900/90 dark:border-b dark:border-slate-800">
+        <div className="bg-white/90 backdrop-blur-sm p-4 shadow-sm sticky top-0 z-30 mb-0 dark:bg-slate-900 dark:border-b dark:border-slate-800">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {(activeTab === 'pens' && selectedGroupId) || (activeTab === 'sheepList') ? (
@@ -1721,7 +1721,7 @@ function App() {
                                 <div className="bg-white/90 rounded-[2rem] p-4 shadow-sm border border-gray-100 flex items-center justify-between gap-6 dark:bg-slate-900 dark:border-slate-800 backdrop-blur-md">
                                   <div className="flex-1 grid gap-2 max-h-24 overflow-y-auto pr-2 custom-scrollbar">
                                     {chartData.map((d, i) => (
-                                      <div key={i} className="flex items-center gap-3 p-2 rounded-xl bg-gray-50/50 dark:bg-slate-800/50 justify-start transition-all hover:bg-gray-100/50">
+                                      <div key={i} className="flex items-center gap-3 p-2 rounded-xl bg-gray-50/50 dark:bg-slate-800 justify-start transition-all hover:bg-gray-100/50">
                                         <div className="flex items-center gap-2 min-w-0">
                                           <div className="w-2 h-2 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: d.color && d.color.startsWith('#') ? d.color : (d.color === 'yellow' ? '#FDD835' : (d.color === 'red' ? '#E53935' : '#D7CCC8')) }} />
                                           <span className="text-[10px] font-bold text-gray-700 dark:text-gray-300 truncate">{d.name}</span>
@@ -1794,7 +1794,7 @@ function App() {
 
                 {/* Barn Secondary Navigation */}
                 <div className="fixed bottom-6 left-0 right-0 z-50 flex justify-center pointer-events-none">
-                   <div className="bg-white/95 backdrop-blur-md border border-gray-100 rounded-2xl shadow-xl w-[90%] max-w-lg pointer-events-auto flex items-center justify-between px-2 py-2 dark:bg-slate-900 dark:border-slate-800">
+                   <div className="bg-white border border-gray-100 rounded-2xl shadow-xl w-[90%] max-w-lg pointer-events-auto flex items-center justify-between px-2 py-2 dark:bg-slate-900 dark:border-slate-800">
                      {isOwner && <button onClick={() => setBarnTab('expenses')} className={`flex-1 flex flex-col items-center gap-1 py-1 ${barnTab === 'expenses' ? 'text-orange-600' : 'text-gray-400'}`}><Wallet size={24} /><span className="text-[10px] font-bold">{t.financials}</span></button>}
                      <button onClick={() => setBarnTab('vaccines')} className={`flex-1 flex flex-col items-center gap-1 py-1 ${barnTab === 'vaccines' ? 'text-orange-600' : 'text-gray-400'}`}><ShieldCheck size={24} /><span className="text-[10px] font-bold">{t.vaccination}</span></button>
                       <div className="relative -top-6"><button onClick={() => setIsDashboardOpen(true)} className="w-14 h-14 bg-[#795548] rounded-full shadow-lg flex items-center justify-center text-white border-4 border-[#fcfbf4] dark:bg-orange-600 dark:border-slate-950"><Plus size={28} strokeWidth={3} /></button></div>
@@ -1810,7 +1810,7 @@ function App() {
         {/* Sheep List View */}
         {activeTab === 'sheepList' && selectedPen && (
           <div className="p-4 md:p-8 space-y-6 animate-fade-in h-[calc(100vh-64px)] overflow-y-auto">
-             <div className="bg-white/80 rounded-[2.5rem] shadow-sm border border-gray-100 p-6 dark:bg-slate-900/50">
+             <div className="bg-white/80 rounded-[2.5rem] shadow-sm border border-gray-100 p-6 dark:bg-slate-900">
                 {displayedSheep.length > 0 ? (
                   <div className={`grid ${ (selectedGroup?.animalType === 'chickens' || selectedGroup?.animalType === 'pigeons') ? 'grid-cols-1 md:grid-cols-2 gap-4' : 'grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3' }`}>
                     {(selectedGroup?.animalType === 'chickens' || selectedGroup?.animalType === 'pigeons') ? (

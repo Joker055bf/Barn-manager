@@ -67,7 +67,7 @@ export const SheepStatsModal: React.FC<SheepStatsModalProps> = ({ isOpen, onClos
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" dir="rtl">
-            <div className="glass-effect rounded-[2.5rem] w-full max-w-4xl h-[90vh] shadow-2xl flex flex-col overflow-hidden animate-scale-in dark:bg-slate-900/90 dark:border dark:border-slate-800">
+            <div className="bg-[#FCFBF4] rounded-[2.5rem] w-full max-w-4xl h-[90vh] shadow-2xl flex flex-col overflow-hidden animate-scale-in dark:bg-slate-900 dark:border dark:border-slate-800">
 
                 {/* Header */}
                 <div className="bg-gradient-to-br from-[#3E2723] to-[#795548] p-8 text-white relative overflow-hidden dark:from-slate-800 dark:to-slate-950 shrink-0">
@@ -114,7 +114,7 @@ export const SheepStatsModal: React.FC<SheepStatsModalProps> = ({ isOpen, onClos
                     </div>
 
                     {/* Date Filter */}
-                    <div className="bg-white/50 backdrop-blur-md border border-white rounded-[2rem] p-6 shadow-xl dark:bg-slate-800/20 dark:border-slate-800">
+                    <div className="bg-white border border-white rounded-[2rem] p-6 shadow-xl dark:bg-slate-800 dark:border-slate-800">
                         <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center gap-2">
                                 <Filter size={18} className="text-[#795548]" />
@@ -154,7 +154,7 @@ export const SheepStatsModal: React.FC<SheepStatsModalProps> = ({ isOpen, onClos
                             <div className="overflow-x-auto custom-scrollbar">
                                 <table className="w-full text-right border-collapse">
                                     <thead>
-                                        <tr className="bg-gray-50/50 dark:bg-slate-900/50">
+                                        <tr className="bg-gray-50/50 dark:bg-slate-900">
                                             <th className="p-5 font-black text-[10px] text-gray-400 uppercase tracking-widest whitespace-nowrap">رقم الرأس</th>
                                             <th className="p-5 font-black text-[10px] text-gray-400 uppercase tracking-widest whitespace-nowrap">النوع / الجنس</th>
                                             <th className="p-5 font-black text-[10px] text-gray-400 uppercase tracking-widest whitespace-nowrap">الوسم</th>

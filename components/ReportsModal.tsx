@@ -471,7 +471,7 @@ export function ReportsModal({
     const renderOverviewCard = (title: string, value: string | number, subtitle: string, icon: React.ReactNode, colorClass: string, onClick: () => void, delayClass: string) => (
         <button 
             onClick={onClick} 
-            className={`bg-white/90 dark:bg-slate-800/80 backdrop-blur-md p-4 rounded-3xl border border-white/50 shadow-lg hover:scale-[1.02] transition-all duration-300 text-right w-full flex items-center justify-between group ${delayClass} dark:border-slate-800 min-h-[90px]`}
+            className={`bg-white/90 dark:bg-slate-800 backdrop-blur-md p-4 rounded-3xl border border-white/50 shadow-lg hover:scale-[1.02] transition-all duration-300 text-right w-full flex items-center justify-between group ${delayClass} dark:border-slate-800 min-h-[90px]`}
         >
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colorClass} bg-opacity-10 text-opacity-100 dark:bg-opacity-20 shrink-0`}>
                 {React.cloneElement(icon as React.ReactElement, { size: 20 })}
@@ -489,7 +489,7 @@ export function ReportsModal({
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" dir="rtl">
-            <div className="glass-effect rounded-[2.5rem] w-full max-w-5xl h-[90vh] shadow-2xl overflow-hidden flex flex-col animate-scale-in dark:bg-slate-900/90 dark:border dark:border-slate-800">
+            <div className="bg-[#FCFBF4] rounded-[2.5rem] w-full max-w-5xl h-[90vh] shadow-2xl overflow-hidden flex flex-col animate-scale-in dark:bg-slate-900 dark:border dark:border-slate-800">
 
                 {/* Header */}
                 <div className="bg-[#5D4037] px-6 py-5 rounded-t-[2.5rem] shrink-0 text-white flex items-center justify-between no-print">
@@ -590,7 +590,7 @@ export function ReportsModal({
                                             <div className="overflow-hidden rounded-[2rem] border border-gray-50 dark:border-slate-700">
                                                 <table className="w-full text-right border-collapse">
                                                     <thead>
-                                                        <tr className="bg-gray-50/50 dark:bg-slate-900/50">
+                                                        <tr className="bg-gray-50/50 dark:bg-slate-900">
                                                             <th className="p-5 font-black text-[10px] text-gray-400 uppercase tracking-widest">الصنف</th>
                                                             <th className="p-5 font-black text-[10px] text-gray-400 uppercase tracking-widest text-center">الكمية</th>
                                                             <th className="p-5 font-black text-[10px] text-gray-400 uppercase tracking-widest text-center">الحالة</th>
@@ -633,7 +633,7 @@ export function ReportsModal({
                                             </div>
                                             
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div className="bg-gray-50/50 p-5 rounded-2xl border border-gray-50 dark:bg-slate-900/50 dark:border-slate-800">
+                                                <div className="bg-gray-50/50 p-5 rounded-2xl border border-gray-50 dark:bg-slate-900 dark:border-slate-800">
                                                     <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">التوزيع حسب الفئة</h4>
                                                     <div className="space-y-3">
                                                         {Object.entries(expenseCategories).map(([cat, amount]) => (
@@ -656,7 +656,7 @@ export function ReportsModal({
                                             <div className="rounded-[2rem] border border-gray-50 overflow-hidden dark:border-slate-800">
                                                 <table className="w-full text-right border-collapse">
                                                     <thead>
-                                                        <tr className="bg-gray-50/50 dark:bg-slate-900/50">
+                                                        <tr className="bg-gray-50/50 dark:bg-slate-900">
                                                             <th className="p-5 font-black text-[10px] text-gray-400 uppercase tracking-widest">التاريخ</th>
                                                             <th className="p-5 font-black text-[10px] text-gray-400 uppercase tracking-widest">الصنف</th>
                                                             <th className="p-5 font-black text-[10px] text-gray-400 uppercase tracking-widest text-left">المبلغ</th>
@@ -703,7 +703,7 @@ export function ReportsModal({
                                             <div className="rounded-2xl border border-gray-50 overflow-hidden dark:border-slate-800">
                                                 <table className="w-full text-right border-collapse">
                                                     <thead>
-                                                        <tr className="bg-gray-50/50 dark:bg-slate-900/50">
+                                                        <tr className="bg-gray-50/50 dark:bg-slate-900">
                                                             <th className="p-4 font-black text-[9px] text-gray-400 uppercase tracking-widest">التاريخ</th>
                                                             <th className="p-4 font-black text-[9px] text-gray-400 uppercase tracking-widest">العملية</th>
                                                             <th className="p-4 font-black text-[9px] text-gray-400 uppercase tracking-widest text-left">المبلغ</th>
@@ -791,7 +791,7 @@ export function ReportsModal({
                                                             const sortedRecords = [...(sheep.medicalRecords || [])].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                                                             const latest = sortedRecords[0];
                                                             return (
-                                                                <div key={sheep.id} className="bg-white/50 p-6 rounded-[2rem] border border-red-50 shadow-sm flex flex-col gap-4 dark:bg-slate-900/50 dark:border-red-900/10">
+                                                                <div key={sheep.id} className="bg-white/50 p-6 rounded-[2rem] border border-red-50 shadow-sm flex flex-col gap-4 dark:bg-slate-900 dark:border-red-900/10">
                                                                     <div className="flex justify-between items-center">
                                                                         <div className="flex items-center gap-4">
                                                                             <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center text-red-600 dark:bg-red-900/20">
@@ -849,12 +849,12 @@ export function ReportsModal({
                                                 </div>
                                             </div>
 
-                                            <div className="bg-white/50 p-6 rounded-[2rem] border border-gray-100 dark:bg-slate-900/50 dark:border-slate-800">
+                                            <div className="bg-white/50 p-6 rounded-[2rem] border border-gray-100 dark:bg-slate-900 dark:border-slate-800">
                                                 <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 px-1">تفاصيل إنتاج الأمهات</h4>
                                                 <div className="overflow-hidden rounded-2xl border border-gray-50 dark:border-slate-800">
                                                     <table className="w-full text-right border-collapse">
                                                         <thead>
-                                                            <tr className="bg-gray-50/50 dark:bg-slate-900/50">
+                                                            <tr className="bg-gray-50/50 dark:bg-slate-900">
                                                                 <th className="p-4 font-black text-[9px] text-gray-400 uppercase tracking-widest">الأم (الرقم)</th>
                                                                 <th className="p-4 font-black text-[9px] text-gray-400 uppercase tracking-widest">النوع</th>
                                                                 <th className="p-4 font-black text-[9px] text-gray-400 uppercase tracking-widest text-center">عدد المواليد</th>

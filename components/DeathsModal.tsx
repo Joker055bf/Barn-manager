@@ -37,7 +37,7 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" dir="rtl">
-            <div className="glass-effect rounded-[2.5rem] w-full max-w-lg h-[80vh] shadow-2xl overflow-hidden flex flex-col animate-scale-in dark:bg-slate-900/90 dark:border dark:border-slate-800">
+            <div className="bg-[#FCFBF4] rounded-[2.5rem] w-full max-w-lg h-[80vh] shadow-2xl overflow-hidden flex flex-col animate-scale-in dark:bg-slate-900 dark:border dark:border-slate-800">
                 
                 {/* Header */}
                 <div className="bg-gradient-to-br from-red-900 to-rose-950 p-8 text-white relative overflow-hidden shrink-0">
@@ -142,7 +142,7 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
                         ))
                     ) : (
                         <div className="flex flex-col items-center justify-center py-20 text-gray-400 bg-white border border-gray-100 rounded-[2.5rem] dark:bg-slate-800 dark:border-slate-700">
-                            <div className="bg-gray-50 p-8 rounded-[2rem] mb-6 dark:bg-slate-900/50">
+                            <div className="bg-gray-50 p-8 rounded-[2rem] mb-6 dark:bg-slate-900">
                                 <Skull size={64} className="text-gray-100 dark:text-slate-800" />
                             </div>
                             <p className="font-black text-lg text-gray-400 uppercase tracking-widest">السجل نظيف تماماً</p>
