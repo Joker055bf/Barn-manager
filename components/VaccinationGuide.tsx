@@ -41,21 +41,21 @@ export const VaccinationGuide: React.FC<VaccinationGuideProps> = ({ sheepList = 
   );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4 animate-fade-in pb-6">
+    <div className="max-w-4xl mx-auto space-y-2 animate-fade-in pb-4">
       {/* Tab Switcher */}
-      <div className="flex bg-white/50 backdrop-blur-md rounded-2xl shadow-sm border border-gray-100 p-1.5 dark:bg-slate-900/50 dark:border-slate-800">
+      <div className="flex bg-white/50 backdrop-blur-md rounded-xl shadow-sm border border-gray-100 p-1 dark:bg-slate-900/50 dark:border-slate-800">
         <button
           onClick={() => setActiveTab('log')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl transition-all duration-300 font-black text-sm uppercase tracking-wider ${activeTab === 'log' ? 'bg-purple-600 text-white shadow-xl premium-shadow' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg transition-all duration-300 font-black text-xs uppercase tracking-wider ${activeTab === 'log' ? 'bg-purple-600 text-white shadow-sm premium-shadow' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
         >
-          <FileText size={18} />
+          <FileText size={16} />
           {language === 'en' ? 'Operation Log' : 'سجل العمليات'} ({medicalHistory.length})
         </button>
         <button
           onClick={() => setActiveTab('guide')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl transition-all duration-300 font-black text-sm uppercase tracking-wider ${activeTab === 'guide' ? 'bg-purple-600 text-white shadow-xl premium-shadow' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg transition-all duration-300 font-black text-xs uppercase tracking-wider ${activeTab === 'guide' ? 'bg-purple-600 text-white shadow-sm premium-shadow' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
         >
-          <BookOpen size={18} />
+          <BookOpen size={16} />
           {language === 'en' ? 'Vaccination Guide' : 'دليل التحصين'}
         </button>
       </div>
@@ -115,23 +115,22 @@ export const VaccinationGuide: React.FC<VaccinationGuideProps> = ({ sheepList = 
 
       {activeTab === 'log' && (
         <div className="glass-effect rounded-[2.5rem] shadow-2xl border border-gray-100/50 overflow-hidden dark:bg-slate-900/60 dark:border-slate-800">
-          <div className="p-8 border-b border-gray-50 flex flex-col md:flex-row items-center justify-between gap-6 dark:border-slate-800">
+          <div className="p-4 sm:p-5 border-b border-gray-50 flex flex-col md:flex-row items-center justify-between gap-4 dark:border-slate-800">
             <div>
-              <h2 className="text-xl font-black text-gray-900 dark:text-gray-100 flex items-center gap-2 tracking-tighter">
-                <FileText className="text-purple-600 w-6 h-6" />
+              <h2 className="text-lg font-black text-gray-900 dark:text-gray-100 flex items-center gap-2 tracking-tighter">
+                <FileText className="text-purple-600 w-5 h-5" />
                 سجل العمليات
               </h2>
-              <p className="text-gray-500 text-[10px] mt-0.5 font-bold opacity-70">توثيق كامل للعمليات الطبية</p>
             </div>
 
             <div className="relative w-full md:w-80">
-              <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
                 placeholder="بحث برقم الرأس أو نوع الإجراء..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pr-12 pl-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500 outline-none transition-all dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                className="w-full pr-10 pl-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-purple-500/10 focus:border-purple-500 outline-none transition-all dark:bg-slate-800 dark:border-slate-700 dark:text-white"
               />
             </div>
           </div>
@@ -150,40 +149,40 @@ export const VaccinationGuide: React.FC<VaccinationGuideProps> = ({ sheepList = 
                 <table className="w-full text-right border-collapse">
                   <thead>
                     <tr className="bg-gray-50/50 dark:bg-slate-800/30 text-gray-400">
-                      <th className="p-3 font-black text-[9px] uppercase tracking-widest whitespace-nowrap">رقم الرأس</th>
-                      <th className="p-3 font-black text-[9px] uppercase tracking-widest whitespace-nowrap">الإجراء</th>
-                      <th className="p-3 font-black text-[9px] uppercase tracking-widest whitespace-nowrap">الاسم</th>
-                      <th className="p-3 font-black text-[9px] uppercase tracking-widest whitespace-nowrap">التاريخ</th>
-                      <th className="p-3 font-black text-[9px] uppercase tracking-widest">ملاحظات</th>
+                      <th className="p-2 font-black text-[9px] uppercase tracking-widest whitespace-nowrap">رقم الرأس</th>
+                      <th className="p-2 font-black text-[9px] uppercase tracking-widest whitespace-nowrap">الإجراء</th>
+                      <th className="p-2 font-black text-[9px] uppercase tracking-widest whitespace-nowrap">الاسم</th>
+                      <th className="p-2 font-black text-[9px] uppercase tracking-widest whitespace-nowrap">التاريخ</th>
+                      <th className="p-2 font-black text-[9px] uppercase tracking-widest">ملاحظات</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
                     {filteredHistory.length > 0 ? (
                       filteredHistory.map((record) => (
                         <tr key={record.recordId} className="hover:bg-gray-50/50 transition dark:hover:bg-slate-800/20">
-                          <td className="p-3">
-                             <div className="flex items-center gap-2">
-                               <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                               <span className="font-black text-gray-900 dark:text-gray-100 text-sm">{record.serialNumber}</span>
+                          <td className="p-2.5">
+                             <div className="flex items-center gap-1.5">
+                               <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
+                               <span className="font-black text-gray-900 dark:text-gray-100 text-[11px]">{record.serialNumber}</span>
                              </div>
                           </td>
-                          <td className="p-5">
-                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${record.type === 'vaccine' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30' :
+                          <td className="p-2.5">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter ${record.type === 'vaccine' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30' :
                               record.type === 'treatment' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30'
                               }`}>
                               {record.type === 'vaccine' ? (language === 'en' ? 'Vaccine' : 'تحصين') : (record.type === 'treatment' ? (language === 'en' ? 'Treatment' : 'علاج') : (language === 'en' ? 'Checkup' : 'فحص'))}
                             </span>
                           </td>
-                          <td className="p-3 font-black text-xs text-gray-800 dark:text-gray-200">
+                          <td className="p-2.5 font-black text-[11px] text-gray-800 dark:text-gray-200">
                             {record.name}
                           </td>
-                          <td className="p-5 text-gray-500 text-xs font-bold whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                               <Calendar size={12} />
+                          <td className="p-2.5 text-gray-500 text-[10px] font-bold whitespace-nowrap">
+                            <div className="flex items-center gap-1">
+                               <Calendar size={10} />
                                {record.date}
                             </div>
                           </td>
-                          <td className="p-5 text-gray-400 text-xs font-medium max-w-sm">
+                          <td className="p-2.5 text-gray-400 text-[10px] font-medium max-w-[150px] truncate">
                             {record.notes || '-'}
                           </td>
                         </tr>
