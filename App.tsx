@@ -1100,6 +1100,12 @@ function App() {
   };
 
   const [viewingSheep, setViewingSheep] = useState<Sheep | undefined>(undefined);
+  const [reproductionConfirmState, setReproductionConfirmState] = useState<{
+    sheep: Sheep,
+    currentStatus: string,
+    nextStatus: string,
+    expectedDurationDays: number
+  } | null>(null);
 
   const renderSheepRow = (sheep: Sheep) => (
     <div
@@ -1233,16 +1239,7 @@ function App() {
           {sheep.gender === 'female' && (
             (!sheep.reproductionStatus || sheep.reproductionStatus === 'empty') ? (
               <button
-                onClick={async () => {
-                  try {
-                    await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), {
-                      reproductionStatus: 'pregnant',
-                      pregnancyDate: new Date().toISOString(),
-                      expectedBirthDate: new Date(Date.now() + 150 * 24 * 60 * 60 * 1000).toISOString()
-                    });
-                    setViewingSheep(prev => prev ? { ...prev, reproductionStatus: 'pregnant', pregnancyDate: new Date().toISOString() } : undefined);
-                  } catch (e) { console.error(e); }
-                }}
+                onClick={() => setReproductionConfirmState({ sheep, currentStatus: 'empty', nextStatus: 'pregnant', expectedDurationDays: 150 })}
                 className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-2xl shadow-sm transition"
               >
                 غير مضارع
@@ -1250,16 +1247,7 @@ function App() {
               </button>
             ) : sheep.reproductionStatus === 'pregnant' ? (
               <button
-                onClick={async () => {
-                  try {
-                    await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), {
-                      reproductionStatus: 'mother',
-                      lactationStartDate: new Date().toISOString(),
-                      lastBirthDate: new Date().toISOString()
-                    });
-                    setViewingSheep(prev => prev ? { ...prev, reproductionStatus: 'mother', lactationStartDate: new Date().toISOString() } : undefined);
-                  } catch (e) { console.error(e); }
-                }}
+                onClick={() => setReproductionConfirmState({ sheep, currentStatus: 'pregnant', nextStatus: 'mother', expectedDurationDays: 90 })}
                 className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-2xl shadow-sm transition animate-pulse"
               >
                 مضارع
@@ -1267,15 +1255,7 @@ function App() {
               </button>
             ) : (
               <button
-                onClick={async () => {
-                  try {
-                    await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), {
-                      reproductionStatus: 'empty',
-                      lactationStartDate: null
-                    });
-                    setViewingSheep(prev => prev ? { ...prev, reproductionStatus: 'empty', lactationStartDate: undefined } : undefined);
-                  } catch (e) { console.error(e); }
-                }}
+                onClick={() => setReproductionConfirmState({ sheep, currentStatus: 'mother', nextStatus: 'empty', expectedDurationDays: 0 })}
                 className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-pink-700 bg-pink-50 border border-pink-200 hover:bg-pink-100 rounded-2xl shadow-sm transition"
               >
                 أم حضانة
@@ -2317,6 +2297,100 @@ function App() {
           </div>
         )
       }
+
+      {/* Reproduction Confirm Modal */}
+      {reproductionConfirmState && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl">
+          <div className="bg-[#fcfbf4] rounded-[2rem] w-full max-w-sm shadow-2xl overflow-hidden border border-gray-100 dark:bg-slate-900 dark:border-slate-800">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 dark:bg-purple-900/30 dark:text-purple-400">
+                <Baby size={32} />
+              </div>
+              <h3 className="text-xl font-black text-gray-800 mb-2 dark:text-white">تأكيد حالة الإنجاب</h3>
+              <p className="text-sm font-bold text-gray-500 mb-6 dark:text-gray-400 leading-relaxed">
+                {reproductionConfirmState.currentStatus === 'empty' ? 'سيتم تغيير الحالة إلى (مضارع) لمدة 5 أشهر تقريباً.' : 
+                 reproductionConfirmState.currentStatus === 'pregnant' ? 'سيتم تغيير الحالة إلى (أم) لبدء فترة حضانة الرضيع (3 أشهر).' : 
+                 'سيتم إعادة الحيوان إلى حالة (غير مضارع).'}
+              </p>
+              
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={async () => {
+                    const { sheep, nextStatus, expectedDurationDays } = reproductionConfirmState;
+                    try {
+                      let updates: any = { reproductionStatus: nextStatus };
+                      if (nextStatus === 'pregnant') {
+                        updates.pregnancyDate = new Date().toISOString();
+                        updates.expectedBirthDate = new Date(Date.now() + expectedDurationDays * 24 * 60 * 60 * 1000).toISOString();
+                      } else if (nextStatus === 'mother') {
+                        updates.lactationStartDate = new Date().toISOString();
+                        updates.lastBirthDate = new Date().toISOString();
+                      } else if (nextStatus === 'empty') {
+                        updates.lactationStartDate = null;
+                        updates.pregnancyDate = null;
+                        updates.expectedBirthDate = null;
+                      }
+                      
+                      await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), updates);
+                      setViewingSheep(prev => prev ? { ...prev, ...updates } : undefined);
+                      setReproductionConfirmState(null);
+                    } catch (e) { console.error(e); }
+                  }}
+                  className="w-full py-4 rounded-2xl bg-purple-600 text-white font-black text-sm hover:bg-purple-700 transition shadow-lg"
+                >
+                  تأكيد {reproductionConfirmState.nextStatus === 'pregnant' ? 'الحمل' : reproductionConfirmState.nextStatus === 'mother' ? 'الولادة' : 'إنهاء الحضانة'}
+                </button>
+                
+                {reproductionConfirmState.currentStatus === 'pregnant' && (
+                  <button
+                    onClick={async () => {
+                      const { sheep } = reproductionConfirmState;
+                      try {
+                        const miscarriageRecord: MedicalRecord = {
+                          id: crypto.randomUUID(),
+                          date: new Date().toISOString(),
+                          type: 'treatment',
+                          name: 'سقط الحمل (إجهاض)',
+                          notes: 'تم إنهاء حالة الحمل وإجهاض الجنين.'
+                        };
+                        const updatedRecords = [miscarriageRecord, ...(sheep.medicalRecords || [])].slice(0, 50);
+                        
+                        await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), {
+                          reproductionStatus: 'empty',
+                          pregnancyDate: null,
+                          expectedBirthDate: null,
+                          medicalRecords: updatedRecords
+                        });
+                        
+                        setViewingSheep(prev => prev ? { 
+                          ...prev, 
+                          reproductionStatus: 'empty', 
+                          pregnancyDate: undefined, 
+                          expectedBirthDate: undefined,
+                          medicalRecords: updatedRecords 
+                        } : undefined);
+                        
+                        setReproductionConfirmState(null);
+                        showAlert('success', 'تم الإلغاء', 'تم تسجيل الإجهاض في سجل العمليات بنجاح.');
+                      } catch (e) { console.error(e); }
+                    }}
+                    className="w-full py-4 rounded-2xl bg-red-50 text-red-700 border border-red-200 font-black text-sm hover:bg-red-100 transition dark:bg-red-900/20 dark:border-red-900 dark:text-red-400"
+                  >
+                    إلغاء الحمل (إجهاض)
+                  </button>
+                )}
+                
+                <button
+                  onClick={() => setReproductionConfirmState(null)}
+                  className="w-full py-4 rounded-2xl bg-gray-100 text-gray-500 font-black text-sm hover:bg-gray-200 transition dark:bg-slate-800 dark:text-gray-400 dark:hover:bg-slate-700"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <SettingsModal
         isOpen={isSettingsOpen}
