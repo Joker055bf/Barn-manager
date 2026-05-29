@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Wheat, Layers, Save, Check } from 'lucide-react';
+import { X, Wheat, Layers, Save, Check, Plus } from 'lucide-react';
 import { CustomSelect } from './CustomSelect';
 import { FeedItem, FeedLogEntry } from '../types';
 
