@@ -492,28 +492,29 @@ export function ReportsModal({
             <div className="glass-effect rounded-[2.5rem] w-full max-w-5xl h-[90vh] shadow-2xl overflow-hidden flex flex-col animate-scale-in dark:bg-slate-900/90 dark:border dark:border-slate-800">
 
                 {/* Header */}
-                <div className="bg-gradient-to-br from-[#3E2723] to-[#795548] p-8 text-white relative overflow-hidden shrink-0 dark:from-slate-800 dark:to-slate-950">
-                    <div className="flex justify-between items-center relative z-10">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10">
-                                <FileText size={28} className="text-white" />
-                            </div>
-                            <div>
-                                <h2 className="text-2xl font-black tracking-tighter">مركز التقارير</h2>
-                            </div>
-                        </div>
-                        <button 
-                            onClick={onClose} 
-                            className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-full transition-all"
-                        >
-                            <X size={22} />
-                        </button>
+                <div className="bg-[#5D4037] px-6 py-5 rounded-t-[2.5rem] shrink-0 text-white flex items-center justify-between no-print">
+                    <button 
+                        onClick={onClose} 
+                        className="w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-all"
+                    >
+                        <X size={20} />
+                    </button>
+                    <h2 className="text-xl font-bold text-white text-center flex-1">
+                        {activeReport === 'overview' && 'مركز التقارير'}
+                        {activeReport === 'financial' && 'سجل المصروفات'}
+                        {activeReport === 'sales' && 'المبيعات'}
+                        {activeReport === 'feed' && 'إدارة الأعلاف'}
+                        {activeReport === 'health' && 'الحالة الصحية'}
+                        {activeReport === 'mortality' && 'سجل النفوق'}
+                        {activeReport === 'production' && 'سجل الإنتاج'}
+                    </h2>
+                    <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-white shrink-0">
+                        <FileText size={20} />
                     </div>
-                    <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-white/5 rounded-full blur-3xl" />
                 </div>
 
                 <div className="flex flex-1 overflow-hidden">
-                    <main className="flex-1 overflow-y-auto p-8 bg-white/30 dark:bg-transparent custom-scrollbar">
+                    <main className="flex-1 overflow-y-auto p-6 bg-[#F4F0EA] custom-scrollbar">
 
                         {activeReport === 'overview' && (
                             <div className="space-y-8">
@@ -568,41 +569,22 @@ export function ReportsModal({
                         {/* Detail Views */}
                         {activeReport !== 'overview' && (
                             <div className="animate-slide-in-left space-y-6">
-                                {/* Toolbar */}
-                                <div className="flex items-center justify-between mb-8 bg-white/50 backdrop-blur-md p-4 rounded-2xl border border-white shadow-xl dark:bg-slate-800/20 dark:border-slate-800">
-                                    <div></div>
-                                    <div className="flex items-center gap-4">
-                                        {isOwner && (
-                                            <button
-                                                onClick={handleShare}
-                                                disabled={!!generationStatus}
-                                                className="flex items-center gap-2 text-white bg-[#795548] hover:bg-[#3E2723] px-4 py-2 rounded-xl font-bold text-[10px] shadow-lg shadow-orange-900/20 transition-all disabled:opacity-50"
-                                            >
-                                                {generationStatus ? (
-                                                    <>
-                                                        <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                                        <span>{generationStatus}</span>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Share2 size={14} />
-                                                        <span>مشاركة</span>
-                                                    </>
-                                                )}
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
 
-                                <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl border border-white dark:bg-slate-800/80 dark:border-slate-700">
+
+                                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100/50 dark:bg-slate-900 dark:border-slate-800">
                                     {activeReport === 'feed' && (
                                         <div className="space-y-6">
-                                            <div className="flex items-center gap-4 border-b border-gray-100 pb-6 dark:border-slate-700">
-                                                <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-600 dark:bg-orange-900/20">
-                                                    <Wheat size={24} />
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tighter">تقرير المخزون</h3>
+                                            <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6 dark:border-slate-800">
+                                                {isOwner ? (
+                                                    <button onClick={handleShare} disabled={!!generationStatus} className="p-2.5 bg-[#F4F0EA] hover:bg-gray-100 rounded-xl text-gray-500 transition-all flex items-center justify-center dark:bg-slate-800 dark:text-gray-400">
+                                                        <Share2 size={18} />
+                                                    </button>
+                                                ) : <div />}
+                                                <div className="flex items-center gap-3">
+                                                    <h3 className="font-bold text-[#5D4037] text-base dark:text-white">تقرير المخزون</h3>
+                                                    <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600 dark:bg-orange-900/20">
+                                                        <Wheat size={20} />
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div className="overflow-hidden rounded-[2rem] border border-gray-50 dark:border-slate-700">
@@ -636,12 +618,17 @@ export function ReportsModal({
 
                                     {activeReport === 'financial' && (
                                         <div className="space-y-8">
-                                            <div className="flex items-center gap-4 border-b border-gray-100 pb-6 dark:border-slate-700">
-                                                <div className="w-12 h-12 bg-teal-50 rounded-2xl flex items-center justify-center text-teal-600 dark:bg-teal-900/20">
-                                                    <Wallet size={24} />
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tighter">سجل المصروفات</h3>
+                                            <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6 dark:border-slate-800">
+                                                {isOwner ? (
+                                                    <button onClick={handleShare} disabled={!!generationStatus} className="p-2.5 bg-[#F4F0EA] hover:bg-gray-100 rounded-xl text-gray-500 transition-all flex items-center justify-center dark:bg-slate-800 dark:text-gray-400">
+                                                        <Share2 size={18} />
+                                                    </button>
+                                                ) : <div />}
+                                                <div className="flex items-center gap-3">
+                                                    <h3 className="font-bold text-[#5D4037] text-base dark:text-white">سجل المصروفات</h3>
+                                                    <div className="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center text-teal-600 dark:bg-teal-900/20">
+                                                        <Wallet size={20} />
+                                                    </div>
                                                 </div>
                                             </div>
                                             
@@ -691,12 +678,17 @@ export function ReportsModal({
 
                                     {activeReport === 'sales' && (
                                         <div className="space-y-8">
-                                            <div className="flex items-center gap-4 border-b border-gray-100 pb-6 dark:border-slate-700">
-                                                <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center text-green-600 dark:bg-green-900/20">
-                                                    <Banknote size={24} />
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tighter">تقرير المبيعات</h3>
+                                            <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6 dark:border-slate-800">
+                                                {isOwner ? (
+                                                    <button onClick={handleShare} disabled={!!generationStatus} className="p-2.5 bg-[#F4F0EA] hover:bg-gray-100 rounded-xl text-gray-500 transition-all flex items-center justify-center dark:bg-slate-800 dark:text-gray-400">
+                                                        <Share2 size={18} />
+                                                    </button>
+                                                ) : <div />}
+                                                <div className="flex items-center gap-3">
+                                                    <h3 className="font-bold text-[#5D4037] text-base dark:text-white">تقرير المبيعات</h3>
+                                                    <div className="w-10 h-10 bg-[#E8F5E9] rounded-xl flex items-center justify-center text-emerald-600 dark:bg-emerald-900/20">
+                                                        <Banknote size={20} />
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -733,12 +725,17 @@ export function ReportsModal({
 
                                     {activeReport === 'mortality' && (
                                         <div className="space-y-6">
-                                            <div className="flex items-center gap-4 border-b border-gray-100 pb-6 dark:border-slate-700">
-                                                <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center text-red-600 dark:bg-red-900/20">
-                                                    <Skull size={24} />
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tighter">سجل النفوق والنافق</h3>
+                                            <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6 dark:border-slate-800">
+                                                {isOwner ? (
+                                                    <button onClick={handleShare} disabled={!!generationStatus} className="p-2.5 bg-[#F4F0EA] hover:bg-gray-100 rounded-xl text-gray-500 transition-all flex items-center justify-center dark:bg-slate-800 dark:text-gray-400">
+                                                        <Share2 size={18} />
+                                                    </button>
+                                                ) : <div />}
+                                                <div className="flex items-center gap-3">
+                                                    <h3 className="font-bold text-[#5D4037] text-base dark:text-white">سجل النفوق والنافق</h3>
+                                                    <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center text-red-600 dark:bg-red-900/20">
+                                                        <Skull size={20} />
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div className="bg-red-50/50 backdrop-blur-md p-6 rounded-[2rem] border border-red-100 flex justify-between items-center dark:bg-red-900/10 dark:border-red-900/20">
@@ -761,12 +758,17 @@ export function ReportsModal({
 
                                     {activeReport === 'health' && (
                                         <div className="space-y-8">
-                                            <div className="flex items-center gap-4 border-b border-gray-100 pb-6 dark:border-slate-700">
-                                                <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 dark:bg-blue-900/20">
-                                                    <Activity size={24} />
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tighter">تقرير السلامة الحيوية</h3>
+                                            <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6 dark:border-slate-800">
+                                                {isOwner ? (
+                                                    <button onClick={handleShare} disabled={!!generationStatus} className="p-2.5 bg-[#F4F0EA] hover:bg-gray-100 rounded-xl text-gray-500 transition-all flex items-center justify-center dark:bg-slate-800 dark:text-gray-400">
+                                                        <Share2 size={18} />
+                                                    </button>
+                                                ) : <div />}
+                                                <div className="flex items-center gap-3">
+                                                    <h3 className="font-bold text-[#5D4037] text-base dark:text-white">تقرير السلامة الحيوية</h3>
+                                                    <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 dark:bg-blue-900/20">
+                                                        <Activity size={20} />
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -822,12 +824,17 @@ export function ReportsModal({
 
                                     {activeReport === 'production' && (
                                         <div className="space-y-8">
-                                            <div className="flex items-center gap-4 border-b border-gray-100 pb-6 dark:border-slate-700">
-                                                <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600 dark:bg-purple-900/20">
-                                                    <BarChart3 size={24} />
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tighter">سجل الإنتاج والمواليد</h3>
+                                            <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6 dark:border-slate-800">
+                                                {isOwner ? (
+                                                    <button onClick={handleShare} disabled={!!generationStatus} className="p-2.5 bg-[#F4F0EA] hover:bg-gray-100 rounded-xl text-gray-500 transition-all flex items-center justify-center dark:bg-slate-800 dark:text-gray-400">
+                                                        <Share2 size={18} />
+                                                    </button>
+                                                ) : <div />}
+                                                <div className="flex items-center gap-3">
+                                                    <h3 className="font-bold text-[#5D4037] text-base dark:text-white">سجل الإنتاج والمواليد</h3>
+                                                    <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600 dark:bg-purple-900/20">
+                                                        <BarChart3 size={20} />
+                                                    </div>
                                                 </div>
                                             </div>
 

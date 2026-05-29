@@ -33,8 +33,13 @@ function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'pens' | 'sheepList' | 'vaccines' | 'feed' | 'expenses'>('pens');
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('rai_session');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('rai_session');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      console.error("Failed to parse rai_session from localStorage:", e);
+      return null;
+    }
   });
   const [users, setUsers] = useState<User[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
@@ -548,6 +553,32 @@ function App() {
   useEffect(() => { localStorage.setItem('rai_lang', appLanguage); }, [appLanguage]);
   useEffect(() => { localStorage.setItem('rai_theme', appTheme); }, [appTheme]);
 
+  // Background Breeding Timer (Revert lactation/mother status to 'empty' after 3 months / 90 days)
+  useEffect(() => {
+    if (!ownerId || rawSheep.length === 0) return;
+    const now = new Date();
+    const updateMotherStates = async () => {
+      for (const s of rawSheep) {
+        if (s.gender === 'female' && s.reproductionStatus === 'mother' && s.lactationStartDate) {
+          const start = new Date(s.lactationStartDate);
+          const diffTime = Math.abs(now.getTime() - start.getTime());
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          if (diffDays >= 90) {
+            try {
+              await updateDoc(doc(db, 'farms', ownerId, 'sheep', s.id), {
+                reproductionStatus: 'empty',
+                lactationStartDate: null
+              });
+            } catch (e) {
+              console.error("Error auto-updating breeding status for animal " + s.serialNumber, e);
+            }
+          }
+        }
+      }
+    };
+    updateMotherStates();
+  }, [rawSheep, ownerId]);
+
 
   const handleSaveExpense = async (expense: Expense) => {
     if (!ownerId) {
@@ -816,29 +847,53 @@ function App() {
         const toMove = quantity ? candidates.slice(0, quantity) : candidates;
         if (toMove.length === 0) return;
 
-        for (const s of toMove) {
-          const isTargetExclusion = targetPenId.includes('mortality');
-          await updateDoc(doc(db, 'farms', ownerId, 'sheep', s.id), {
-            penId: targetPenId,
-            notes: reason && isTargetExclusion ? reason : s.notes,
-            exclusionDate: isTargetExclusion ? new Date().toISOString() : (s.exclusionDate || null)
-          });
-        }
         const sourcePen = pens.find(p => p.id === selectedPenId);
         const sourceName = sourcePen?.name || 'قسم غير معروف';
         const targetPenName = pens.find(p => p.id === targetPenId)?.name || (targetPenId.includes('mortality') ? 'المستبعدة' : 'قسم جديد');
+
+        for (const s of toMove) {
+          const isTargetExclusion = targetPenId.includes('mortality');
+          const moveEntry = {
+            fromPenId: s.penId,
+            toPenId: targetPenId,
+            fromPenName: sourceName,
+            toPenName: targetPenName,
+            movedBy: currentUser?.name || 'غير معروف',
+            date: new Date().toISOString().split('T')[0]
+          };
+          const updatedHistory = [...(s.movementHistory || []), moveEntry];
+
+          await updateDoc(doc(db, 'farms', ownerId, 'sheep', s.id), {
+            penId: targetPenId,
+            notes: reason && isTargetExclusion ? reason : s.notes,
+            exclusionDate: isTargetExclusion ? new Date().toISOString() : (s.exclusionDate || null),
+            movementHistory: updatedHistory
+          });
+        }
         logActivity('نقل جماعي', `تم نقل ${toMove.length} رأس من [${sourceName}] إلى [${targetPenName}]`);
         setBatchAction(null);
       } else if (selectedSheepForAction) {
         const sourcePen = pens.find(p => p.id === (selectedPenId || selectedSheepForAction.penId));
         const sourceName = sourcePen?.name || 'قسم غير معروف';
         const isExcl = targetPenId.includes('mortality') || pens.find(p => p.id === targetPenId)?.isExclusion;
+        const targetPenName = pens.find(p => p.id === targetPenId)?.name || (targetPenId.includes('mortality') ? 'المستبعدة' : 'قسم جديد');
+        
+        const moveEntry = {
+          fromPenId: selectedSheepForAction.penId,
+          toPenId: targetPenId,
+          fromPenName: sourceName,
+          toPenName: targetPenName,
+          movedBy: currentUser?.name || 'غير معروف',
+          date: new Date().toISOString().split('T')[0]
+        };
+        const updatedHistory = [...(selectedSheepForAction.movementHistory || []), moveEntry];
+
         await updateDoc(doc(db, 'farms', ownerId, 'sheep', selectedSheepForAction.id), {
           penId: targetPenId,
           notes: reason && targetPenId.includes('mortality') ? reason : selectedSheepForAction.notes,
-          exclusionDate: isExcl ? new Date().toISOString() : (selectedSheepForAction.exclusionDate || null)
+          exclusionDate: isExcl ? new Date().toISOString() : (selectedSheepForAction.exclusionDate || null),
+          movementHistory: updatedHistory
         });
-        const targetPenName = pens.find(p => p.id === targetPenId)?.name || (targetPenId.includes('mortality') ? 'المستبعدة' : 'قسم جديد');
         logActivity('نقل حيوان', `تم نقل #${selectedSheepForAction.serialNumber} من [${sourceName}] إلى [${targetPenName}]`);
         setSelectedSheepForAction(undefined);
       }
@@ -1126,6 +1181,81 @@ function App() {
           <div className="text-sm text-gray-600 bg-white/50 border border-gray-100 rounded-2xl p-4 mb-6 text-right dark:bg-slate-800/50 dark:border-slate-700/50">
             <span className="font-black text-gray-400 block mb-2 text-[10px] uppercase tracking-widest">الملاحظات</span>
             <p className="dark:text-gray-300 leading-relaxed text-xs">{sheep.notes}</p>
+          </div>
+        )}
+
+        {/* Quick Breeding Toggle Button for Females */}
+        {sheep.gender === 'female' && (
+          <div className="mb-4 text-right">
+            <span className="font-black text-gray-400 block mb-2 text-[10px] uppercase tracking-widest">حالة الإخصاب والتناسل</span>
+            {(!sheep.reproductionStatus || sheep.reproductionStatus === 'empty') && (
+              <button
+                onClick={async () => {
+                  try {
+                    await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), {
+                      reproductionStatus: 'pregnant',
+                      pregnancyDate: new Date().toISOString(),
+                      expectedBirthDate: new Date(Date.now() + 150 * 24 * 60 * 60 * 1000).toISOString()
+                    });
+                    setViewingSheep(prev => prev ? { ...prev, reproductionStatus: 'pregnant', pregnancyDate: new Date().toISOString() } : undefined);
+                  } catch (e) { console.error(e); }
+                }}
+                className="w-full py-3 px-4 rounded-2xl bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 font-bold text-xs flex items-center justify-center gap-2 transition"
+              >
+                <span>غير مضرع (اضغط للحمل)</span>
+              </button>
+            )}
+
+            {sheep.reproductionStatus === 'pregnant' && (
+              <div className="space-y-2">
+                <button
+                  onClick={async () => {
+                    try {
+                      await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), {
+                        reproductionStatus: 'mother',
+                        lactationStartDate: new Date().toISOString(),
+                        lastBirthDate: new Date().toISOString()
+                      });
+                      setViewingSheep(prev => prev ? { ...prev, reproductionStatus: 'mother', lactationStartDate: new Date().toISOString() } : undefined);
+                    } catch (e) { console.error(e); }
+                  }}
+                  className="w-full py-3 px-4 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg animate-pulse transition"
+                >
+                  <span>مضرع (اضغط لتسجيل الولادة)</span>
+                </button>
+                {(() => {
+                  if (sheep.pregnancyDate) {
+                    const start = new Date(sheep.pregnancyDate);
+                    const diffDays = Math.ceil(Math.abs(Date.now() - start.getTime()) / (1000 * 60 * 60 * 24));
+                    if (diffDays >= 150) {
+                      return (
+                        <div className="bg-red-50 border border-red-200 text-red-700 text-[10px] font-bold p-2.5 rounded-xl text-center">
+                          ⚠️ تنبيه: مضى أكثر من 5 أشهر على الحمل!
+                        </div>
+                      );
+                    }
+                  }
+                  return null;
+                })()}
+              </div>
+            )}
+
+            {sheep.reproductionStatus === 'mother' && (
+              <button
+                onClick={async () => {
+                  try {
+                    await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), {
+                      reproductionStatus: 'empty',
+                      lactationStartDate: null
+                    });
+                    setViewingSheep(prev => prev ? { ...prev, reproductionStatus: 'empty', lactationStartDate: undefined } : undefined);
+                  } catch (e) { console.error(e); }
+                }}
+                className="w-full py-3 px-4 rounded-2xl bg-pink-100 hover:bg-pink-200 text-pink-700 border border-pink-200 font-bold text-xs flex items-center justify-center gap-2 transition"
+              >
+                <span>أم حضانة ورضاعة (اضغط لإعادتها غير مضرع)</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -1733,46 +1863,96 @@ function App() {
       {/* Dashboard Summary Modal - Restored and Restricted */}
       {isDashboardOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl">
-          <div className="bg-[#fcfbf4] w-full max-w-md h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative dark:bg-slate-950">
+          <div className="bg-[#FCFBF4] w-full max-w-sm h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative border border-[#E8E5DF] animate-scale-in dark:bg-slate-950 dark:border-slate-800">
             {/* Header */}
             <div className="p-6 pb-4 flex justify-between items-center bg-transparent no-print">
-               <button 
+              <button 
                 onClick={() => setIsDashboardOpen(false)} 
                 className="p-2.5 bg-white text-gray-400 rounded-full shadow-sm hover:bg-red-50 hover:text-red-500 transition dark:bg-slate-900 dark:border dark:border-slate-800"
               >
                 <X size={20} />
               </button>
+              
               <h2 className="text-2xl font-black text-[#3E2723] flex items-center gap-3 dark:text-gray-100">
-                {t.farmSummary}
                 <LayoutGrid className="text-orange-600" size={24} />
+                {t.farmSummary}
               </h2>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6 pb-8 space-y-3 custom-scrollbar">
-              {/* Financials & Main Actions Square Grid (2 columns) */}
-              {/* Unified Categories & Reports Grid */}
-              <div className="grid grid-cols-2 gap-3 pb-2">
+            <div className="flex-1 overflow-y-auto px-6 pb-8 space-y-5 custom-scrollbar">
+              {/* Grid Menu */}
+              <div className="grid grid-cols-2 gap-4">
                 {[
-                  { id: 'health', label: 'الحالة الصحية', icon: Activity, color: 'text-blue-600', bg: 'bg-blue-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setReportsInitialTab('health'); setIsReportsModalOpen(true); } },
-                  { id: 'feed', label: 'إدارة الأعلاف', icon: Wheat, color: 'text-orange-600', bg: 'bg-orange-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setReportsInitialTab('feed'); setIsReportsModalOpen(true); } },
-                  { id: 'finance', label: 'المصاريف', icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setReportsInitialTab('financial'); setIsReportsModalOpen(true); } },
-                  { id: 'sales', label: 'المبيعات', icon: Banknote, color: 'text-teal-600', bg: 'bg-teal-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setReportsInitialTab('sales'); setIsReportsModalOpen(true); } },
-                   { id: 'production', label: 'سجل الإنتاج', icon: BarChart3, color: 'text-purple-600', bg: 'bg-purple-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsStatsModalOpen(true); } },
-                  { id: 'excluded', label: 'المستبعدة', icon: Skull, color: 'text-red-600', bg: 'bg-red-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsDeathsModalOpen(true); } },
-                  { id: 'recents', label: 'الأحداث الأخيرة', icon: Calendar, color: 'text-pink-600', bg: 'bg-pink-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsRecentsOpen(true); } },
-                  { id: 'workers', label: 'إدارة العمال', icon: Users, color: 'text-[#795548]', bg: 'bg-[#795548]/10', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsWorkerManageOpen(true); } },
+                  { id: 'feed', label: 'إدارة الأعلاف', icon: Wheat, color: 'text-orange-600 bg-orange-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setReportsInitialTab('feed'); setIsReportsModalOpen(true); } },
+                  { id: 'health', label: 'الحالة الصحية', icon: Activity, color: 'text-blue-600 bg-blue-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setReportsInitialTab('health'); setIsReportsModalOpen(true); } },
+                  { id: 'sales', label: 'المبيعات', icon: Banknote, color: 'text-[#00E676] bg-emerald-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setReportsInitialTab('sales'); setIsReportsModalOpen(true); } },
+                  { id: 'finance', label: 'المصاريف', icon: Wallet, color: 'text-green-600 bg-green-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setReportsInitialTab('financial'); setIsReportsModalOpen(true); } },
+                  { id: 'excluded', label: 'المستبعدة', icon: Skull, color: 'text-red-600 bg-red-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsDeathsModalOpen(true); } },
+                  { id: 'production', label: 'سجل الإنتاج', icon: BarChart3, color: 'text-purple-600 bg-purple-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsStatsModalOpen(true); } },
+                  { id: 'workers', label: 'إدارة العمال', icon: Users, color: 'text-[#795548] bg-[#795548]/10', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsWorkerManageOpen(true); } },
                 ].map(item => (
                   <button 
                     key={item.id}
                     onClick={item.onClick}
-                    className="bg-white p-4 rounded-[2rem] border border-gray-50 shadow-sm flex flex-col items-center justify-center gap-2 hover:scale-[1.02] transition-transform dark:bg-slate-900 dark:border-slate-800 h-24"
+                    className="bg-white p-5 rounded-[2rem] border border-[#EFECE6] shadow-sm flex flex-col items-center justify-center gap-2.5 hover:scale-[1.02] active:scale-[0.98] transition-all dark:bg-slate-900 dark:border-slate-800 h-28"
                   >
-                    <div className={`p-2 rounded-xl ${item.bg} ${item.color} dark:bg-white/5`}>
-                      <item.icon size={20} />
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${item.color} dark:bg-white/5`}>
+                      <item.icon size={22} />
                     </div>
-                    <span className="font-black text-[10px] text-gray-700 dark:text-gray-200">{item.label}</span>
+                    <span className="font-bold text-xs text-gray-700 dark:text-gray-200">{item.label}</span>
                   </button>
                 ))}
+              </div>
+
+              {/* Recent Worker Activities Card */}
+              <div className="bg-white border border-[#EFECE6] rounded-[2rem] p-5 shadow-sm space-y-4 dark:bg-slate-900 dark:border-slate-800">
+                <div className="flex items-center justify-between">
+                  <button 
+                    onClick={() => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsRecentsOpen(true); }}
+                    className="px-3 py-1.5 bg-[#F5F2EC] hover:bg-[#EFEBE9] text-[#795548] font-bold text-[10px] rounded-full transition-colors flex items-center gap-1"
+                  >
+                    عرض الكل &lt;
+                  </button>
+                  
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-black text-sm text-[#3E2723] dark:text-gray-100">أنشطة العمال الأخيرة</h3>
+                    <History size={16} className="text-[#795548]" />
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {activityLog.length === 0 ? (
+                    <div className="text-center py-6 text-gray-300 font-bold text-xs">لا توجد أنشطة مسجلة</div>
+                  ) : (
+                    activityLog.slice(0, 5).map(log => (
+                      <div key={log.id} className="flex items-center justify-between text-xs py-1 border-b border-gray-50/50 last:border-0">
+                        {/* Left: Date */}
+                        <span className="text-[10px] font-bold text-gray-400">
+                          {new Date(log.timestamp).toLocaleDateString('en-GB')}
+                        </span>
+                        
+                        {/* Right: Icon + Text */}
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-[#5D4037] dark:text-gray-200">
+                            {log.userName}: {log.action}
+                          </span>
+                          
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border ${
+                            log.action.includes('إضافة') ? 'bg-emerald-50 border-emerald-100 text-emerald-600' :
+                            log.action.includes('نقل') ? 'bg-orange-50 border-orange-100 text-orange-600' :
+                            'bg-slate-50 border-slate-100 text-slate-600'
+                          }`}>
+                            <div className={`w-1.5 h-1.5 rounded-full ${
+                              log.action.includes('إضافة') ? 'bg-emerald-500' :
+                              log.action.includes('نقل') ? 'bg-orange-500' :
+                              'bg-slate-500'
+                            }`} />
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
 
             </div>

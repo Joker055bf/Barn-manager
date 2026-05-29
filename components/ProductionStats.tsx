@@ -2,12 +2,16 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { X, Activity, Search, ArrowRight, ChevronDown, ChevronRight } from 'lucide-react';
 import { Sheep, Pen } from '../types';
 import { getAnimalAgeLabel, getPossibleAgeLabels } from '../utils/animalHelpers';
+import { db } from '../firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { AnimalRegistryProfile } from './AnimalRegistryProfile';
 
 interface ProductionStatsProps {
     isOpen: boolean;
     onClose: () => void;
     allSheep: Sheep[];
     pens: Pen[];
+    ownerId?: string | null;
 }
 
 // Check if child (<= 6 months) - Used to filter mothers
@@ -92,6 +96,7 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
     const [selectedMotherForDetails, setSelectedMotherForDetails] = useState<any | null>(null);
     const [selectedAgeClassBreakdown, setSelectedAgeClassBreakdown] = useState<{ gender: 'male' | 'female', ageClass: string, animals: Sheep[] } | null>(null);
     const [isMothersOpen, setIsMothersOpen] = useState(false);
+    const [viewingRegistryAnimal, setViewingRegistryAnimal] = useState<Sheep | null>(null);
 
     // Reset state when opening
     useEffect(() => {
@@ -101,6 +106,7 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
             setSelectedMotherForDetails(null);
             setSelectedAgeClassBreakdown(null);
             setIsMothersOpen(false);
+            setViewingRegistryAnimal(null);
         }
     }, [isOpen]);
 
@@ -391,8 +397,10 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
                                                                         className={`w-3 h-3 rounded-full border shrink-0 ${mother.tagColor ? 'border-gray-200' : 'border-dashed border-gray-300'}`}
                                                                         style={{ backgroundColor: mother.tagColor || 'transparent' }}
                                                                     />
-                                                                    <div className="flex flex-col">
-                                                                        <span>{mother.serialNumber}</span>
+                                                                    <div className="flex flex-col text-right">
+                                                                        <button onClick={() => setViewingRegistryAnimal(mother)} className="hover:underline text-right font-black">
+                                                                            {mother.serialNumber}
+                                                                        </button>
                                                                         {mother.nickname && <span className="text-[9px] text-gray-400 font-normal">{mother.nickname}</span>}
                                                                     </div>
                                                                 </div>
@@ -477,7 +485,7 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
                                         </thead>
                                         <tbody className="divide-y divide-gray-50 text-xs">
                                             {selectedAgeClassBreakdown.animals.map((s) => (
-                                                <tr key={s.id} className="hover:bg-[#fcfbf4] transition-colors">
+                                                <tr key={s.id} onClick={() => setViewingRegistryAnimal(s)} className="hover:bg-[#fcfbf4] transition-colors cursor-pointer">
                                                     <td className="px-4 py-3 font-bold text-gray-800">{s.serialNumber}</td>
                                                     <td className="px-4 py-3">
                                                         {s.tagColor ? (
@@ -545,7 +553,7 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
                                         </thead>
                                         <tbody className="divide-y divide-gray-50 text-xs">
                                             {selectedMotherForDetails.childrenDetails.map((child: Sheep) => (
-                                                <tr key={child.id} className="hover:bg-[#fcfbf4] transition-colors">
+                                                <tr key={child.id} onClick={() => setViewingRegistryAnimal(child)} className="hover:bg-[#fcfbf4] transition-colors cursor-pointer">
                                                     <td className="px-4 py-3 font-bold text-gray-700">
                                                         <div className="flex items-center gap-2">
                                                             <div
@@ -577,6 +585,38 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
 
                 </div>
             </div>
+            
+            {/* Comprehensive Animal Registry Profile Modal */}
+            {viewingRegistryAnimal && (
+              <AnimalRegistryProfile
+                isOpen={!!viewingRegistryAnimal}
+                onClose={() => setViewingRegistryAnimal(null)}
+                sheep={viewingRegistryAnimal}
+                allSheep={allSheep}
+                pens={pens}
+                onUpdateReproduction={async (sheepId, status) => {
+                  if (!ownerId) return;
+                  try {
+                    const updateData: any = { reproductionStatus: status };
+                    if (status === 'pregnant') {
+                      updateData.pregnancyDate = new Date().toISOString();
+                      updateData.expectedBirthDate = new Date(Date.now() + 150 * 24 * 60 * 60 * 1000).toISOString();
+                    } else if (status === 'mother') {
+                      updateData.lactationStartDate = new Date().toISOString();
+                      updateData.lastBirthDate = new Date().toISOString();
+                    } else if (status === 'empty') {
+                      updateData.lactationStartDate = null;
+                    }
+                    await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheepId), updateData);
+                    
+                    // Keep localized state up to date so active tabs refresh
+                    setViewingRegistryAnimal(prev => prev ? { ...prev, ...updateData } : null);
+                  } catch (e) {
+                    console.error("Error toggling breeding status in registry profile:", e);
+                  }
+                }}
+              />
+            )}
         </div>
     );
 };

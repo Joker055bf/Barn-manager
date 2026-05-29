@@ -115,6 +115,16 @@ export interface Sheep {
   reproductionHistory?: any[];
   lastMatingDate?: string;
   expectedBirthDate?: string;
+  pregnancyDate?: string;
+  lactationStartDate?: string;
+  movementHistory?: {
+    fromPenId: string;
+    toPenId: string;
+    fromPenName: string;
+    toPenName: string;
+    movedBy: string;
+    date: string;
+  }[];
 }
 
 export enum SheepType {
