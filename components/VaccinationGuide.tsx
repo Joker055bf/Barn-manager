@@ -74,7 +74,7 @@ export const VaccinationGuide: React.FC<VaccinationGuideProps> = ({ sheepList = 
           </div>
 
           <div className="p-4 sm:p-8">
-            <div className="overflow-x-auto rounded-2xl border border-gray-50 dark:border-slate-800">
+            <div className="overflow-x-auto overflow-y-auto max-h-[50vh] rounded-2xl border border-gray-50 dark:border-slate-800">
               <table className="w-full text-right border-collapse">
                 <thead>
                   <tr className="bg-purple-50/50 text-purple-900 border-b border-purple-100/30 dark:bg-purple-900/10 dark:text-purple-300 dark:border-purple-800/30">
@@ -146,7 +146,7 @@ export const VaccinationGuide: React.FC<VaccinationGuideProps> = ({ sheepList = 
                 <p className="text-sm text-gray-400 mt-2 font-bold">ابدأ بإضافة تحصين أو علاج من بطاقة الحيوان</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto overflow-y-auto max-h-[55vh]">
                 <table className="w-full text-right border-collapse">
                   <thead>
                     <tr className="bg-gray-50/50 dark:bg-slate-800/30 text-gray-400">
