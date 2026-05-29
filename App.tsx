@@ -338,6 +338,7 @@ function App() {
   const [isReportsModalOpen, setIsReportsModalOpen] = useState(false);
   const [reportsInitialTab, setReportsInitialTab] = useState<ReportType>('overview');
   const [isRecentsOpen, setIsRecentsOpen] = useState(false);
+  const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const [recentsDateFilter, setRecentsDateFilter] = useState<'all' | 'today' | 'week' | 'month' | 'year'>('all');
   const [recentsTypeFilter, setRecentsTypeFilter] = useState<'all' | 'birth' | 'death' | 'medical' | 'expense'>('all');
   const [isActionMenuOpen, setIsActionMenu] = useState(false);
@@ -1965,6 +1966,7 @@ function App() {
                     setReturnToDashboard(false);
                   }
                   setCustomDateRange({ start: '', end: '' }); // Reset date filter
+                  setExpandedEventId(null);
                 }} className="p-2 bg-gray-50 hover:bg-gray-100 rounded-full text-gray-500">
                   <X size={20} />
                 </button>
@@ -2094,17 +2096,93 @@ function App() {
                     type: 'feed',
                     date: l.date,
                     title: `إضافة مخزون: ${item.name}`,
-                    subtitle: `${l.amount} ${item.unit}${l.addedBy ? ` - بواسطة: ${l.addedBy}` : ''}`,
+                    subtitle: `${l.amount} ${item.unit} - بواسطة: ${l.addedBy || 'غير معروف'}`,
                     icon: Wheat,
-                    color: 'text-orange-600 bg-orange-50'
+                    color: 'text-orange-600 bg-orange-50',
+                    details: (
+                      <div className="space-y-1 text-[11px] font-bold text-gray-500">
+                        <p>إضافة مخزون: {item.name}</p>
+                        <p>التفاصيل: {l.amount} {item.unit} - بواسطة: {l.addedBy || 'غير معروف'}</p>
+                        <p>التاريخ: {new Date(l.date).toLocaleDateString('ar-SA')}</p>
+                      </div>
+                    )
                   }))
                 );
 
                 const allEvents = [
-                  ...relevantSheep.filter(s => s.birthDate).map(s => ({ id: `b-${s.id}`, type: 'birth', date: s.createdAt || s.birthDate!, title: `ولادة/إضافة: ${s.type}`, subtitle: `#${s.serialNumber}${s.addedBy ? ` - بواسطة: ${s.addedBy}` : ''}`, icon: Dna, color: 'text-emerald-600 bg-emerald-50' })),
-                  ...relevantSheep.filter(s => s.penId.includes('mortality')).map(s => ({ id: `d-${s.id}`, type: 'death', date: s.exclusionDate || new Date().toISOString(), title: `استبعاد: ${s.type}`, subtitle: `#${s.serialNumber} - ${s.notes}`, icon: Skull, color: 'text-red-600 bg-red-50' })),
-                  ...relevantSheep.flatMap(s => (s.medicalRecords || []).map((m, i) => ({ id: `m-${s.id}-${i}`, type: 'medical', date: m.createdAt || m.date, title: `علاج: ${m.name}`, subtitle: `#${s.serialNumber}`, icon: Syringe, color: 'text-purple-600 bg-purple-50' }))),
-                  ...relevantExpenses.map(e => ({ id: `e-${e.id}`, type: 'expense', date: e.createdAt || e.date, title: `مصروف: ${e.title}`, subtitle: `${e.amount} ريال`, icon: Wallet, color: 'text-blue-600 bg-blue-50' })),
+                  ...relevantSheep.filter(s => s.birthDate).map(s => ({ 
+                    id: `b-${s.id}`, type: 'birth', date: s.createdAt || s.birthDate!, 
+                    title: `إضافة حيوان: ${s.type}`, 
+                    subtitle: (
+                       <span className="flex items-center gap-1">
+                         #{s.serialNumber} - بواسطة: {s.addedBy || 'غير معروف'}
+                         {s.tagColor && <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: s.tagColor }}></span>}
+                       </span>
+                    ), 
+                    icon: Dna, color: 'text-emerald-600 bg-emerald-50',
+                    details: (
+                      <div className="space-y-1 text-[11px] font-bold text-gray-500">
+                        <p>الرقم التسلسلي: #{s.serialNumber}</p>
+                        <p>النوع: {s.type}</p>
+                        <p>الاسم/اللقب: {s.nickname || 'لا يوجد'}</p>
+                        <p>التاريخ: {new Date(s.createdAt || s.birthDate!).toLocaleDateString('ar-SA')}</p>
+                        <p>بواسطة: {s.addedBy || 'غير معروف'}</p>
+                      </div>
+                    )
+                  })),
+                  ...relevantSheep.filter(s => s.penId.includes('mortality')).map(s => ({ 
+                    id: `d-${s.id}`, type: 'death', date: s.exclusionDate || new Date().toISOString(), 
+                    title: `استبعاد: ${s.type}`, 
+                    subtitle: (
+                       <span className="flex items-center gap-1">
+                         #{s.serialNumber}
+                         {s.tagColor && <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: s.tagColor }}></span>}
+                       </span>
+                    ), 
+                    icon: Skull, color: 'text-red-600 bg-red-50',
+                    details: (
+                      <div className="space-y-1 text-[11px] font-bold text-gray-500">
+                        <p>السبب: {s.notes || 'غير محدد'}</p>
+                        <p>التاريخ: {new Date(s.exclusionDate || new Date().toISOString()).toLocaleDateString('ar-SA')}</p>
+                      </div>
+                    )
+                  })),
+                  ...relevantSheep.flatMap(s => (s.medicalRecords || []).map((m, i) => ({ 
+                    id: `m-${s.id}-${i}`, type: 'medical', date: m.createdAt || m.date, 
+                    title: `علاج: ${m.name}`, 
+                    subtitle: (
+                       <span className="flex items-center gap-1">
+                         #{s.serialNumber}
+                         {s.tagColor && <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: s.tagColor }}></span>}
+                       </span>
+                    ), 
+                    icon: Syringe, color: 'text-purple-600 bg-purple-50',
+                    details: (
+                      <div className="space-y-1 text-[11px] font-bold text-gray-500">
+                        <p>النوع: {m.type === 'vaccine' ? 'تحصين' : 'علاج'}</p>
+                        <p>الاسم: {m.name}</p>
+                        <p>الجرعة: {m.notes || 'غير محددة'}</p>
+                        <p>التفاصيل: {m.notes || 'لا توجد ملاحظات'}</p>
+                        <p>التاريخ: {new Date(m.createdAt || m.date).toLocaleDateString('ar-SA')}</p>
+                        <p>بواسطة: غير معروف</p>
+                      </div>
+                    )
+                  }))),
+                  ...relevantExpenses.map(e => ({ 
+                    id: `e-${e.id}`, type: 'expense', date: e.createdAt || e.date, 
+                    title: `مصروف: ${e.title}`, 
+                    subtitle: `${e.amount} ريال`, 
+                    icon: Wallet, color: 'text-blue-600 bg-blue-50',
+                    details: (
+                      <div className="space-y-1 text-[11px] font-bold text-gray-500">
+                        <p>البند: {e.title}</p>
+                        <p>المبلغ: {e.amount} ريال</p>
+                        <p>التاريخ: {new Date(e.createdAt || e.date).toLocaleDateString('ar-SA')}</p>
+                        <p>القسم/الحظيرة: {pens.find(p=>p.id===e.penId)?.name || 'غير معروف'}</p>
+                        <p>بواسطة: غير معروف</p>
+                      </div>
+                    )
+                  })),
                   ...feedEvents
                 ]
                   .filter(e => checkDate(e.date))
@@ -2122,17 +2200,42 @@ function App() {
                 );
 
                 return allEvents.map((event) => (
-                  <div key={event.id} className="flex items-start gap-4 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
-                    <div className={`p-3 rounded-xl ${event.color} shrink-0`}>
-                      <event.icon size={20} />
+                  <div key={event.id} className="flex flex-col bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
+                    <div className="flex items-start justify-between w-full">
+                       {/* Icon and Titles */}
+                       <div className="flex items-start gap-4">
+                         <div className={`p-3 rounded-xl ${event.color} shrink-0`}>
+                           <event.icon size={20} />
+                         </div>
+                         <div className="pt-1">
+                           <h4 className="font-bold text-gray-800 text-sm mb-1">{event.title}</h4>
+                           <div className="text-xs text-gray-500">{event.subtitle}</div>
+                         </div>
+                       </div>
+                       
+                       {/* Date Pill */}
+                       <div className="bg-gray-50 px-2 py-1.5 rounded-xl flex flex-col items-center shrink-0">
+                         <span className="text-[9px] font-bold text-gray-400" dir="ltr">{new Date(event.date).toLocaleDateString('en-GB')}</span>
+                         <span className="text-[7px] font-medium text-gray-400 mt-0.5">{new Date(event.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                       </div>
                     </div>
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start">
-                        <h4 className="font-bold text-gray-800 text-sm">{event.title}</h4>
-                        <span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-1 rounded-lg" dir="ltr">{new Date(event.date).toLocaleDateString('en-GB')}</span>
+
+                    {/* Expanded Details */}
+                    {expandedEventId === event.id && event.details && (
+                      <div className="mt-4 bg-gray-50 dark:bg-slate-900 rounded-xl p-3 border border-gray-100 dark:border-slate-800">
+                        {event.details}
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">{event.subtitle}</p>
-                    </div>
+                    )}
+
+                    {/* Toggle Button */}
+                    {event.details && (
+                      <button 
+                        onClick={() => setExpandedEventId(expandedEventId === event.id ? null : event.id)}
+                        className="mt-3 self-start text-[10px] font-bold text-orange-500 hover:text-orange-600 transition"
+                      >
+                         {expandedEventId === event.id ? 'إخفاء التفاصيل' : 'عرض التفاصيل'}
+                      </button>
+                    )}
                   </div>
                 ));
               })()}
