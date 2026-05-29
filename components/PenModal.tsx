@@ -118,12 +118,12 @@ export const PenModal: React.FC<PenModalProps> = ({ isOpen, onClose, onSave, ini
                     dir="rtl"
                   >
                     <option value="sheep">أغنام (ضأن/ماعز)</option>
-                    <option value="camels">إبل</option>
-                    <option value="cows">أبقار</option>
-                    <option value="chickens">دواجن (دجاج)</option>
-                    <option value="pigeons">حمام</option>
-                    <option value="horses">خيول</option>
-                    <option value="other">أخرى</option>
+                    <option value="camels" disabled>إبل (قريباً)</option>
+                    <option value="cows" disabled>أبقار (قريباً)</option>
+                    <option value="chickens" disabled>دواجن (دجاج) (قريباً)</option>
+                    <option value="pigeons" disabled>حمام (قريباً)</option>
+                    <option value="horses" disabled>خيول (قريباً)</option>
+                    <option value="other" disabled>أخرى (قريباً)</option>
                   </select>
                   <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-[#5D4037]">
                     <span className="text-lg font-bold text-[#8D6E63]">+</span>
