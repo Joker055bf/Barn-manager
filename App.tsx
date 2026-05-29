@@ -343,6 +343,7 @@ function App() {
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const [recentsDateFilter, setRecentsDateFilter] = useState<'all' | 'today' | 'week' | 'month' | 'year'>('all');
   const [recentsTypeFilter, setRecentsTypeFilter] = useState<'all' | 'birth' | 'death' | 'medical' | 'expense'>('all');
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [isActionMenuOpen, setIsActionMenu] = useState(false);
   const [isEditingOwner, setIsEditingOwner] = useState(false);
   const [customDateRange, setCustomDateRange] = useState<{ start: string, end: string }>({ start: '', end: '' });
@@ -486,6 +487,33 @@ function App() {
 
   // --- Users Sync (Authentication Layer) ---
   // This effect runs independently of ownerId to ensure AuthScreen has user data for login
+  const fetchActivityLog = async (ownerId: string) => {
+    try {
+      const q = query(collection(db, 'activity_log'), where('ownerId', '==', ownerId));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const activities = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ActivityEntry));
+        activities.sort((a, b) => b.timestamp - a.timestamp);
+        setActivityLog(activities);
+      });
+      return unsubscribe;
+    } catch (error) {
+      console.error("Error fetching activity log:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const q = query(
+      collection(db, 'chat_messages'),
+      where('receiverId', '==', currentUser.id),
+      where('read', '==', false)
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setUnreadChatCount(snapshot.docs.length);
+    });
+    return () => unsubscribe();
+  }, [currentUser]);
+
   useEffect(() => {
     // If we're already logged in as a worker, we only need to sync our own owner's users
     // But for the Login screen, we need to fetch all potentially available accounts
@@ -1550,13 +1578,6 @@ function App() {
             >
               <Settings size={22} strokeWidth={2.5} />
             </button>
-            <button 
-              onClick={() => setIsChatOpen(true)} 
-              className="text-orange-500 hover:text-orange-600 transition-all duration-300 bg-white p-3.5 rounded-2xl shadow-lg border border-white/20 hover:shadow-xl active:scale-90 dark:bg-slate-800 dark:border-slate-700"
-              title="رسايل"
-            >
-              <MessageCircle size={22} strokeWidth={2.5} />
-            </button>
           </div>
         </div>
       )}
@@ -1590,6 +1611,21 @@ function App() {
                 <>
                   {can('canAddAnimals') && <button onClick={() => openNewSheepModal()} className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-600 rounded-xl text-[10px] font-bold border border-orange-100 dark:bg-orange-900/20 whitespace-nowrap"><Dna size={12} /> {t.head} <Plus size={10} /></button>}
                   {can('canManagePens') && <button onClick={openAddSectionModal} className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-bold border border-blue-100 dark:bg-blue-900/20 whitespace-nowrap"><Warehouse size={12} /> قسم <Plus size={10} /></button>}
+                  <button 
+                    onClick={() => setIsChatOpen(true)} 
+                    className="relative flex items-center justify-center p-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 hover:bg-emerald-100 transition dark:bg-emerald-900/20 dark:border-emerald-900/50"
+                    title="رسايل"
+                  >
+                    <MessageCircle size={16} />
+                    {unreadChatCount > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 text-white text-[9px] items-center justify-center font-bold">
+                          {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                        </span>
+                      </span>
+                    )}
+                  </button>
                 </>
               )}
               {activeTab === 'sheepList' && selectedPen && (
@@ -1603,6 +1639,16 @@ function App() {
                       className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-600 rounded-xl text-[10px] font-bold border border-orange-100 dark:bg-orange-900/20 whitespace-nowrap"
                     >
                       <Plus size={14} /> {t.head}
+                    </button>
+                  )}
+                  {/* Edit Section Button */}
+                  {isOwner && can('canManagePens') && (
+                    <button 
+                      onClick={() => { setEditingPen(selectedPen); setIsAddingGroup(false); setIsModalOpen(true); }}
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-bold border border-indigo-100 hover:bg-indigo-100 transition dark:bg-indigo-900/20 dark:border-indigo-900/50 whitespace-nowrap"
+                      title="تعديل القسم"
+                    >
+                      <Edit size={12} /> تعديل
                     </button>
                   )}
                   {isOwner && can('canManagePens') && (
@@ -1919,7 +1965,16 @@ function App() {
               <div className="bg-white border border-[#EFECE6] rounded-[2rem] p-5 shadow-sm space-y-4 dark:bg-slate-900 dark:border-slate-800">
                 <div className="flex items-center justify-between">
                   <button 
-                    onClick={() => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsRecentsOpen(true); }}
+                    onClick={async () => { 
+                      setIsDashboardOpen(false); 
+                      setReturnToDashboard(true); 
+                      if (currentUser) {
+                        try {
+                          await updateDoc(doc(db, 'users', currentUser.id), { lastSeenEventsTime: Date.now() });
+                        } catch (e) { console.error(e); }
+                      }
+                      setIsWorkerActivityOpen(true); 
+                    }}
                     className="px-3 py-1.5 bg-[#F5F2EC] hover:bg-[#EFEBE9] text-[#795548] font-bold text-[10px] rounded-full transition-colors flex items-center gap-1"
                   >
                     عرض الكل &lt;
