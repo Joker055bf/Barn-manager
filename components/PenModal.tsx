@@ -61,7 +61,7 @@ export const PenModal: React.FC<PenModalProps> = ({ isOpen, onClose, onSave, ini
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-[#F4F0EA] rounded-[2.5rem] w-full max-w-sm shadow-2xl overflow-hidden border border-[#E0D9D0]/50 animate-scale-in">
         {/* Header */}
         <div className="flex justify-between items-center bg-[#5D4037] px-6 py-5 rounded-t-[2.5rem]">

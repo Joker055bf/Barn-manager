@@ -160,7 +160,7 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
       <div className="bg-[#Fdfcf7] rounded-[2.5rem] w-full max-w-md shadow-2xl overflow-hidden border border-[#E0D9D0]/50 animate-scale-in my-auto">
         {/* Header */}
         <div className="flex justify-between items-center bg-white px-6 py-5 rounded-t-[2.5rem] border-b border-gray-100">
@@ -199,6 +199,7 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
               اسم الصنف
             </label>
             <select
+              required
               value={isCustomName ? 'other' : name}
               onChange={(e) => {
                 if (e.target.value === 'other') {
