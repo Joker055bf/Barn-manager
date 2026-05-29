@@ -347,6 +347,7 @@ function App() {
   const [isWorkerManageOpen, setIsWorkerManageOpen] = useState(false);
   const [isWorkerActivityOpen, setIsWorkerActivityOpen] = useState(false);
   const [workerActivityFilter, setWorkerActivityFilter] = useState<'all' | 'add' | 'edit' | 'delete' | 'medical' | 'finance'>('all');
+  const [workerFilter, setWorkerFilter] = useState<string>('all');
   const [workerDateFilter, setWorkerDateFilter] = useState<'all' | 'today' | 'week' | 'month' | 'year'>('all');
 
 
@@ -2447,11 +2448,11 @@ function App() {
       {isWorkerActivityOpen && isOwner && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl">
           <div className="bg-[#fcfbf4] w-full max-w-xl h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col dark:bg-slate-950">
-            <div className="p-5 border-b border-gray-100 bg-white dark:bg-slate-900">
+            <div className="p-5 border-b border-gray-100 bg-white dark:bg-slate-900 shrink-0">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-xl text-gray-800 dark:text-white flex items-center gap-2">
                   <History className="text-[#3E2723] dark:text-orange-500" />
-                  سجل أنشطة العمال
+                  سجل العمال
                 </h3>
                 <button onClick={() => {
                   setIsWorkerActivityOpen(false);
@@ -2459,6 +2460,7 @@ function App() {
                     setIsDashboardOpen(true);
                     setReturnToDashboard(false);
                   }
+                  setWorkerFilter('all');
                 }} className="p-2 bg-gray-50 hover:bg-red-50 rounded-full text-gray-500 transition-colors">
                   <X size={20} />
                 </button>
@@ -2466,6 +2468,26 @@ function App() {
 
               {/* Filters for Worker Activity Log */}
               <div className="space-y-3">
+                {/* Worker Filter */}
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1" dir="rtl">
+                  <button
+                    onClick={() => setWorkerFilter('all')}
+                    className={`px-4 py-1.5 rounded-full text-[10px] font-black transition whitespace-nowrap border ${workerFilter === 'all' ? 'bg-[#795548] text-white border-[#795548]' : 'bg-white text-gray-400 border-gray-100 dark:bg-slate-800 dark:border-slate-700'}`}
+                  >
+                    جميع العمال
+                  </button>
+                  {users.filter(u => u.role === 'worker').map(w => (
+                    <button
+                      key={w.id}
+                      onClick={() => setWorkerFilter(w.id)}
+                      className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[10px] font-black transition whitespace-nowrap border ${workerFilter === w.id ? 'bg-[#795548] text-white border-[#795548]' : 'bg-white text-gray-400 border-gray-100 dark:bg-slate-800 dark:border-slate-700'}`}
+                    >
+                      <Users size={10} />
+                      {w.name}
+                    </button>
+                  ))}
+                </div>
+
                 {/* Date Filters */}
                 <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1" dir="rtl">
                    {[
@@ -2477,7 +2499,7 @@ function App() {
                      <button
                        key={f.id}
                        onClick={() => setWorkerDateFilter(f.id as any)}
-                       className={`px-4 py-1.5 rounded-full text-[10px] font-black transition whitespace-nowrap border ${workerDateFilter === f.id ? 'bg-[#795548] text-white border-[#795548]' : 'bg-white text-gray-400 border-gray-100 dark:bg-slate-800 dark:border-slate-700'}`}
+                       className={`px-4 py-1.5 rounded-full text-[10px] font-black transition whitespace-nowrap border ${workerDateFilter === f.id ? 'bg-gray-800 text-white border-gray-800 dark:bg-gray-100 dark:text-gray-900' : 'bg-white text-gray-400 border-gray-100 dark:bg-slate-800 dark:border-slate-700'}`}
                      >
                        {f.label}
                      </button>
@@ -2487,17 +2509,17 @@ function App() {
                 {/* Type Filters */}
                 <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1" dir="rtl">
                   {[
-                    { id: 'all', label: 'كافة الأنشطة', icon: History },
+                    { id: 'all', label: 'كافة الأحداث', icon: LayoutGrid },
                     { id: 'add', label: 'ولادات/إضافة', icon: Plus },
-                    { id: 'edit', label: 'تعديل', icon: Edit },
-                    { id: 'delete', label: 'استبعادات/حذف', icon: Skull, color: 'text-rose-600' },
-                    { id: 'medical', label: 'طبي/تحصين', icon: Syringe, color: 'text-purple-600' },
-                    { id: 'finance', label: 'مصروفات/مالية', icon: Wallet, color: 'text-indigo-600' },
+                    { id: 'edit', label: 'تعديلات', icon: Edit },
+                    { id: 'delete', label: 'استبعادات', icon: Skull, color: 'text-rose-600' },
+                    { id: 'medical', label: 'علاجات/تحصين', icon: Syringe, color: 'text-purple-600' },
+                    { id: 'finance', label: 'مصروفات', icon: Wallet, color: 'text-indigo-600' },
                   ].map(f => (
                     <button
                       key={f.id}
                       onClick={() => setWorkerActivityFilter(f.id as any)}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition border ${workerActivityFilter === f.id ? 'bg-[#795548]/10 text-[#795548] border-[#795548]/30 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300 dark:bg-slate-800 dark:border-slate-700'}`}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black whitespace-nowrap transition border ${workerActivityFilter === f.id ? 'bg-[#795548]/10 text-[#795548] border-[#795548]/30 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300 dark:bg-slate-800 dark:border-slate-700'}`}
                     >
                       {f.icon && <f.icon size={12} className={f.color || ''} />}
                       {f.label}
@@ -2507,73 +2529,86 @@ function App() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-8 pb-8 pt-4 custom-scrollbar">
-              <div className="space-y-4">
-                {(() => {
-                  const now = new Date();
-                  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                  const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
-                  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-                  const startOfYear = new Date(now.getFullYear(), 0, 1);
+            <div className="flex-1 overflow-y-auto px-6 pb-8 pt-6 custom-scrollbar relative">
+              {(() => {
+                const now = new Date();
+                const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                const startOfYear = new Date(now.getFullYear(), 0, 1);
 
-                  const filteredLogs = activityLog
-                    .filter(l => l.userRole === 'worker')
-                    .filter(l => {
-                      const logDate = new Date(l.timestamp);
-                      if (workerDateFilter === 'today') return logDate >= startOfDay;
-                      if (workerDateFilter === 'week') return logDate >= startOfWeek;
-                      if (workerDateFilter === 'month') return logDate >= startOfMonth;
-                      if (workerDateFilter === 'year') return logDate >= startOfYear;
-                      return true;
-                    })
-                    .filter(l => {
-                      if (workerActivityFilter === 'all') return true;
-                      if (workerActivityFilter === 'add') return l.action.includes('إضافة') || l.action.includes('ولادة');
-                      if (workerActivityFilter === 'edit') return l.action.includes('تعديل');
-                      if (workerActivityFilter === 'delete') return l.action.includes('حذف') || l.action.includes('استبعاد') || l.action.includes('وفاة');
-                      if (workerActivityFilter === 'medical') return l.action.includes('طبي') || l.action.includes('تلقيح') || l.action.includes('علاج');
-                      if (workerActivityFilter === 'finance') return l.action.includes('مصروف') || l.action.includes('بيع') || l.action.includes('مخزون');
-                      return true;
-                    });
-
-                  if (filteredLogs.length === 0) return (
-                    <div className="text-center py-20 text-gray-400">
-                      <History size={64} className="mx-auto mb-4 opacity-5" />
-                      <p className="text-sm font-bold">لا توجد أنشطة مسجلة للعمال حالياً بهذا الفلتر</p>
-                    </div>
-                  );
-
-                  return filteredLogs.map((log, idx) => {
-                    const getActionInfo = (action: string) => {
-                      if (action.includes('إضافة') || action.includes('ولادة')) return { icon: Dna, color: 'text-emerald-600 bg-emerald-50' };
-                      if (action.includes('تعديل')) return { icon: Edit, color: 'text-blue-600 bg-blue-50' };
-                      if (action.includes('حذف') || action.includes('استبعاد') || action.includes('وفاة')) return { icon: Skull, color: 'text-rose-600 bg-rose-50' };
-                      if (action.includes('نقل')) return { icon: ArrowRightLeft, color: 'text-orange-600 bg-orange-50' };
-                      if (action.includes('طبي') || action.includes('تلقيح') || action.includes('علاج')) return { icon: Syringe, color: 'text-purple-600 bg-purple-50' };
-                      if (action.includes('مصروف') || action.includes('بيع')) return { icon: Wallet, color: 'text-indigo-600 bg-indigo-50' };
-                      return { icon: Users, color: 'text-gray-600 bg-gray-50' };
-                    };
-                    const { icon: ActionIcon, color } = getActionInfo(log.action);
-                    
-                    return (
-                      <div key={log.id} className="flex items-start gap-3 bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition dark:bg-slate-900 dark:border-slate-800">
-                        <div className={`p-2.5 rounded-xl ${color} shrink-0`}>
-                          <ActionIcon size={18} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-start mb-0.5">
-                            <h4 className="font-black text-gray-900 text-[11px] dark:text-gray-100 truncate pr-2">{log.userName}: {log.action}</h4>
-                            <span className="text-[7px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-md dark:bg-slate-800 shrink-0" dir="ltr">
-                               {new Date(log.timestamp).toLocaleString('ar-SA', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true }).replace(',', ' -')}
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-gray-400 dark:text-gray-500 leading-tight font-bold truncate">{log.detail}</p>
-                        </div>
-                      </div>
-                    );
+                const filteredLogs = activityLog
+                  .filter(l => l.userRole === 'worker')
+                  .filter(l => workerFilter === 'all' || l.userId === workerFilter)
+                  .filter(l => {
+                    const logDate = new Date(l.timestamp);
+                    if (workerDateFilter === 'today') return logDate >= startOfDay;
+                    if (workerDateFilter === 'week') return logDate >= startOfWeek;
+                    if (workerDateFilter === 'month') return logDate >= startOfMonth;
+                    if (workerDateFilter === 'year') return logDate >= startOfYear;
+                    return true;
+                  })
+                  .filter(l => {
+                    if (workerActivityFilter === 'all') return true;
+                    if (workerActivityFilter === 'add') return l.action.includes('إضافة') || l.action.includes('ولادة');
+                    if (workerActivityFilter === 'edit') return l.action.includes('تعديل');
+                    if (workerActivityFilter === 'delete') return l.action.includes('حذف') || l.action.includes('استبعاد') || l.action.includes('وفاة');
+                    if (workerActivityFilter === 'medical') return l.action.includes('طبي') || l.action.includes('تلقيح') || l.action.includes('علاج');
+                    if (workerActivityFilter === 'finance') return l.action.includes('مصروف') || l.action.includes('بيع') || l.action.includes('مخزون');
+                    return true;
                   });
-                })()}
-              </div>
+
+                if (filteredLogs.length === 0) return (
+                  <div className="text-center py-20 text-gray-400">
+                    <History size={64} className="mx-auto mb-4 opacity-10" />
+                    <p className="text-sm font-bold">لا توجد أحداث مسجلة حالياً</p>
+                  </div>
+                );
+
+                return (
+                  <div className="relative pl-2 pr-12 space-y-6 before:absolute before:inset-y-0 before:right-[3.25rem] before:w-[2px] before:bg-gray-100 dark:before:bg-slate-800" dir="rtl">
+                    {filteredLogs.map((log, idx) => {
+                      const getActionInfo = (action: string) => {
+                        if (action.includes('إضافة') || action.includes('ولادة')) return { icon: Plus, color: 'text-emerald-600', dotColor: 'bg-emerald-500' };
+                        if (action.includes('تعديل')) return { icon: Edit, color: 'text-blue-600', dotColor: 'bg-blue-500' };
+                        if (action.includes('حذف') || action.includes('استبعاد') || action.includes('وفاة')) return { icon: Skull, color: 'text-rose-600', dotColor: 'bg-rose-500' };
+                        if (action.includes('نقل')) return { icon: ArrowRightLeft, color: 'text-orange-600', dotColor: 'bg-orange-500' };
+                        if (action.includes('طبي') || action.includes('تلقيح') || action.includes('علاج')) return { icon: Syringe, color: 'text-purple-600', dotColor: 'bg-purple-500' };
+                        if (action.includes('مصروف') || action.includes('بيع')) return { icon: Wallet, color: 'text-indigo-600', dotColor: 'bg-indigo-500' };
+                        return { icon: History, color: 'text-gray-600', dotColor: 'bg-gray-500' };
+                      };
+                      const { icon: ActionIcon, color, dotColor } = getActionInfo(log.action);
+                      const d = new Date(log.timestamp);
+                      const dateStr = d.toLocaleDateString('en-GB');
+                      const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
+                      
+                      return (
+                        <div key={log.id} className="relative flex items-start w-full">
+                          {/* Date and Time Column (Absolute on the right) */}
+                          <div className="absolute -right-14 top-2 flex flex-col items-center w-12 shrink-0">
+                            <span className="text-[9px] font-bold text-gray-500 leading-tight">{dateStr}</span>
+                            <span className="text-[8px] text-gray-400 font-medium leading-tight">{timeStr}</span>
+                          </div>
+                          
+                          {/* Timeline Dot */}
+                          <div className={`absolute -right-3 top-4 w-2 h-2 rounded-full ${dotColor} ring-4 ring-white dark:ring-slate-900 z-10`} />
+                          
+                          {/* Event Card */}
+                          <div className="flex-1 bg-gray-50/50 border border-gray-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition dark:bg-slate-800/50 dark:border-slate-700 mr-2 w-full">
+                            <div className="flex justify-between items-start gap-2 mb-2">
+                              <h4 className="font-bold text-gray-900 text-sm dark:text-gray-100 leading-tight">{log.action}</h4>
+                            </div>
+                            <p className="text-[10px] text-gray-500 font-bold mb-3">العامل: {log.userName}</p>
+                            <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed bg-white dark:bg-slate-900 p-3 rounded-xl border border-gray-100 dark:border-slate-800">
+                              {log.detail}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
