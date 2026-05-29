@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Save, Calculator, Check, Hash, ChevronDown, Calendar, Tag, ShoppingBag, Skull } from 'lucide-react';
 import { Sheep, SheepType, Pen } from '../types';
+import { CustomDatePicker } from './CustomDatePicker';
 import { getAnimalMetadata, generateId } from '../utils/animalHelpers';
 import { CustomSelect } from './CustomSelect';
 import { translations } from '../constants/translations';
@@ -503,13 +504,10 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                   </div>
 
                   {includeBirthDate ? (
-                    <input
+                    <CustomDatePicker
                       required
-                      type="date"
-                      max={new Date().toISOString().split('T')[0]}
                       value={birthDate}
-                      onChange={(e) => setBirthDate(e.target.value)}
-                      className="w-full px-3 py-2.5 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#795548] focus:bg-white outline-none transition-all shadow-sm font-medium text-sm"
+                      onChange={(date) => setBirthDate(date)}
                     />
                   ) : (
                     <div className="w-full px-3 py-2.5 bg-[#fcfbf4] text-gray-400 border border-gray-200 rounded-xl text-xs text-center font-medium shadow-sm">
@@ -670,19 +668,11 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                 {/* Date */}
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-700 block text-center">الميلاد</label>
-                  <div className="relative">
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                      <Calendar size={14} />
-                    </div>
-                    <input
-                      required
-                      type="date"
-                      max={new Date().toISOString().split('T')[0]}
-                      value={birthDate}
-                      onChange={(e) => setBirthDate(e.target.value)}
-                      className="w-full h-[38px] px-3 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#795548] focus:bg-white outline-none transition-all shadow-sm font-medium text-center text-sm"
-                    />
-                  </div>
+                  <CustomDatePicker
+                    required
+                    value={birthDate}
+                    onChange={(date) => setBirthDate(date)}
+                  />
                 </div>
 
                 {/* Age */}
@@ -753,12 +743,10 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-gray-700 block text-right">تاريخ الشراء</label>
-                    <input
-                      type="date"
+                    <CustomDatePicker
                       required
                       value={purchaseDate}
-                      onChange={(e) => setPurchaseDate(e.target.value)}
-                      className="w-full h-[40px] px-3 bg-white text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#795548] outline-none transition-all shadow-sm text-center text-xs"
+                      onChange={(date) => setPurchaseDate(date)}
                     />
                   </div>
                 </div>

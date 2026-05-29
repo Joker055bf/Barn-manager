@@ -4,15 +4,18 @@ import { ChevronDown, Check } from 'lucide-react';
 interface Option {
     value: string;
     label: string;
+    disabled?: boolean;
 }
 
 interface CustomSelectProps {
-    label: string;
+    label?: string;
     value: string;
     onChange: (value: string) => void;
     options: Option[];
     placeholder?: string;
     className?: string;
+    dir?: string;
+    required?: boolean;
 }
 
 export const CustomSelect: React.FC<CustomSelectProps> = ({
@@ -21,7 +24,9 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
     onChange,
     options,
     placeholder = 'اختر',
-    className
+    className = '',
+    dir = 'rtl',
+    required = false
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -40,45 +45,51 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
     const selectedOption = options.find(opt => opt.value === value);
 
     return (
-        <div className={`space-y-1 ${className}`} ref={containerRef}>
-            {label && <label className="text-xs font-bold text-gray-700 block mb-1">{label}</label>}
+        <div className={`space-y-1 ${className}`} ref={containerRef} dir={dir}>
+            {label && <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1">{label} {required && <span className="text-red-500">*</span>}</label>}
             <div className="relative">
                 <button
                     type="button"
                     onClick={() => setIsOpen(!isOpen)}
-                    className="w-full px-3 py-2.5 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#795548] focus:bg-white outline-none transition-all font-bold text-sm flex items-center justify-between text-right"
+                    className="w-full px-4 py-3.5 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-[#795548] focus:border-[#795548] outline-none transition-all font-bold text-sm flex items-center justify-between shadow-sm"
                 >
-                    <span className={selectedOption ? 'text-gray-900' : 'text-gray-400'}>
+                    <span className={selectedOption ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}>
                         {selectedOption ? selectedOption.label : placeholder}
                     </span>
-                    <ChevronDown size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown size={18} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {isOpen && (
-                    <div className="absolute top-full right-0 left-0 mt-1 bg-[#fcfbf4] border border-gray-100 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto custom-scrollbar animate-scale-in">
-                        <div className="p-1 space-y-0.5">
+                    <div className="absolute top-full right-0 left-0 mt-2 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl shadow-2xl z-[9999] max-h-64 overflow-y-auto custom-scrollbar animate-scale-in">
+                        <div className="p-2 space-y-1">
                             {options.map((option) => {
                                 const isSelected = option.value === value;
                                 return (
                                     <button
                                         key={option.value}
                                         type="button"
+                                        disabled={option.disabled}
                                         onClick={() => {
-                                            onChange(option.value);
-                                            setIsOpen(false);
+                                            if (!option.disabled) {
+                                                onChange(option.value);
+                                                setIsOpen(false);
+                                            }
                                         }}
-                                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-bold transition-all ${isSelected
-                                                ? 'bg-[#795548] text-white shadow-md'
-                                                : 'text-gray-700 hover:bg-gray-200/50 hover:text-gray-900'
-                                            }`}
+                                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+                                            option.disabled 
+                                                ? 'opacity-50 cursor-not-allowed text-gray-400 dark:text-gray-500' 
+                                                : isSelected
+                                                    ? 'bg-[#795548] text-white shadow-md'
+                                                    : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white'
+                                        }`}
                                     >
                                         <span>{option.label}</span>
-                                        {isSelected && <Check size={14} className="text-white" />}
+                                        {isSelected && <Check size={16} className="text-white" />}
                                     </button>
                                 );
                             })}
                             {options.length === 0 && (
-                                <div className="p-4 text-center text-xs text-gray-400">لا توجد خيارات</div>
+                                <div className="p-4 text-center text-sm font-bold text-gray-400">لا توجد خيارات</div>
                             )}
                         </div>
                     </div>

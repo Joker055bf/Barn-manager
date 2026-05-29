@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Wheat, Layers, Plus } from 'lucide-react';
+import { X, Wheat, Layers, Save, Check } from 'lucide-react';
+import { CustomSelect } from './CustomSelect';
 import { FeedItem, FeedLogEntry } from '../types';
 
 interface FeedModalProps {
@@ -195,30 +196,25 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-500 mb-2 text-right">
-              اسم الصنف
-            </label>
-            <select
+            <CustomSelect
               required
+              label="اسم الصنف"
+              placeholder="اختر الصنف"
               value={isCustomName ? 'other' : name}
-              onChange={(e) => {
-                if (e.target.value === 'other') {
+              onChange={(val) => {
+                if (val === 'other') {
                   setIsCustomName(true);
                   setName('');
                 } else {
                   setIsCustomName(false);
-                  setName(e.target.value);
+                  setName(val);
                 }
               }}
-              className="w-full px-5 py-4 bg-white text-gray-800 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none text-sm font-bold text-right shadow-sm transition appearance-none cursor-pointer"
-              dir="rtl"
-            >
-              <option value="" disabled>اختر الصنف</option>
-              {(category === 'grain' ? GRAIN_OPTIONS : FODDER_OPTIONS).map(opt => (
-                 <option key={opt} value={opt}>{opt}</option>
-              ))}
-              <option value="other">أخرى (كتابة يدوية)</option>
-            </select>
+              options={[
+                ...(category === 'grain' ? GRAIN_OPTIONS : FODDER_OPTIONS).map(opt => ({ value: opt, label: opt })),
+                { value: 'other', label: 'أخرى (كتابة يدوية)' }
+              ]}
+            />
             
             {isCustomName && (
               <input

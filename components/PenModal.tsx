@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
+import { CustomSelect } from './CustomSelect';
 import { Pen } from '../types';
 
 interface PenModalProps {
@@ -106,30 +107,20 @@ export const PenModal: React.FC<PenModalProps> = ({ isOpen, onClose, onSave, ini
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-[#8D6E63] mb-1.5 text-right">
-                  تصنيف الحيوانات
-                </label>
-                <div className="relative">
-                  <select
-                    value={animalType}
-                    onChange={(e) => setAnimalType(e.target.value)}
-                    className="w-full px-5 py-3.5 bg-white text-[#5D4037] border border-[#E0D9D0] rounded-2xl focus:ring-2 focus:ring-[#5D4037] focus:border-[#5D4037] outline-none text-sm font-bold text-right shadow-sm appearance-none cursor-pointer transition"
-                    dir="rtl"
-                  >
-                    <option value="sheep">أغنام (ضأن/ماعز)</option>
-                    <option value="camels" disabled>إبل (قريباً)</option>
-                    <option value="cows" disabled>أبقار (قريباً)</option>
-                    <option value="chickens" disabled>دواجن (دجاج) (قريباً)</option>
-                    <option value="pigeons" disabled>حمام (قريباً)</option>
-                    <option value="horses" disabled>خيول (قريباً)</option>
-                    <option value="other" disabled>أخرى (قريباً)</option>
-                  </select>
-                  <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-[#5D4037]">
-                    <span className="text-lg font-bold text-[#8D6E63]">+</span>
-                  </div>
-                </div>
-              </div>
+                <CustomSelect
+                  label="تصنيف الحيوانات"
+                  value={animalType}
+                  onChange={(val) => setAnimalType(val)}
+                  options={[
+                    { value: 'sheep', label: 'أغنام (ضأن/ماعز)' },
+                    { value: 'camels', label: 'إبل (قريباً)', disabled: true },
+                    { value: 'cows', label: 'أبقار (قريباً)', disabled: true },
+                    { value: 'chickens', label: 'دواجن (دجاج) (قريباً)', disabled: true },
+                    { value: 'pigeons', label: 'حمام (قريباً)', disabled: true },
+                    { value: 'horses', label: 'خيول (قريباً)', disabled: true },
+                    { value: 'other', label: 'أخرى (قريباً)', disabled: true }
+                  ]}
+                />
             </>
           )}
 
