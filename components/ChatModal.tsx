@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, Mic, Square, Loader2, Play, Pause, User, MessageCircle } from 'lucide-react';
-import { collection, addDoc, query, where, onSnapshot, orderBy, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../firebase';
+import { collection, addDoc, query, where, onSnapshot, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 import { User as UserType, UserMessage } from '../types';
 
 interface ChatModalProps {
@@ -12,16 +11,35 @@ interface ChatModalProps {
   users: UserType[];
 }
 
-const AudioPlayer = ({ url }: { url: string }) => {
+const DoubleCheck = ({ read, isMe }: { read: boolean; isMe: boolean }) => {
+  const color = read ? 'text-[#34B7F1]' : (isMe ? 'text-white/50' : 'text-gray-400');
+  return (
+    <svg className={`w-3.5 h-3.5 shrink-0 ${color}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 12l3.5 3.5L13 8" />
+      <path d="M7 12l3.5 3.5L20 8" />
+    </svg>
+  );
+};
+
+const AudioPlayer = ({ url, isMe }: { url: string; isMe: boolean }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState<number>(0);
+  const [currentTime, setCurrentTime] = useState<number>(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const audio = new Audio(url);
     audioRef.current = audio;
     
+    const onLoadedMetadata = () => {
+      if (audio.duration && isFinite(audio.duration)) {
+        setDuration(audio.duration);
+      }
+    };
+
     const onTimeUpdate = () => {
+      setCurrentTime(audio.currentTime);
       if (audio.duration) {
         setProgress((audio.currentTime / audio.duration) * 100);
       }
@@ -30,13 +48,20 @@ const AudioPlayer = ({ url }: { url: string }) => {
     const onEnded = () => {
       setIsPlaying(false);
       setProgress(0);
+      setCurrentTime(0);
     };
 
+    audio.addEventListener('loadedmetadata', onLoadedMetadata);
     audio.addEventListener('timeupdate', onTimeUpdate);
     audio.addEventListener('ended', onEnded);
     
+    if (audio.readyState >= 1) {
+      onLoadedMetadata();
+    }
+    
     return () => {
       audio.pause();
+      audio.removeEventListener('loadedmetadata', onLoadedMetadata);
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('ended', onEnded);
       audioRef.current = null;
@@ -61,16 +86,55 @@ const AudioPlayer = ({ url }: { url: string }) => {
     }
   };
 
+  const PEAKS = [10, 16, 8, 14, 20, 10, 16, 24, 14, 8, 16, 22, 12, 10, 16, 24, 14, 8, 16, 20, 12, 16, 22, 10, 8, 14, 18, 12];
+
+  const formatDuration = (secs: number) => {
+    if (isNaN(secs) || !isFinite(secs)) return '0:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
   return (
-    <div className="flex items-center gap-2 bg-gray-100 dark:bg-slate-800 rounded-full p-1.5 pr-3 min-w-[150px]">
-      <button 
-        onClick={togglePlay}
-        className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center shrink-0"
-      >
-        {isPlaying ? <Pause size={14} /> : <Play size={14} className="ml-1" />}
-      </button>
-      <div className="flex-1 h-1.5 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
-        <div className="h-full bg-orange-500 transition-all duration-200" style={{ width: `${progress}%` }} />
+    <div className="flex flex-col gap-1 min-w-[210px] select-none" dir="rtl">
+      <div className="flex items-center gap-3">
+        {/* Play/Pause Button */}
+        <button 
+          onClick={togglePlay}
+          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 hover:scale-105 active:scale-95 transition-all shadow cursor-pointer ${
+            isMe ? 'bg-white text-[#795548]' : 'bg-[#795548] text-white'
+          }`}
+        >
+          {isPlaying ? <Pause size={13} fill="currentColor" stroke="none" /> : <Play size={13} className="mr-0.5" fill="currentColor" stroke="none" />}
+        </button>
+
+        {/* Waveform representation */}
+        <div className="flex-1 flex items-center gap-[3px] h-7 px-1 relative">
+          {PEAKS.map((peakHeight, i) => {
+            const isPlayed = i < Math.floor((progress / 100) * PEAKS.length);
+            
+            let barColor = 'bg-gray-300 dark:bg-slate-700';
+            if (isMe) {
+              barColor = isPlayed ? 'bg-white' : 'bg-white/40';
+            } else {
+              barColor = isPlayed ? 'bg-[#795548] dark:bg-orange-500' : 'bg-gray-300 dark:bg-slate-700';
+            }
+
+            return (
+              <div 
+                key={i} 
+                className={`w-[3px] rounded-full transition-all duration-150 ${barColor}`} 
+                style={{ height: `${peakHeight}px` }}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex justify-between items-center px-1 text-[9px] font-bold opacity-75">
+        <span className={isMe ? 'text-white' : 'text-gray-500'}>
+          {formatDuration(isPlaying ? currentTime : duration)}
+        </span>
       </div>
     </div>
   );
@@ -105,14 +169,18 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
   useEffect(() => {
     if (!isOpen || !chatId) return;
 
+    // Remove orderBy to avoid silent index failures, sort in-memory
     const q = query(
       collection(db, 'chat_messages'),
-      where('chatId', '==', chatId),
-      orderBy('timestamp', 'asc')
+      where('chatId', '==', chatId)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserMessage));
+      
+      // Sort ascending in memory by timestamp string
+      msgs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      
       setMessages(msgs);
       
       // Mark as read
@@ -174,17 +242,15 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
     });
   };
 
-  const getExtension = (mime: string) => {
-    if (mime.includes('mp4')) return 'mp4';
-    if (mime.includes('aac')) return 'aac';
-    if (mime.includes('ogg')) return 'ogg';
-    if (mime.includes('wav')) return 'wav';
-    return 'webm';
-  };
-
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      });
       
       let options = {};
       let mimeType = 'audio/webm';
@@ -205,7 +271,10 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
         mimeType = 'audio/wav';
       }
 
-      const mediaRecorder = new MediaRecorder(stream, options);
+      const mediaRecorder = new MediaRecorder(stream, {
+        ...options,
+        audioBitsPerSecond: 128000 // 128 kbps high quality audio
+      });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -218,7 +287,7 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         stream.getTracks().forEach(track => track.stop());
-        await uploadAudio(audioBlob, mimeType);
+        await uploadAudioBase64(audioBlob);
       };
 
       mediaRecorder.start();
@@ -236,49 +305,36 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
     }
   };
 
-  const uploadAudio = async (blob: Blob, mimeType: string) => {
+  // Convert Blob directly to base64 Data URL and save to Firestore
+  // Bypasses Firebase Storage entirely to fix CORS/Storage rules issues
+  const uploadAudioBase64 = async (blob: Blob) => {
     if (!chatId || !selectedUserId) return;
     
     setIsUploading(true);
     try {
-      const extension = getExtension(mimeType);
-      const storageRef = ref(storage, `chats/${chatId}/audio_${Date.now()}.${extension}`);
-      
-      const uploadTask = uploadBytesResumable(storageRef, blob, {
-        contentType: mimeType
-      });
-      
-      uploadTask.on(
-        'state_changed',
-        null,
-        (error) => {
-          console.error("Firebase Storage upload error:", error);
-          alert("فشل في رفع المقطع الصوتي.");
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = async () => {
+        const base64data = reader.result as string;
+        try {
+          await addDoc(collection(db, 'chat_messages'), {
+            chatId,
+            senderId: currentUser.id,
+            receiverId: selectedUserId,
+            type: 'audio',
+            content: base64data,
+            timestamp: new Date().toISOString(),
+            read: false
+          });
+        } catch (dbError) {
+          console.error("Error saving audio base64 to firestore:", dbError);
+          alert("فشل في حفظ المقطع الصوتي في قاعدة البيانات.");
+        } finally {
           setIsUploading(false);
-        },
-        async () => {
-          try {
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            
-            await addDoc(collection(db, 'chat_messages'), {
-              chatId,
-              senderId: currentUser.id,
-              receiverId: selectedUserId,
-              type: 'audio',
-              content: downloadURL,
-              timestamp: new Date().toISOString(),
-              read: false
-            });
-          } catch (dbError) {
-            console.error("Error saving audio URL to firestore:", dbError);
-            alert("فشل في حفظ المقطع الصوتي في قاعدة البيانات.");
-          } finally {
-            setIsUploading(false);
-          }
         }
-      );
+      };
     } catch (error) {
-      console.error("Error uploading audio:", error);
+      console.error("Error converting audio to base64:", error);
       alert("فشل في معالجة المقطع الصوتي.");
       setIsUploading(false);
     }
@@ -297,31 +353,39 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl">
         <div className="bg-[#fcfbf4] w-full max-w-md h-[70vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col dark:bg-slate-950">
           <div className="p-5 border-b border-gray-100 bg-white dark:bg-slate-900 flex justify-between items-center shrink-0">
-            <h3 className="font-bold text-xl text-gray-800 dark:text-white flex items-center gap-2">
+            <h3 className="font-extrabold text-lg text-gray-800 dark:text-white flex items-center gap-2">
               <MessageCircle className="text-[#3E2723] dark:text-orange-500" />
-              الرسائل
+              الرسائل النشطة
             </h3>
-            <button onClick={onClose} className="p-2 bg-gray-50 hover:bg-red-50 rounded-full text-gray-500 transition-colors">
+            <button onClick={onClose} className="p-2 bg-gray-50 hover:bg-red-50 rounded-full text-gray-500 transition-colors cursor-pointer">
               <X size={20} />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-slate-50 dark:bg-slate-900/40">
             {workers.length === 0 ? (
-              <div className="text-center py-10 text-gray-400">لا يوجد عمال مضافين حالياً.</div>
+              <div className="text-center py-12 text-gray-400 text-xs font-bold">لا يوجد عمال مضافين حالياً للمراسلة.</div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {workers.map(worker => (
                   <button
                     key={worker.id}
                     onClick={() => setSelectedUserId(worker.id)}
-                    className="w-full flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition dark:bg-slate-900 dark:border-slate-800 text-right"
+                    className="w-full flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all dark:bg-slate-900 dark:border-slate-800 text-right cursor-pointer"
                   >
-                    <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center shrink-0">
-                      <User size={24} />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-gray-800 dark:text-gray-100">{worker.name}</h4>
-                      <p className="text-xs text-gray-500 mt-1">اضغط لبدء المحادثة</p>
+                    {worker.avatar ? (
+                      <img 
+                        src={worker.avatar} 
+                        className="w-11 h-11 rounded-full object-cover shadow border border-white dark:border-slate-800 shrink-0" 
+                        alt={worker.name} 
+                      />
+                    ) : (
+                      <div className="w-11 h-11 bg-orange-100 text-[#795548] rounded-full flex items-center justify-center shrink-0">
+                        <User size={22} />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-extrabold text-gray-800 dark:text-gray-100 text-sm truncate">{worker.name}</h4>
+                      <p className="text-[10px] text-gray-400 mt-1">اضغط لفتح المحادثة والدردشة</p>
                     </div>
                   </button>
                 ))}
@@ -337,49 +401,72 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl">
-      <div className="bg-[#fcfbf4] w-full max-w-md h-[85vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col dark:bg-slate-950">
+      <div className="bg-[#fcfbf4] w-full max-w-md h-[80vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col dark:bg-slate-950">
         
         {/* Header */}
         <div className="p-4 border-b border-gray-100 bg-white dark:bg-slate-900 flex justify-between items-center shrink-0 shadow-sm z-10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center shrink-0">
-              <User size={20} />
-            </div>
+            {isOwner && selectedUser?.avatar ? (
+              <img 
+                src={selectedUser.avatar} 
+                className="w-9 h-9 rounded-full object-cover shadow border border-white dark:border-slate-800 shrink-0" 
+                alt={selectedUser.name} 
+              />
+            ) : !isOwner && users.find(u => u.role === 'owner')?.avatar ? (
+              <img 
+                src={users.find(u => u.role === 'owner')?.avatar} 
+                className="w-9 h-9 rounded-full object-cover shadow border border-white dark:border-slate-800 shrink-0" 
+                alt="Owner" 
+              />
+            ) : (
+              <div className="w-9 h-9 bg-orange-100 text-[#795548] rounded-full flex items-center justify-center shrink-0">
+                <User size={18} />
+              </div>
+            )}
             <div>
-              <h3 className="font-bold text-md text-gray-800 dark:text-white">
-                {isOwner ? selectedUser?.name : 'المالك'}
+              <h3 className="font-extrabold text-sm text-gray-800 dark:text-white">
+                {isOwner ? selectedUser?.name : 'المالك والمشرف'}
               </h3>
             </div>
           </div>
-          <button onClick={() => isOwner ? setSelectedUserId(null) : onClose()} className="p-2 bg-gray-50 hover:bg-gray-100 rounded-full text-gray-500 transition-colors">
-            <X size={20} />
+          <button onClick={() => isOwner ? setSelectedUserId(null) : onClose()} className="p-2 bg-gray-50 hover:bg-gray-100 rounded-full text-gray-500 transition-colors cursor-pointer dark:bg-slate-800 dark:text-gray-400">
+            <X size={18} />
           </button>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-slate-50 dark:bg-slate-950">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3.5 custom-scrollbar bg-slate-50 dark:bg-slate-900/20">
           {messages.map((msg) => {
             const isMe = msg.senderId === currentUser.id;
             return (
               <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-2xl p-3 ${isMe ? 'bg-[#795548] text-white rounded-tr-sm' : 'bg-white border border-gray-100 text-gray-800 rounded-tl-sm dark:bg-slate-900 dark:border-slate-800 dark:text-gray-100'}`}>
+                <div className={`rounded-[1.25rem] p-3 shadow-sm ${
+                  msg.type === 'audio' ? 'w-[250px] max-w-full' : 'max-w-[80%]'
+                } ${
+                  isMe 
+                    ? 'bg-gradient-to-br from-[#795548] to-[#5D4037] text-white rounded-tr-sm shadow-premium-sm' 
+                    : 'bg-white border border-gray-150 text-gray-800 rounded-tl-sm dark:bg-slate-900 dark:border-slate-800 dark:text-gray-100'
+                }`}>
                   {msg.type === 'text' ? (
-                    <p className="text-sm break-words whitespace-pre-wrap">{msg.content}</p>
+                    <p className="text-xs font-semibold leading-relaxed break-words whitespace-pre-wrap">{msg.content}</p>
                   ) : (
-                    <AudioPlayer url={msg.content} />
+                    <AudioPlayer url={msg.content} isMe={isMe} />
                   )}
-                  <span className={`text-[9px] block mt-1 ${isMe ? 'text-white/70 text-left' : 'text-gray-400 text-left'}`}>
-                    {new Date(msg.timestamp).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
+                  <div className={`flex items-center justify-end gap-1 mt-1.5 ${isMe ? 'text-white/60' : 'text-gray-400'}`}>
+                    <span className="text-[8px] font-bold">
+                      {new Date(msg.timestamp).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', numberingSystem: 'latn' })}
+                    </span>
+                    {isMe && <DoubleCheck read={msg.read} isMe={isMe} />}
+                  </div>
                 </div>
               </div>
             );
           })}
           {isUploading && (
             <div className="flex justify-end">
-              <div className="bg-[#795548]/50 text-white rounded-2xl p-3 rounded-tr-sm flex flex-col items-center gap-2">
-                <Loader2 size={16} className="animate-spin" />
-                <span className="text-[10px]">جاري الإرسال...</span>
+              <div className="bg-gradient-to-br from-[#795548] to-[#5D4037] text-white rounded-[1.25rem] p-3 rounded-tr-sm flex items-center gap-2 shadow-sm opacity-90 animate-pulse">
+                <Loader2 size={12} className="animate-spin" />
+                <span className="text-[10px] font-bold">جاري إرسال التسجيل...</span>
               </div>
             </div>
           )}
@@ -389,20 +476,20 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
         {/* Input Area */}
         <div className="p-3 bg-white border-t border-gray-100 dark:bg-slate-900 dark:border-slate-800 shrink-0">
           {isRecording ? (
-            <div className="flex items-center gap-3 p-2 bg-red-50 dark:bg-red-900/20 rounded-2xl border border-red-100 dark:border-red-900/50 animate-pulse">
-              <div className="w-3 h-3 rounded-full bg-red-500 animate-ping ml-2"></div>
-              <span className="text-red-500 font-bold flex-1 text-sm">{formatTime(recordingTime)}</span>
-              <button onClick={stopRecording} className="p-3 bg-red-500 text-white rounded-xl shadow-sm hover:bg-red-600 transition shrink-0 flex items-center justify-center w-12 h-12">
-                <Square size={20} fill="currentColor" />
+            <div className="flex items-center gap-3 p-1.5 bg-red-50 dark:bg-red-950/20 rounded-2xl border border-red-100 dark:border-red-900/30 animate-pulse">
+              <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping ml-1 shrink-0"></div>
+              <span className="text-red-500 font-extrabold flex-1 text-xs">{formatTime(recordingTime)}</span>
+              <button onClick={stopRecording} className="w-10 h-10 rounded-xl bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition shrink-0 cursor-pointer shadow-sm">
+                <Square size={16} fill="currentColor" />
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
               <button 
                 onClick={startRecording}
-                className="p-3 bg-gray-100 text-gray-500 hover:bg-gray-200 rounded-xl transition shrink-0 dark:bg-slate-800 dark:text-gray-400 dark:hover:bg-slate-700 h-12 w-12 flex items-center justify-center"
+                className="w-11 h-11 bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-gray-700 rounded-xl transition shrink-0 dark:bg-slate-800 dark:text-gray-400 dark:hover:bg-slate-700 flex items-center justify-center cursor-pointer border border-gray-100 dark:border-slate-800"
               >
-                <Mic size={20} />
+                <Mic size={18} />
               </button>
               <div className="flex-1 relative">
                 <input
@@ -410,16 +497,16 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
                   value={inputText}
                   onChange={e => setInputText(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSendText()}
-                  placeholder="اكتب رسالة..."
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#795548] focus:ring-1 focus:ring-[#795548] dark:bg-slate-800 dark:border-slate-700 dark:text-white h-12"
+                  placeholder="اكتب رسالة هنا..."
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:border-[#795548] focus:ring-1 focus:ring-[#795548] dark:bg-slate-800 dark:border-slate-700 dark:text-white h-11"
                 />
               </div>
               <button 
                 onClick={handleSendText}
                 disabled={!inputText.trim()}
-                className="p-3 bg-[#795548] text-white hover:bg-[#5D4037] rounded-xl transition shrink-0 disabled:opacity-50 disabled:cursor-not-allowed h-12 w-12 flex items-center justify-center"
+                className="w-11 h-11 bg-[#795548] hover:bg-[#5D4037] text-white rounded-xl transition shrink-0 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer shadow-md"
               >
-                <Send size={20} className="rotate-180 ml-1" />
+                <Send size={18} className="rotate-180 ml-0.5" />
               </button>
             </div>
           )}

@@ -1,23 +1,6 @@
 import React, { useState } from 'react';
-import { User, WorkerPermissions } from '../types';
+import { User, WorkerPermissions, DEFAULT_WORKER_PERMISSIONS } from '../types';
 import { Warehouse, Eye, EyeOff, UserPlus, LogIn } from 'lucide-react';
-
-// Default worker permissions (copied here for self-containment if needed, but imported)
-const DEFAULT_WORKER_PERMISSIONS: WorkerPermissions = {
-  canAddAnimals: true,
-  canEditAnimals: true,
-  canViewFinance: false,
-  canAddExpenses: false,
-  canViewFeed: true,
-  canEditFeed: false,
-  canAddMedical: true,
-  canViewReports: false,
-  canManagePens: false,
-  canViewDeaths: true,
-  canMoveAnimals: true,
-  canViewActivity: false,
-  canViewProduction: false,
-};
 
 interface AuthScreenProps {
   users: User[];

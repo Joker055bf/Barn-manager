@@ -9,6 +9,8 @@ interface SwipeableBarnCardProps {
     onEdit?: () => void;
     showActions?: boolean;
     sectionsCount?: number;
+    canEdit?: boolean;
+    canDelete?: boolean;
 }
 
 export const SwipeableBarnCard: React.FC<SwipeableBarnCardProps> = ({
@@ -18,7 +20,9 @@ export const SwipeableBarnCard: React.FC<SwipeableBarnCardProps> = ({
     onDelete,
     onEdit,
     showActions = true,
-    sectionsCount
+    sectionsCount,
+    canEdit = true,
+    canDelete = true
 }) => {
     return (
         <div 
@@ -38,11 +42,6 @@ export const SwipeableBarnCard: React.FC<SwipeableBarnCardProps> = ({
                 <h3 className="font-black text-xs text-[#3E2723] dark:text-gray-100 text-center tracking-tight leading-snug truncate w-full">
                     {name}
                 </h3>
-                {sectionsCount !== undefined && (
-                    <p className="text-[9px] text-orange-600 dark:text-orange-400 font-black mt-0.5 uppercase tracking-wider truncate w-full">
-                        عدد الأقسام: {sectionsCount}
-                    </p>
-                )}
                 {ownerName && (
                     <p className="text-[8px] text-gray-400 dark:text-slate-500 font-bold mt-0.5 uppercase tracking-wider truncate w-full">
                         المالك: {ownerName}
@@ -51,29 +50,33 @@ export const SwipeableBarnCard: React.FC<SwipeableBarnCardProps> = ({
             </div>
 
             {/* Actions Row */}
-            {showActions && (
+            {showActions && (canEdit || canDelete) && (
                 <div className="flex gap-2 w-full mt-auto justify-center" onClick={(e) => e.stopPropagation()}>
-                    <button 
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit?.();
-                        }}
-                        className="w-8 h-8 flex items-center justify-center rounded-xl bg-[#795548]/10 text-[#795548] hover:bg-[#795548] hover:text-white transition-all border border-[#795548]/5 dark:text-orange-400 dark:bg-orange-500/10 dark:border-orange-500/5 dark:hover:bg-orange-500 dark:hover:text-white animate-scale-in"
-                        title="تعديل الحظيرة"
-                    >
-                        <Edit2 size={12} />
-                    </button>
+                    {canEdit && (
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit?.();
+                            }}
+                            className="w-8 h-8 flex items-center justify-center rounded-xl bg-[#795548]/10 text-[#795548] hover:bg-[#795548] hover:text-white transition-all border border-[#795548]/5 dark:text-orange-400 dark:bg-orange-500/10 dark:border-orange-500/5 dark:hover:bg-orange-500 dark:hover:text-white animate-scale-in"
+                            title="تعديل الحظيرة"
+                        >
+                            <Edit2 size={12} />
+                        </button>
+                    )}
                     
-                    <button 
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete();
-                        }}
-                        className="w-8 h-8 flex items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all border border-red-100/50 dark:bg-red-950/20 dark:border-red-900/30 dark:hover:bg-red-500 dark:hover:text-white animate-scale-in"
-                        title="حذف الحظيرة"
-                    >
-                        <Trash2 size={12} />
-                    </button>
+                    {canDelete && (
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete();
+                            }}
+                            className="w-8 h-8 flex items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all border border-red-100/50 dark:bg-red-950/20 dark:border-red-900/30 dark:hover:bg-red-500 dark:hover:text-white animate-scale-in"
+                            title="حذف الحظيرة"
+                        >
+                            <Trash2 size={12} />
+                        </button>
+                    )}
                 </div>
             )}
         </div>

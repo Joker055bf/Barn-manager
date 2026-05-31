@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Plus, Search, MoreVertical, LayoutGrid, Calendar, ChevronLeft, ArrowRight, Star, Dna, Settings, Check, X, Filter, Target,
   Warehouse, Wheat, ShieldCheck, Activity, Wallet, Eye, Edit, Trash2, Syringe, ArrowRightLeft, Skull, FileText, LayoutDashboard, MoreHorizontal, LogOut, Users, Shield, History, Share2, Banknote, BarChart3, Baby, HeartPulse, MessageCircle, ArrowUp, ArrowDown
@@ -60,9 +60,21 @@ function App() {
   const isOwner = currentUser?.role === 'owner';
   const ownerId = isOwner ? currentUser?.id : currentUser?.ownerId;
   
-  const can = (permission: keyof WorkerPermissions) => {
+  const can = (permission: keyof WorkerPermissions, specificPenId?: string | null) => {
     if (isOwner) return true;
-    return currentUser?.permissions?.[permission] ?? DEFAULT_WORKER_PERMISSIONS[permission];
+    if (!currentUser) return false;
+    let targetBarnId = specificPenId || selectedGroupId;
+    if (targetBarnId && targetBarnId.startsWith('mortality:')) {
+      targetBarnId = targetBarnId.replace('mortality:', '');
+    }
+    if (targetBarnId) {
+      const p = pens.find(x => x.id === targetBarnId);
+      if (p && p.parentId) targetBarnId = p.parentId;
+    }
+    if (targetBarnId && currentUser.permissionsPerBarn?.[targetBarnId]) {
+      return currentUser.permissionsPerBarn[targetBarnId][permission];
+    }
+    return currentUser.permissions?.[permission] ?? DEFAULT_WORKER_PERMISSIONS[permission];
   };
 
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
@@ -207,19 +219,44 @@ function App() {
     handleLogin(newUser);
   };
 
-  const handleRegisterWorker = async (username: string, password: string, name: string, permissions: WorkerPermissions, settingsPin: string, accessiblePens: string[]) => {
+  const handleRegisterWorker = async (
+    username: string, 
+    password: string, 
+    name: string, 
+    permissions: WorkerPermissions, 
+    settingsPin: string, 
+    accessiblePens: string[], 
+    avatar?: string, 
+    permissionsPerBarn?: { [barnId: string]: WorkerPermissions }
+  ) => {
     if (!ownerId) return;
+    
+    // Check if username already exists globally to prevent message leaks / duplicates
+    try {
+      const normalizedUsername = username.trim().toLowerCase();
+      const q = query(collection(db, 'users'), where('username', '==', normalizedUsername));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        showAlert('error', 'اسم المستخدم غير متاح', 'اسم المستخدم هذا محجوز مسبقاً! يرجى اختيار اسم آخر لتجنب تداخل الحسابات.');
+        return;
+      }
+    } catch (checkError: any) {
+      console.error('Check Duplicate Username Error:', checkError);
+    }
+
     const workerId = generateId();
     const newWorker: User = {
       id: workerId,
       ownerId: ownerId,
       name,
-      username,
+      username: username.trim().toLowerCase(),
       password,
       role: 'worker',
       permissions,
       settingsPin,
       accessiblePens,
+      avatar: avatar || '',
+      permissionsPerBarn: permissionsPerBarn || {},
       createdAt: new Date().toISOString()
     };
     try {
@@ -232,9 +269,20 @@ function App() {
     }
   };
 
-  const handleUpdateWorkerPermissions = async (userId: string, permissions: WorkerPermissions, accessiblePens: string[]) => {
+  const handleUpdateWorkerPermissions = async (
+    userId: string, 
+    permissions: WorkerPermissions, 
+    accessiblePens: string[], 
+    avatar?: string, 
+    permissionsPerBarn?: { [barnId: string]: WorkerPermissions }
+  ) => {
     try {
-      await updateDoc(doc(db, 'users', userId), { permissions, accessiblePens });
+      await updateDoc(doc(db, 'users', userId), { 
+        permissions, 
+        accessiblePens,
+        avatar: avatar || '',
+        permissionsPerBarn: permissionsPerBarn || {}
+      });
       logActivity('إدارة العمال', `تم تحديث بيانات العامل`);
     } catch (e: any) {
       console.error('Update Worker Error:', e);
@@ -351,7 +399,14 @@ function App() {
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [isDashboardOpen, setIsDashboardOpen] = useState(false);
   const [sectionSearchQuery, setSectionSearchQuery] = useState('');
+  const [barnSearchQuery, setBarnSearchQuery] = useState('');
   const [isReorderPensOpen, setIsReorderPensOpen] = useState(false);
+  const [isSectionFilterDropdownOpen, setIsSectionFilterDropdownOpen] = useState(false);
+  const [isBarnFilterDropdownOpen, setIsBarnFilterDropdownOpen] = useState(false);
+  const [showMiscarriageInput, setShowMiscarriageInput] = useState(false);
+  const [miscarriageReason, setMiscarriageReason] = useState('');
+  const sectionFilterRef = useRef<HTMLDivElement>(null);
+  const barnFilterRef = useRef<HTMLDivElement>(null);
 
   const [isReportsModalOpen, setIsReportsModalOpen] = useState(false);
   const [reportsInitialTab, setReportsInitialTab] = useState<ReportType>('overview');
@@ -617,6 +672,46 @@ function App() {
   // Personal Settings Persistence (LocalStorage)
   useEffect(() => { localStorage.setItem('rai_lang', appLanguage); }, [appLanguage]);
   useEffect(() => { localStorage.setItem('rai_theme', appTheme); }, [appTheme]);
+
+  // Click outside for custom section & barn filter dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sectionFilterRef.current && !sectionFilterRef.current.contains(event.target as Node)) {
+        setIsSectionFilterDropdownOpen(false);
+      }
+      if (barnFilterRef.current && !barnFilterRef.current.contains(event.target as Node)) {
+        setIsBarnFilterDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Automatic Feed Deduction Trigger (Retroactive)
+  useEffect(() => {
+    if (!ownerId || feedItems.length === 0) return;
+    const updated = processAutoFeedDeduction(feedItems);
+    const changedItems = updated.filter((item, idx) => {
+      // Find matching original item by ID for safer comparison
+      const original = feedItems.find(f => f.id === item.id);
+      return original && (item.quantity !== original.quantity || item.lastAutoDeduction !== original.lastAutoDeduction);
+    });
+
+    if (changedItems.length > 0) {
+      changedItems.forEach(async (item) => {
+        try {
+          await updateDoc(doc(db, 'farms', ownerId, 'feed', item.id), {
+            quantity: item.quantity,
+            lastAutoDeduction: item.lastAutoDeduction,
+            logs: item.logs
+          });
+          console.log(`[Auto-Deduction] Updated feed item ${item.name}`);
+        } catch (e) {
+          console.error(`[Auto-Deduction] Error updating feed item ${item.name}:`, e);
+        }
+      });
+    }
+  }, [feedItems, ownerId]);
 
   // Background Breeding Timer (Revert lactation/mother status to 'empty' after 3 months / 90 days)
   useEffect(() => {
@@ -1727,9 +1822,24 @@ function App() {
                 </button>
               ) : null}
 
-              <h1 className="text-xl font-bold text-[#3E2723] flex items-center gap-3 dark:text-gray-100">
-                {selectedPen ? selectedPen.name : (selectedGroup?.name || t.myBarns)}
-              </h1>
+              {selectedPen ? (
+                <h1 className="text-xl font-bold text-[#3E2723] flex items-center gap-3 dark:text-gray-100">
+                  {selectedPen.name}
+                </h1>
+              ) : selectedGroup ? (
+                <div className="flex flex-col">
+                  <h1 className="text-xl font-bold text-[#3E2723] dark:text-gray-100 leading-tight">
+                    {selectedGroup.name}
+                  </h1>
+                  <span className="text-[10px] font-black text-orange-600 dark:text-orange-400 mt-0.5">
+                    عدد الأقسام: {pens.filter(p => p.parentId === selectedGroupId).length}
+                  </span>
+                </div>
+              ) : (
+                <h1 className="text-xl font-bold text-[#3E2723] flex items-center gap-3 dark:text-gray-100">
+                  {t.myBarns}
+                </h1>
+              )}
             </div>
 
             {/* Global Header Actions (Moved from inner header) */}
@@ -1827,23 +1937,56 @@ function App() {
 
                  {/* Section Filtering & Custom Reordering Controls (Root View) */}
                  <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 mb-6 gap-3" dir="rtl">
-                   {/* Search/Filter Sections Input */}
-                   <div className="relative flex-1">
-                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-                     <input
-                       type="text"
-                       placeholder="بحث عن حظيرة..."
-                       value={sectionSearchQuery}
-                       onChange={(e) => setSectionSearchQuery(e.target.value)}
-                       className="w-full pr-8 pl-3 py-2 bg-white border border-gray-200 rounded-xl text-[11px] font-bold outline-none focus:border-[#795548] focus:ring-1 focus:ring-[#795548] dark:bg-slate-900 dark:border-slate-800 dark:text-white shadow-sm"
-                     />
-                     {sectionSearchQuery && (
-                       <button 
-                         onClick={() => setSectionSearchQuery('')}
-                         className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
-                       >
-                         <X size={12} />
-                       </button>
+                   {/* Search/Filter Barns Dropdown */}
+                   <div className="relative flex-1" ref={barnFilterRef}>
+                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none z-10" />
+                     <button
+                       type="button"
+                       onClick={() => setIsBarnFilterDropdownOpen(!isBarnFilterDropdownOpen)}
+                       className="w-full pr-8 pl-8 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl text-[11px] font-bold outline-none focus:border-[#795548] focus:ring-1 focus:ring-[#795548] dark:text-white shadow-sm flex items-center justify-between text-right cursor-pointer text-gray-700 dark:text-gray-200"
+                     >
+                       <span>{barnSearchQuery || 'كل الحظائر'}</span>
+                       <div className="text-gray-400 w-3 h-3 flex items-center justify-center text-[10px]">
+                         ▼
+                       </div>
+                     </button>
+
+                     {isBarnFilterDropdownOpen && (
+                       <div className="absolute top-full right-0 left-0 mt-1.5 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl shadow-2xl z-50 max-h-48 overflow-y-auto custom-scrollbar animate-scale-in">
+                         <div className="p-2 space-y-1">
+                           <button
+                             type="button"
+                             onClick={() => {
+                               setBarnSearchQuery('');
+                               setIsBarnFilterDropdownOpen(false);
+                             }}
+                             className={`w-full text-right px-4 py-2.5 rounded-xl text-[10.5px] font-black transition-all ${
+                               barnSearchQuery === ''
+                                 ? 'bg-[#795548] text-white shadow-md'
+                                 : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800'
+                             }`}
+                           >
+                             كل الحظائر
+                           </button>
+                           {displayedPens.map((p) => (
+                             <button
+                               key={p.id}
+                               type="button"
+                               onClick={() => {
+                                 setBarnSearchQuery(p.name);
+                                 setIsBarnFilterDropdownOpen(false);
+                               }}
+                               className={`w-full text-right px-4 py-2.5 rounded-xl text-[10.5px] font-black transition-all ${
+                                 barnSearchQuery === p.name
+                                   ? 'bg-[#795548] text-white shadow-md'
+                                   : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800'
+                               }`}
+                             >
+                               {p.name}
+                             </button>
+                           ))}
+                         </div>
+                       </div>
                      )}
                    </div>
 
@@ -1861,28 +2004,32 @@ function App() {
                  </div>
 
                   <div className="flex-1 px-4 sm:px-6 lg:px-8">
-                   <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 pb-32">
-                      {displayedPens
-                        .filter(pen => pen.name.toLowerCase().includes(sectionSearchQuery.toLowerCase()))
-                        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-                        .map(pen => {
-                       const sectionsCount = pens.filter(p => p.parentId === pen.id).length;
-                       return (
-                         <div key={pen.id} className="hover-glow transition-all">
-                           <SwipeableBarnCard onEdit={() => openEditModal(pen)} canEdit={can('canEditPens')} canDelete={can('canDeletePens')}
-                             name={pen.name} 
-                             sectionsCount={sectionsCount}
-                             onClick={() => enterGroup(pen.id)} 
-                             onDelete={() => handleDeletePen(pen.id, true)} 
-                           />
-                         </div>
-                       );
-                     })}
+                   <div className="grid grid-cols-2 gap-3 pb-32">
+                     {(() => {
+                       const filteredBarns = displayedPens
+                         .filter(pen => pen.name.toLowerCase().includes(barnSearchQuery.toLowerCase()))
+                         .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+                       const totalBarnsCount = filteredBarns.length;
+                       return filteredBarns.map((pen, idx) => {
+                         const sectionsCount = pens.filter(p => p.parentId === pen.id).length;
+                         const isOddLast = totalBarnsCount % 2 !== 0 && idx === totalBarnsCount - 1;
+                         return (
+                           <div key={pen.id} className={isOddLast ? "col-span-2 justify-self-center w-full max-w-[calc(50%-6px)] hover-glow transition-all" : "hover-glow transition-all"}>
+                             <SwipeableBarnCard onEdit={() => openEditModal(pen)} canEdit={isOwner || can('canEditBarns')} canDelete={isOwner || can('canDeleteBarns')}
+                               name={pen.name} 
+                               sectionsCount={sectionsCount}
+                               onClick={() => enterGroup(pen.id)} 
+                               onDelete={() => handleDeletePen(pen.id, true)} 
+                             />
+                           </div>
+                         );
+                       });
+                     })()}
                    </div>
                  </div>
 
                 {/* Square FAB for Add Barn - Restricted to Owners/Permission */}
-                {(isOwner || can('canAddPens')) && (
+                {(isOwner || can('canAddBarns')) && (
                   <div className="fixed bottom-32 left-6 md:left-12 z-[100] pointer-events-none">
                     <button 
                       onClick={openAddBarnModal} 
@@ -1907,21 +2054,56 @@ function App() {
                       {/* Section Filtering & Custom Reordering Controls */}
                       <div className="flex items-center justify-between px-4 md:px-8 mb-4 gap-3" dir="rtl">
                         {/* Search/Filter Sections Input */}
-                        <div className="relative flex-1">
-                          <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
-                          <select
-                            value={sectionSearchQuery}
-                            onChange={(e) => setSectionSearchQuery(e.target.value)}
-                            className="w-full pr-8 pl-8 py-2 bg-white border border-gray-200 rounded-xl text-[11px] font-bold outline-none focus:border-[#795548] focus:ring-1 focus:ring-[#795548] dark:bg-slate-900 dark:border-slate-800 dark:text-white shadow-sm appearance-none cursor-pointer text-right"
+                        <div className="relative flex-1" ref={sectionFilterRef}>
+                          <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none z-10" />
+                          <button
+                            type="button"
+                            onClick={() => setIsSectionFilterDropdownOpen(!isSectionFilterDropdownOpen)}
+                            className="w-full pr-8 pl-8 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl text-[11px] font-bold outline-none focus:border-[#795548] focus:ring-1 focus:ring-[#795548] dark:text-white shadow-sm flex items-center justify-between text-right cursor-pointer text-gray-700 dark:text-gray-200"
                           >
-                            <option value="">كل الأقسام</option>
-                            {displayedPens.map(p => (
-                              <option key={p.id} value={p.name}>{p.name}</option>
-                            ))}
-                          </select>
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none w-3 h-3 flex items-center justify-center text-[10px]">
-                            ▼
-                          </div>
+                            <span>{sectionSearchQuery || 'كل الأقسام'}</span>
+                            <div className="text-gray-400 w-3 h-3 flex items-center justify-center text-[10px]">
+                              ▼
+                            </div>
+                          </button>
+
+                          {isSectionFilterDropdownOpen && (
+                            <div className="absolute top-full right-0 left-0 mt-1.5 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl shadow-2xl z-50 max-h-48 overflow-y-auto custom-scrollbar animate-scale-in">
+                              <div className="p-2 space-y-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSectionSearchQuery('');
+                                    setIsSectionFilterDropdownOpen(false);
+                                  }}
+                                  className={`w-full text-right px-4 py-2.5 rounded-xl text-[10.5px] font-black transition-all ${
+                                    sectionSearchQuery === ''
+                                      ? 'bg-[#795548] text-white shadow-md'
+                                      : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800'
+                                  }`}
+                                >
+                                  كل الأقسام
+                                </button>
+                                {displayedPens.map((p) => (
+                                  <button
+                                    key={p.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setSectionSearchQuery(p.name);
+                                      setIsSectionFilterDropdownOpen(false);
+                                    }}
+                                    className={`w-full text-right px-4 py-2.5 rounded-xl text-[10.5px] font-black transition-all ${
+                                      sectionSearchQuery === p.name
+                                        ? 'bg-[#795548] text-white shadow-md'
+                                        : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800'
+                                    }`}
+                                  >
+                                    {p.name}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         {/* Reorder Button */}
@@ -2019,7 +2201,7 @@ function App() {
                             )}
 
                               {/* Recent Events Section (Inside Barn View) - Under Type Stats */}
-                              {can('canViewActivity') && (
+                              {can('canViewEvents') && (
                                 <div className="mt-8 px-4 md:px-8 animate-fade-in">
                                   <div className="bg-white/95 rounded-[2rem] p-5 shadow-sm border border-gray-100 dark:bg-slate-900 dark:border-slate-800 backdrop-blur-md">
                                     <div className="flex justify-between items-center mb-6">
@@ -2075,7 +2257,7 @@ function App() {
                                                  {/* Left content: Date & Show details button */}
                                                  <div className="text-left flex flex-col items-start shrink-0">
                                                    <span className="text-[9px] font-extrabold text-gray-400 leading-none">
-                                                     {new Date(log.timestamp).toLocaleDateString('en-GB')}
+                                                     {new Date(log.timestamp).toLocaleDateString('ar-EG', { numberingSystem: 'latn' })}
                                                    </span>
                                                    <button
                                                      onClick={() => setExpandedActivityId(isExpanded ? null : log.id)}
@@ -2089,23 +2271,23 @@ function App() {
                                                {/* Accordion dropdown content */}
                                                {isExpanded && (
                                                  <div className="mr-6 ml-2 mt-2 p-3 bg-orange-50/50 dark:bg-slate-800/50 rounded-2xl border border-orange-100/30 dark:border-slate-800 text-[10px] font-bold text-gray-600 dark:text-gray-300 space-y-1.5 animate-slide-up text-right">
-                                                   <div><span className="text-gray-400">القائم بالعمل: </span>{log.userName}</div>
+                                                   {can('canViewActivity') && <div><span className="text-gray-400">القائم بالعمل: </span>{log.userName}</div>}
                                                    <div><span className="text-gray-400">الإجراء: </span>{log.action}</div>
                                                    <div><span className="text-gray-400">التفاصيل: </span>{log.detail || 'تحديث بيانات'}</div>
                                                     {(log.tagColor || (log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor : undefined)) && (
                                                       <div className="flex items-center justify-end gap-1.5">
                                                         <span className="text-gray-400">لون الشارة: </span>
                                                         <span className="inline-flex items-center gap-1.5">
-                                                          {colorNames[log.tagColor || allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor || ''] || 'ملون'}
                                                           <span 
                                                             className="w-2 h-2 rounded-full inline-block border border-white dark:border-slate-900 shadow-sm shrink-0" 
                                                             style={{ backgroundColor: log.tagColor || allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor }}
                                                           />
+                                                          {colorNames[log.tagColor || allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor || ''] || 'ملون'}
                                                         </span>
                                                       </div>
                                                     )}
                                                    
-                                                   <div><span className="text-gray-400">التاريخ: </span>{new Date(log.timestamp).toLocaleString('ar-SA')}</div>
+                                                   <div><span className="text-gray-400">التاريخ: </span>{new Date(log.timestamp).toLocaleString('ar-EG', { numberingSystem: 'latn' })}</div>
                                                  </div>
                                                )}
                                              </div>
@@ -2323,7 +2505,7 @@ function App() {
                               <div><span className="text-gray-400">الإجراء: </span>{log.action}</div>
                               <div><span className="text-gray-400">التفاصيل: </span>{log.detail || 'تحديث بيانات'}</div>
 
-                              <div><span className="text-gray-400">التاريخ: </span>{new Date(log.timestamp).toLocaleString('ar-SA')}</div>
+                              <div><span className="text-gray-400">التاريخ: </span>{new Date(log.timestamp).toLocaleString('ar-EG', { numberingSystem: 'latn' })}</div>
                             </div>
                           )}
                         </div>
@@ -2492,9 +2674,13 @@ function App() {
                   let icon = Calendar;
                   let color = 'text-gray-600 bg-gray-50';
                   
-                  if (log.action.includes('إضافة') || log.action.includes('ولادة')) {
+                  if (log.action.includes('إضافة حظيرة') || log.action.includes('حظيرة')) {
+                    type = 'other';
+                    icon = Warehouse;
+                    color = 'text-emerald-600 bg-emerald-50';
+                  } else if (log.action.includes('إضافة') || log.action.includes('ولادة')) {
                     type = 'birth';
-                    icon = Dna;
+                    icon = log.action.includes('ولادة') ? Baby : Plus;
                     color = 'text-emerald-600 bg-emerald-50';
                   } else if (log.action.includes('حذف') || log.action.includes('استبعاد') || log.action.includes('وفاة') || log.action.includes('نفوق')) {
                     type = 'death';
@@ -2512,10 +2698,18 @@ function App() {
                     type = 'feed';
                     icon = Wheat;
                     color = 'text-orange-600 bg-orange-50';
-                  } else if (log.action.includes('تعديل حيوان') || log.action.includes('تعديل رأس')) {
+                  } else if (log.action.includes('نقل')) {
+                    type = 'other';
+                    icon = ArrowRightLeft;
+                    color = 'text-indigo-600 bg-indigo-50';
+                  } else if (log.action.includes('تعديل') || log.action.includes('تحديث')) {
                     type = 'edit';
                     icon = Edit;
                     color = 'text-amber-600 bg-amber-50';
+                  } else if (log.action.includes('إجهاض') || log.action.includes('إلغاء')) {
+                    type = 'other';
+                    icon = X;
+                    color = 'text-red-600 bg-red-50';
                   }
 
                   const logTagColor = log.tagColor || (log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor : undefined);
@@ -2548,30 +2742,32 @@ function App() {
                             {sheepType}
                           </span>
                         )}
-                        <span className="text-[9px] text-gray-400">بواسطة: <span className="font-extrabold text-gray-600 dark:text-gray-300">{log.userName}</span></span>
+                        {can('canViewActivity') && (
+                          <span className="text-[9px] text-gray-400">بواسطة: <span className="font-extrabold text-gray-600 dark:text-gray-300">{log.userName}</span></span>
+                        )}
                       </span>
                     ),
                     icon,
                     color,
                     details: (
                       <div className="space-y-1.5 text-[11px] font-bold text-gray-500 dark:text-gray-400 text-right">
-                        <div><span className="text-gray-400">القائم بالعمل: </span>{log.userName}</div>
+                        {can('canViewActivity') && <div><span className="text-gray-400">القائم بالعمل: </span>{log.userName}</div>}
                         <div><span className="text-gray-400">الإجراء: </span>{log.action}</div>
                         <div><span className="text-gray-400">التفاصيل: </span>{log.detail}</div>
                         {logTagColor && (
                           <div className="flex items-center justify-end gap-1.5">
                             <span className="text-gray-400">لون الشارة: </span>
                             <span className="inline-flex items-center gap-1.5">
-                              {colorNames[logTagColor] || 'ملون'}
                               <span 
                                 className="w-2 h-2 rounded-full inline-block border border-white dark:border-slate-800 shadow-sm shrink-0" 
                                 style={{ backgroundColor: logTagColor }}
                               />
+                              {colorNames[logTagColor] || 'ملون'}
                             </span>
                           </div>
                         )}
 
-                        <div><span className="text-gray-400">التاريخ والوقت: </span>{new Date(log.timestamp).toLocaleString('ar-SA')}</div>
+                        <div><span className="text-gray-400">التاريخ والوقت: </span>{new Date(log.timestamp).toLocaleString('ar-EG', { numberingSystem: 'latn' })}</div>
                       </div>
                     )
                   };
@@ -2758,7 +2954,7 @@ function App() {
       <MedicalModal
         isOpen={isMedicalModalOpen}
         onClose={() => setIsMedicalModalOpen(false)}
-        sheep={selectedSheepForAction}
+        sheep={allSheep.find(s => s.id === selectedSheepForAction?.id) || selectedSheepForAction}
         onAddRecord={handleAddMedicalRecord}
         onUpdateStatus={async (status) => {
           if (selectedSheepForAction && ownerId) {
@@ -2795,95 +2991,137 @@ function App() {
       }
 
       {/* Reproduction Confirm Modal */}
-      {reproductionConfirmState && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl">
-          <div className="bg-[#fcfbf4] rounded-[2rem] w-full max-w-sm shadow-2xl overflow-hidden border border-gray-100 dark:bg-slate-900 dark:border-slate-800">
-            <div className="p-6 text-center">
-              <div className="w-16 h-16 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 dark:bg-purple-900/30 dark:text-purple-400">
-                <Baby size={32} />
-              </div>
-              <h3 className="text-xl font-black text-gray-800 mb-2 dark:text-white">تأكيد حالة الإنجاب</h3>
-              <p className="text-sm font-bold text-gray-500 mb-6 dark:text-gray-400 leading-relaxed">
-                {reproductionConfirmState.currentStatus === 'empty' ? 'سيتم تغيير الحالة إلى (مضرع) لمدة 5 أشهر تقريباً.' : 
-                 reproductionConfirmState.currentStatus === 'pregnant' ? 'سيتم تغيير الحالة إلى (أم) لبدء فترة حضانة الرضيع (3 أشهر).' : 
-                 'سيتم إعادة الحيوان إلى حالة (غير مضرع).'}
-              </p>
-              
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={async () => {
-                    const { sheep, nextStatus, expectedDurationDays } = reproductionConfirmState;
-                    try {
-                      let updates: any = { reproductionStatus: nextStatus };
-                      if (nextStatus === 'pregnant') {
-                        updates.pregnancyDate = new Date().toISOString();
-                        updates.expectedBirthDate = new Date(Date.now() + expectedDurationDays * 24 * 60 * 60 * 1000).toISOString();
-                      } else if (nextStatus === 'mother') {
-                        updates.lactationStartDate = new Date().toISOString();
-                        updates.lastBirthDate = new Date().toISOString();
-                      } else if (nextStatus === 'empty') {
-                        updates.lactationStartDate = null;
-                        updates.pregnancyDate = null;
-                        updates.expectedBirthDate = null;
-                        updates.weaningDate = new Date().toISOString();
-                      }
+      {reproductionConfirmState && (() => {
+        const closeReproductionConfirmModal = () => {
+          setReproductionConfirmState(null);
+          setShowMiscarriageInput(false);
+          setMiscarriageReason('');
+        };
+
+        return (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl">
+            <div className="bg-[#fcfbf4] rounded-[2rem] w-full max-w-sm shadow-2xl overflow-hidden border border-gray-100 dark:bg-slate-900 dark:border-slate-800">
+              <div className="p-6 text-center">
+                <div className="w-16 h-16 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 dark:bg-purple-900/30 dark:text-purple-400">
+                  <Baby size={32} />
+                </div>
+                
+                {showMiscarriageInput ? (
+                  <div className="space-y-4 text-right animate-fade-in">
+                    <h3 className="text-xl font-black text-gray-800 mb-2 dark:text-white text-center">إلغاء الحمل (إجهاض)</h3>
+                    <p className="text-xs font-bold text-gray-500 mb-4 dark:text-gray-400 leading-relaxed text-center">
+                      الرجاء كتابة سبب إلغاء الحمل أو الإجهاض لحفظ التغيير في السجل:
+                    </p>
+                    <textarea
+                      value={miscarriageReason}
+                      onChange={(e) => setMiscarriageReason(e.target.value)}
+                      placeholder="مثال: إجهاض تلقائي، حمل كاذب، حادث سقوط..."
+                      rows={3}
+                      className="w-full p-4 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-2 focus:ring-red-500 transition-all font-bold text-sm text-right resize-none shadow-sm"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          if (!miscarriageReason.trim()) {
+                            showAlert('error', 'خطأ', 'يجب كتابة سبب لإلغاء الحمل.');
+                            return;
+                          }
+                          const { sheep } = reproductionConfirmState;
+                          try {
+                            await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), {
+                              reproductionStatus: 'empty',
+                              pregnancyDate: null,
+                              expectedBirthDate: null
+                            });
+                            
+                            setViewingSheep(prev => prev ? { 
+                              ...prev, 
+                              reproductionStatus: 'empty', 
+                              pregnancyDate: undefined, 
+                              expectedBirthDate: undefined
+                            } : undefined);
+                            
+                            await logActivity('إلغاء الحمل (إجهاض)', 'تم إلغاء الحمل للحيوان #' + sheep.serialNumber + ' - السبب: ' + miscarriageReason, sheep.serialNumber, sheep.tagColor);
+                            closeReproductionConfirmModal();
+                            showAlert('success', 'تم إلغاء الحمل', 'تم إلغاء الحمل وتسجيل السبب بنجاح.');
+                          } catch (e) { console.error(e); }
+                        }}
+                        className="flex-1 py-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs transition shadow-lg text-center"
+                      >
+                        تأكيد الإلغاء
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowMiscarriageInput(false);
+                          setMiscarriageReason('');
+                        }}
+                        className="flex-1 py-3.5 rounded-xl bg-gray-100 text-gray-500 font-black text-xs hover:bg-gray-200 transition dark:bg-slate-800 dark:text-gray-400 dark:hover:bg-slate-700 text-center"
+                      >
+                        تراجع
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <h3 className="text-xl font-black text-gray-800 mb-2 dark:text-white">تأكيد حالة الإنجاب</h3>
+                    <p className="text-sm font-bold text-gray-500 mb-6 dark:text-gray-400 leading-relaxed">
+                      {reproductionConfirmState.currentStatus === 'empty' ? 'سيتم تغيير الحالة إلى (مضرع) لمدة 5 أشهر تقريباً.' : 
+                       reproductionConfirmState.currentStatus === 'pregnant' ? 'سيتم تغيير الحالة إلى (أم) لبدء فترة حضانة الرضيع (3 أشهر).' : 
+                       'سيتم إعادة الحيوان إلى حالة (غير مضرع).'}
+                    </p>
+                    
+                    <div className="flex flex-col gap-3">
+                      <button
+                        onClick={async () => {
+                          const { sheep, nextStatus, expectedDurationDays } = reproductionConfirmState;
+                          try {
+                            let updates: any = { reproductionStatus: nextStatus };
+                            if (nextStatus === 'pregnant') {
+                              updates.pregnancyDate = new Date().toISOString();
+                              updates.expectedBirthDate = new Date(Date.now() + expectedDurationDays * 24 * 60 * 60 * 1000).toISOString();
+                            } else if (nextStatus === 'mother') {
+                              updates.lactationStartDate = new Date().toISOString();
+                              updates.lastBirthDate = new Date().toISOString();
+                            } else if (nextStatus === 'empty') {
+                              updates.lactationStartDate = null;
+                              updates.pregnancyDate = null;
+                              updates.expectedBirthDate = null;
+                              updates.weaningDate = new Date().toISOString();
+                            }
+                            
+                            await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), updates);
+                            setViewingSheep(prev => prev ? { ...prev, ...updates } : undefined);
+                            closeReproductionConfirmModal();
+                          } catch (e) { console.error(e); }
+                        }}
+                        className="w-full py-4 rounded-2xl bg-purple-600 text-white font-black text-sm hover:bg-purple-700 transition shadow-lg"
+                      >
+                        تأكيد {reproductionConfirmState.nextStatus === 'pregnant' ? 'الحمل' : reproductionConfirmState.nextStatus === 'mother' ? 'الولادة' : 'إنهاء الحضانة'}
+                      </button>
                       
-                      await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), updates);
-                      setViewingSheep(prev => prev ? { ...prev, ...updates } : undefined);
-                      setReproductionConfirmState(null);
-                    } catch (e) { console.error(e); }
-                  }}
-                  className="w-full py-4 rounded-2xl bg-purple-600 text-white font-black text-sm hover:bg-purple-700 transition shadow-lg"
-                >
-                  تأكيد {reproductionConfirmState.nextStatus === 'pregnant' ? 'الحمل' : reproductionConfirmState.nextStatus === 'mother' ? 'الولادة' : 'إنهاء الحضانة'}
-                </button>
-                
-                {reproductionConfirmState.currentStatus === 'pregnant' && (
-                  <button
-                    onClick={async () => {
-                      const { sheep } = reproductionConfirmState;
-                      const reason = prompt('الرجاء كتابة سبب إلغاء الحمل أو الإجهاض (ضروري لحفظ التغيير):');
-                      if (reason === null) return;
-                      if (!reason.trim()) {
-                        showAlert('error', 'خطأ', 'يجب كتابة سبب لإلغاء الحمل.');
-                        return;
-                      }
-                      try {
-                        await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), {
-                          reproductionStatus: 'empty',
-                          pregnancyDate: null,
-                          expectedBirthDate: null
-                        });
-                        
-                        setViewingSheep(prev => prev ? { 
-                          ...prev, 
-                          reproductionStatus: 'empty', 
-                          pregnancyDate: undefined, 
-                          expectedBirthDate: undefined
-                        } : undefined);
-                        
-                        await logActivity('إلغاء الحمل (إجهاض)', 'تم إلغاء الحمل للحيوان #' + sheep.serialNumber + ' - السبب: ' + reason, sheep.serialNumber, sheep.tagColor);
-                        setReproductionConfirmState(null);
-                        showAlert('success', 'تم إلغاء الحمل', 'تم إلغاء الحمل وتسجيل السبب بنجاح.');
-                      } catch (e) { console.error(e); }
-                    }}
-                    className="w-full py-4 rounded-2xl bg-red-50 text-red-700 border border-red-200 font-black text-sm hover:bg-red-100 transition dark:bg-red-900/20 dark:border-red-900 dark:text-red-400"
-                  >
-                    إلغاء الحمل (إجهاض / حمل كاذب)
-                  </button>
+                      {reproductionConfirmState.currentStatus === 'pregnant' && (
+                        <button
+                          onClick={() => setShowMiscarriageInput(true)}
+                          className="w-full py-4 rounded-2xl bg-red-50 text-red-700 border border-red-200 font-black text-sm hover:bg-red-100 transition dark:bg-red-900/20 dark:border-red-900 dark:text-red-400"
+                        >
+                          إلغاء الحمل (إجهاض / حمل كاذب)
+                        </button>
+                      )}
+                      
+                      <button
+                        onClick={closeReproductionConfirmModal}
+                        className="w-full py-4 rounded-2xl bg-gray-100 text-gray-500 font-black text-sm hover:bg-gray-200 transition dark:bg-slate-800 dark:text-gray-400 dark:hover:bg-slate-700"
+                      >
+                        إلغاء
+                      </button>
+                    </div>
+                  </>
                 )}
-                
-                <button
-                  onClick={() => setReproductionConfirmState(null)}
-                  className="w-full py-4 rounded-2xl bg-gray-100 text-gray-500 font-black text-sm hover:bg-gray-200 transition dark:bg-slate-800 dark:text-gray-400 dark:hover:bg-slate-700"
-                >
-                  إلغاء
-                </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <SettingsModal
         isOpen={isSettingsOpen}

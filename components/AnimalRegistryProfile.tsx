@@ -53,6 +53,13 @@ export const AnimalRegistryProfile: React.FC<AnimalRegistryProfileProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [miscarriageReason, setMiscarriageReason] = useState('');
 
+  const ageLabel = getAnimalAgeLabel(sheep.birthDate, sheep.type, sheep.gender);
+  const isBaby = ageLabel === 'طفل' ||
+                  ageLabel === 'حوار' || ageLabel === 'مخلول' || ageLabel === 'مفرود' || ageLabel === 'لِقي' || ageLabel === 'حِقّ' ||
+                  ageLabel === 'صوص' || ageLabel === 'فرخ' ||
+                  ageLabel === 'زغلول' || ageLabel === 'فـريخ' || ageLabel === 'شـاب' ||
+                  ageLabel === 'صوص البط' || ageLabel === 'بط فتي';
+
   if (!isOpen) return null;
 
   // Helpers
@@ -70,12 +77,11 @@ export const AnimalRegistryProfile: React.FC<AnimalRegistryProfileProps> = ({
   };
 
   const getLactationRemainingDays = () => {
-    if (sheep.reproductionStatus !== 'mother' || !sheep.lactationStartDate) return 0;
-    const start = new Date(sheep.lactationStartDate);
-    const diffTime = Date.now() - start.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    const remaining = 90 - diffDays; // 3 months = 90 days
-    return remaining > 0 ? remaining : 0;
+    if (sheep.reproductionStatus !== 'mother') return 0;
+    const dateStr = sheep.lactationStartDate || sheep.lastBirthDate || sheep.lastUpdated;
+    const daysLactation = dateStr ? Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24))) : 0;
+    const remaining = Math.max(0, 90 - daysLactation);
+    return remaining;
   };
 
   // 1. Offspring calculation
@@ -127,7 +133,7 @@ export const AnimalRegistryProfile: React.FC<AnimalRegistryProfileProps> = ({
             <X size={20} />
           </button>
           <h2 className="text-xl font-bold text-white text-center flex-1">
-            سجل بطاقة الحيوان الشاملة #{sheep.serialNumber}
+            سجل بطاقة الحيوان الشاملة
           </h2>
           <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-white shrink-0">
             <FileText size={20} />
@@ -177,6 +183,7 @@ export const AnimalRegistryProfile: React.FC<AnimalRegistryProfileProps> = ({
                   <span className="text-[10px] font-bold text-[#8D6E63]">الجنس</span>
                   <span className="text-sm font-black text-[#5D4037]">{sheep.gender === 'male' ? 'ذكر' : 'أنثى'}</span>
                 </div>
+
                 <div className="flex flex-col border-b border-[#F4F0EA] pb-2">
                   <span className="text-[10px] font-bold text-[#8D6E63]">رقم المعرف / التاج</span>
                   <span className="text-sm font-black text-[#5D4037]">#{sheep.serialNumber}</span>
@@ -187,82 +194,77 @@ export const AnimalRegistryProfile: React.FC<AnimalRegistryProfileProps> = ({
                     {sheep.tagColor && (
                       <div className="w-3.5 h-3.5 rounded-full border border-gray-200" style={{ backgroundColor: sheep.tagColor }}></div>
                     )}
-                    <span className="text-sm font-black text-[#5D4037]">{sheep.color || 'غير محدد'}</span>
+                    <span className="text-sm font-black text-[#5D4037]">
+                      {sheep.color && sheep.color !== 'غير محدد' ? sheep.color : ''}
+                    </span>
                   </div>
                 </div>
-                <div className="flex flex-col border-b border-[#F4F0EA] pb-2 col-span-2">
+
+                <div className="flex flex-col border-b border-[#F4F0EA] pb-2">
                   <span className="text-[10px] font-bold text-[#8D6E63]">العمر بالتدقيق</span>
                   <span className="text-sm font-black text-emerald-700">{calculateDetailedAge(sheep.birthDate)}</span>
-                </div>
-                {sheep.motherId && (
-                  <div className="flex flex-col border-b border-[#F4F0EA] pb-2">
-                    <span className="text-[10px] font-bold text-[#8D6E63]">الأم</span>
-                    {(() => {
-                      const motherSheep = allSheep.find(s => s.id === sheep.motherId || s.serialNumber === sheep.motherId);
-                      return (
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {motherSheep?.tagColor && (
-                            <div className="w-3.5 h-3.5 rounded-full border border-gray-200" style={{ backgroundColor: motherSheep.tagColor }}></div>
-                          )}
-                          <span className="text-sm font-black text-[#5D4037]">#{motherSheep ? motherSheep.serialNumber : sheep.motherId}</span>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
-                <div className="flex flex-col border-b border-[#F4F0EA] pb-2">
-                  <span className="text-[10px] font-bold text-[#8D6E63]">تاريخ الميلاد</span>
-                  <span className="text-sm font-black text-[#5D4037]">{sheep.birthDate || '-'}</span>
                 </div>
                 <div className="flex flex-col border-b border-[#F4F0EA] pb-2">
                   <span className="text-[10px] font-bold text-[#8D6E63]">مسمى العمر</span>
                   <span className="text-sm font-black text-[#5D4037]">{getAnimalAgeLabel(sheep.birthDate, sheep.type, sheep.gender)}</span>
                 </div>
+
+                <div className="flex flex-col border-b border-[#F4F0EA] pb-2">
+                  <span className="text-[10px] font-bold text-[#8D6E63]">تاريخ الميلاد</span>
+                  <span className="text-sm font-black text-[#5D4037]">{sheep.birthDate || '-'}</span>
+                </div>
+                <div className="flex flex-col border-b border-[#F4F0EA] pb-2">
+                  <span className="text-[10px] font-bold text-[#8D6E63]">الأم</span>
+                  {sheep.motherId ? (() => {
+                    const motherSheep = allSheep.find(s => s.id === sheep.motherId || s.serialNumber === sheep.motherId);
+                    return (
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {motherSheep?.tagColor && (
+                          <div className="w-3.5 h-3.5 rounded-full border border-gray-200" style={{ backgroundColor: motherSheep.tagColor }}></div>
+                        )}
+                        <span className="text-sm font-black text-[#5D4037]">#{motherSheep ? motherSheep.serialNumber : sheep.motherId}</span>
+                      </div>
+                    );
+                  })() : (
+                    <span className="text-sm font-black text-gray-400">-</span>
+                  )}
+                </div>
+
                 <div className="flex flex-col border-b border-[#F4F0EA] pb-2">
                   <span className="text-[10px] font-bold text-[#8D6E63]">المكان / القسم الحالي</span>
                   <span className="text-sm font-black text-[#5D4037]">{getPenName(sheep.penId)}</span>
                 </div>
+                <div className="flex flex-col border-b border-[#F4F0EA] pb-2 border-transparent">
+                  {/* Empty cell to keep grid alignment neat */}
+                </div>
+
                 <div className="flex flex-col border-b border-[#F4F0EA] pb-2">
                   <span className="text-[10px] font-bold text-[#8D6E63]">الحالة الصحية</span>
                   <span className={`text-sm font-black ${sheep.status === 'sick' ? 'text-red-600' : 'text-green-600'}`}>
                     {sheep.status === 'sick' ? 'مريض / تحت الملاحظة' : 'سليم'}
                   </span>
                 </div>
-                {sheep.reproductionStatus === 'pregnant' && sheep.expectedBirthDate && (
-                  <div className="flex flex-col border-b border-[#F4F0EA] pb-2 col-span-2">
-                    <span className="text-[10px] font-bold text-[#8D6E63]">المدة المتبقية للحمل</span>
-                    {(() => {
-                      const expected = new Date(sheep.expectedBirthDate);
-                      const now = new Date();
-                      const diffMs = expected.getTime() - now.getTime();
-                      if (diffMs <= 0) {
-                        return <span className="text-sm font-black text-red-600">موعد الولادة المتوقع قد حان</span>;
-                      }
-                      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                      const months = Math.floor(diffDays / 30);
-                      const days = diffDays % 30;
-                      const durationStr = months > 0 ? `${months} شهر و ${days} يوم` : `${days} يوم`;
-                      return <span className="text-sm font-black text-rose-600">{durationStr}</span>;
-                    })()}
-                  </div>
-                )}
-              </div>
-
-              {/* Breeding & Reproduction State - Females only */}
-              {sheep.gender === 'female' && (
-                <div className="bg-white rounded-3xl p-5 border border-[#E0D9D0] shadow-sm space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold text-[#8D6E63]">حالة الإخصاب والتناسل</span>
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${
-                      sheep.reproductionStatus === 'pregnant' ? 'bg-red-100 text-red-700' :
-                      sheep.reproductionStatus === 'mother' ? 'bg-pink-100 text-pink-700' : 'bg-gray-100 text-gray-700'
+                {sheep.gender === 'female' && !isBaby ? (
+                  <div className="flex flex-col border-b border-[#F4F0EA] pb-2">
+                    <span className="text-[10px] font-bold text-[#8D6E63]">حالة الإخصاب والتناسل</span>
+                    <span className={`text-sm font-black ${
+                      sheep.reproductionStatus === 'pregnant' ? 'text-rose-600' :
+                      sheep.reproductionStatus === 'mother' ? 'text-pink-600' : 'text-amber-600'
                     }`}>
                       {sheep.reproductionStatus === 'pregnant' ? 'مضرع (حامل)' :
                        sheep.reproductionStatus === 'mother' ? 'أم' : 'غير مضرع'}
                     </span>
                   </div>
+                ) : (
+                  <div className="flex flex-col border-b border-[#F4F0EA] pb-2 border-transparent">
+                    {/* Empty cell if breeding is hidden */}
+                  </div>
+                )}
+              </div>
 
-                  {/* Red button for Pregnant, gray for dry, pink for mother */}
+              {/* Breeding & Reproduction Countdown Details - Females only, mature only, and active states only */}
+              {sheep.gender === 'female' && !isBaby && (sheep.reproductionStatus === 'pregnant' || sheep.reproductionStatus === 'mother') && (
+                <div className="bg-white rounded-3xl p-5 border border-[#E0D9D0] shadow-sm space-y-4">
                   <div className="pt-2">
                     {sheep.reproductionStatus === 'pregnant' && (
                       <div className="space-y-4">

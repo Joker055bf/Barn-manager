@@ -197,6 +197,10 @@ export interface WorkerPermissions {
   canReorderPens: boolean;
   canDeleteAnimals: boolean;
   canDeleteExpenses: boolean;
+  canAddBarns: boolean;
+  canEditBarns: boolean;
+  canDeleteBarns: boolean;
+  canViewEvents: boolean;
 }
 
 export interface ActivityEntry {
@@ -221,6 +225,8 @@ export interface User {
   createdAt: string;
   ownerId: string; // The ID of the owner this user belongs to
   permissions?: WorkerPermissions;
+  permissionsPerBarn?: { [barnId: string]: WorkerPermissions };
+  avatar?: string;
   settingsPin?: string;
   accessiblePens?: string[];
 }
@@ -245,4 +251,8 @@ export const DEFAULT_WORKER_PERMISSIONS: WorkerPermissions = {
   canReorderPens: false,
   canDeleteAnimals: false,
   canDeleteExpenses: false,
+  canAddBarns: false,
+  canEditBarns: false,
+  canDeleteBarns: false,
+  canViewEvents: true,
 };

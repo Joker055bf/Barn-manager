@@ -48,6 +48,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
   const [notes, setNotes] = useState('');
   const [tagColor, setTagColor] = useState<string>('');
   const [nickname, setNickname] = useState('');
+  const [color, setColor] = useState('');
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [selectedPenId, setSelectedPenId] = useState(penId);
   const [motherSearchQuery, setMotherSearchQuery] = useState('');
@@ -93,8 +94,25 @@ export const SheepModal: React.FC<SheepModalProps> = ({
       setFatherId(initialData.fatherId || '');
       setMotherId(initialData.motherId || '');
       setNotes(initialData.notes || '');
-      setTagColor(initialData.tagColor || '');
+      
+      let initialTagColor = initialData.tagColor || '';
+      if (!initialTagColor && initialData.color) {
+        const cleaned = initialData.color.trim();
+        if (cleaned.startsWith('#')) {
+          initialTagColor = cleaned;
+        } else {
+          const hex = cleaned.toUpperCase();
+          const matched = Object.keys(colorNames).find(k => k.toUpperCase().includes(hex) || hex.includes(k.toUpperCase().replace('#', '')));
+          if (matched) {
+            initialTagColor = matched;
+          } else if (cleaned.length === 6 && /^[0-9A-F]{6}$/i.test(cleaned)) {
+            initialTagColor = '#' + cleaned;
+          }
+        }
+      }
+      setTagColor(initialTagColor);
       setNickname(initialData.nickname || '');
+      setColor(initialTagColor);
       setSelectedPenId(initialData.penId);
       calculateAge(initialData.birthDate);
 
@@ -143,13 +161,13 @@ export const SheepModal: React.FC<SheepModalProps> = ({
 
   // Auto-generate next available serial number when type and color change
   useEffect(() => {
-    if (type && tagColor && !isBatchMode) {
+    if (type && tagColor && !isBatchMode && !serialNumber) {
       if (initialData && initialData.type === type && initialData.tagColor === tagColor) {
         return; // Keep original serial number if editing and type/color haven't changed
       }
       
       const matchingAnimals = existingSheep.filter(
-        (s) => s.type === type && (s.tagColor || '') === tagColor && s.id !== initialData?.id
+        (s) => s.type === type && (s.tagColor || '') === tagColor && s.id !== initialData?.id && !s.exclusionDate && !s.penId.includes('mortality') && !s.penId.includes('sold')
       );
 
       let maxNum = 0;
@@ -217,6 +235,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
     setNotes('');
     setTagColor('');
     setNickname('');
+    setColor('');
     setSelectedPenId(penId);
     setCount(1);
     setMotherSearchQuery('');
@@ -296,32 +315,17 @@ export const SheepModal: React.FC<SheepModalProps> = ({
     if (existingSheep.length > 0) {
       const duplicateSheep = existingSheep.find(s =>
         s.id !== (initialData?.id) && // Exclude self if editing
+        !s.exclusionDate && // Only active
+        !s.penId.includes('mortality') && // Only active
+        !s.penId.includes('sold') && // Only active
         s.serialNumber === serialNumber &&
         (s.tagColor || '') === (tagColor || '') &&
         s.type === type // Only duplicate if same type
       );
 
       if (duplicateSheep) {
-        // Check if excluded
-        if (duplicateSheep.exclusionDate) {
-          const exclusionDate = new Date(duplicateSheep.exclusionDate);
-          const now = new Date();
-          const diffMonths = (now.getFullYear() - exclusionDate.getFullYear()) * 12 + (now.getMonth() - exclusionDate.getMonth());
-
-          // If less than 3 months, BLOCK
-          if (diffMonths < 3) {
-            const availableDate = new Date(exclusionDate);
-            availableDate.setMonth(availableDate.getMonth() + 3);
-            const msg = `هذا الرقم محجوز لحيوان مستبعد (${duplicateSheep.serialNumber} - ${colorNames[duplicateSheep.tagColor || ''] || 'بدون لون'}). سيكون متاحاً بعد: ${availableDate.toLocaleDateString('en-GB')}`;
-            if (onShowAlert) onShowAlert('error', 'تنبيه', msg);
-            return;
-          }
-          // If >= 3 months, ALLOW (Implicitly continues)
-        } else {
-          // Normal duplicate (Active animal)
-          if (onShowAlert) onShowAlert('error', 'خطأ', 'يوجد حيوان نشط بنفس الرقم التسلسلي ولون العلامة. الرجاء تغيير أحدهما.');
-          return;
-        }
+        if (onShowAlert) onShowAlert('error', 'خطأ', 'يوجد حيوان نشط بنفس الرقم التسلسلي ولون العلامة. الرجاء تغيير أحدهما.');
+        return;
       }
     }
 
@@ -353,6 +357,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
     }
 
     const sheepData: Sheep = {
+      ...initialData,
       id: initialData ? initialData.id : generateId(),
       penId: selectedPenId,
       serialNumber,
@@ -362,8 +367,8 @@ export const SheepModal: React.FC<SheepModalProps> = ({
       fatherId: isSheep ? finalFatherId : undefined,
       motherId: isSheep ? finalMotherId : undefined,
       notes,
-      medicalRecords: initialData?.medicalRecords || [],
       tagColor,
+      color,
       nickname,
       source: isSheep ? source : undefined
     };
@@ -507,10 +512,12 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                   </div>
 
                   {includeBirthDate ? (
-                    <CustomDatePicker
+                    <input
+                      type="date"
                       required
                       value={birthDate}
-                      onChange={(date) => setBirthDate(date)}
+                      onChange={(e) => setBirthDate(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#795548] focus:bg-white outline-none transition-all font-bold text-center text-sm shadow-sm"
                     />
                   ) : (
                     <div className="w-full px-3 py-2.5 bg-[#fcfbf4] text-gray-400 border border-gray-200 rounded-xl text-xs text-center font-medium shadow-sm">
@@ -550,8 +557,8 @@ export const SheepModal: React.FC<SheepModalProps> = ({
               </div>
 
               <div className="grid grid-cols-12 gap-2">
-                {/* Type - أخذ مساحة أكبر */}
-                <div className="col-span-4 space-y-1">
+                {/* Type - col-span-3 */}
+                <div className="col-span-3 space-y-1">
                   <CustomSelect
                     label="النوع"
                     value={type}
@@ -576,9 +583,9 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                   />
                 </div>
 
-                {/* Color Picker - أخذ مساحة أصغر */}
+                {/* Tag Color Picker - col-span-2 */}
                 <div className="col-span-2 space-y-1">
-                  <label className="text-xs font-bold text-gray-700 block text-center mb-1">اللون</label>
+                  <label className="text-xs font-bold text-gray-700 block text-center mb-1">الشارة</label>
                   <div className="relative w-full">
                     <input
                       ref={colorInputRef}
@@ -607,7 +614,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                           <button
                             key={c}
                             type="button"
-                            onClick={() => { setTagColor(c); setShowColorPicker(false); }}
+                            onClick={() => { setTagColor(c); setColor(c); setShowColorPicker(false); }}
                             className={`w-6 h-6 rounded-full border transition hover:scale-110 hover:shadow-md ${tagColor === c ? 'ring-2 ring-offset-2 ring-emerald-500' : 'border-gray-100'}`}
                             style={{ backgroundColor: c }}
                             title={name}
@@ -615,7 +622,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                         ))}
                         <button
                           type="button"
-                          onClick={() => { setTagColor(''); setShowColorPicker(false); }}
+                          onClick={() => { setTagColor(''); setColor(''); setShowColorPicker(false); }}
                           className="w-full col-span-4 text-[10px] text-red-500 py-1 hover:bg-red-50 rounded-lg font-bold transition-colors"
                         >
                           إزالة
@@ -625,7 +632,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                   </div>
                 </div>
 
-                {/* Serial Number - مساحة عادية */}
+                {/* Serial Number - col-span-3 */}
                 <div className="col-span-3 space-y-1">
                   <label className="text-xs font-bold text-gray-700 block text-center mb-1">الرقم</label>
                   <input
@@ -643,7 +650,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                   />
                 </div>
 
-                {/* Nickname - مساحة عادية */}
+                {/* Nickname - col-span-3 */}
                 <div className="col-span-3 space-y-1">
                   <label className="text-xs font-bold text-gray-700 block text-center mb-1">الكنية</label>
                   <input
@@ -660,11 +667,13 @@ export const SheepModal: React.FC<SheepModalProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 {/* Date */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-700 block text-center">الميلاد</label>
-                  <CustomDatePicker
+                  <label className="text-xs font-bold text-gray-700 block text-center">تاريخ الميلاد</label>
+                  <input
+                    type="date"
                     required
                     value={birthDate}
-                    onChange={(date) => setBirthDate(date)}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    className="w-full h-[38px] px-2 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#795548] focus:bg-white outline-none transition-all font-bold text-center text-sm shadow-sm"
                   />
                 </div>
 
@@ -736,10 +745,12 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-gray-700 block text-right">تاريخ الشراء</label>
-                    <CustomDatePicker
+                    <input
+                      type="date"
                       required
                       value={purchaseDate}
-                      onChange={(date) => setPurchaseDate(date)}
+                      onChange={(e) => setPurchaseDate(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#795548] focus:bg-white outline-none transition-all font-bold text-center text-sm shadow-sm"
                     />
                   </div>
                 </div>

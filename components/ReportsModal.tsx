@@ -294,7 +294,6 @@ export function ReportsModal({
                                 <thead className="bg-gray-800 text-white">
                                     <tr>
                                         <th className="p-3 border border-gray-800">الصنف</th>
-                                        <th className="p-3 border border-gray-800">الاستهلاك اليومي (اليوم)</th>
                                         <th className="p-3 border border-gray-800">الكمية المتبقية</th>
                                         <th className="p-3 border border-gray-800">الحالة</th>
                                     </tr>
@@ -321,7 +320,6 @@ export function ReportsModal({
                                         return (
                                             <tr key={item.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                                                 <td className="p-3 border border-gray-200 font-bold">{item.name}</td>
-                                                <td className="p-3 border border-gray-200 font-bold text-amber-700">{todayConsumption} {item.unit}</td>
                                                 <td className="p-3 border border-gray-200">{item.quantity} {item.unit}</td>
                                                 <td className="p-3 border border-gray-200 text-center font-bold">
                                                     {isLow ? (
