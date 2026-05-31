@@ -217,28 +217,28 @@ export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, curre
 
                     {/* Summary Cards */}
                     <div className="grid grid-cols-2 gap-3 mb-6">
-                       <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100 flex flex-col items-center justify-center text-center">
-                          <p className="text-emerald-500 text-[11px] mb-1 font-bold flex items-center gap-1">
-                            <CalendarDays size={14} /> يكفي لمدة
+                       <div className="bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100 flex flex-col items-center justify-center text-center">
+                          <p className="text-emerald-500 text-[9.5px] mb-0.5 font-bold flex items-center gap-1">
+                            <CalendarDays size={12} /> يكفي لمدة
                           </p>
-                          <p className="font-black text-emerald-700 text-2xl">
-                             {daysLeft !== null && daysLeft !== Infinity ? daysLeft : '-'} <span className="text-xs font-medium text-emerald-600">يوم</span>
+                          <p className="font-black text-emerald-700 text-lg">
+                             {daysLeft !== null && daysLeft !== Infinity ? daysLeft : '-'} <span className="text-[10px] font-medium text-emerald-600">يوم</span>
                           </p>
                        </div>
 
-                       <div className="bg-orange-50/50 p-4 rounded-2xl border border-orange-100 flex flex-col items-center justify-center text-center relative overflow-hidden">
-                          <div className="absolute top-2 left-2 text-orange-400">
-                             <Clock size={12} />
+                       <div className="bg-orange-50/50 p-2.5 rounded-xl border border-orange-100 flex flex-col items-center justify-center text-center relative overflow-hidden">
+                          <div className="absolute top-1.5 left-1.5 text-orange-400">
+                             <Clock size={10} />
                           </div>
-                          <p className="text-orange-500 text-[11px] mb-1 font-bold flex items-center gap-1">
-                            استهلاك تلقائي <Droplets size={12} />
+                          <p className="text-orange-500 text-[9.5px] mb-0.5 font-bold flex items-center gap-1">
+                            استهلاك تلقائي <Droplets size={10} />
                           </p>
                           {isVaried ? (
-                             <p className="font-black text-gray-800 text-sm">حسب اليوم</p>
+                             <p className="font-black text-gray-800 text-xs">حسب اليوم</p>
                           ) : (
-                             <p className="font-black text-gray-800 text-xl">{dailyAvg > 0 ? dailyAvg : '-'} <span className="text-[10px] font-medium">{displayUnit}</span></p>
+                             <p className="font-black text-gray-800 text-base">{dailyAvg > 0 ? dailyAvg : '-'} <span className="text-[9px] font-medium">{displayUnit}</span></p>
                           )}
-                          <p className="text-[9px] text-orange-400 mt-1 font-bold">يومياً 8:00 ص</p>
+                          <p className="text-[8px] text-orange-400 mt-0.5 font-bold">يومياً 8:00 ص</p>
                        </div>
                     </div>
 

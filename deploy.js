@@ -2,6 +2,7 @@ import { readFileSync, existsSync, rmSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import os from 'os';
+import ghpages from 'gh-pages';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -10,8 +11,7 @@ let ghToken = process.env.GH_TOKEN;
 if (!ghToken) {
   try {
     const envFile = readFileSync(path.join(__dirname, '.env.local'), 'utf-8');
-    for (const line of envFile.split('\
-')) {
+    for (const line of envFile.split('\n')) {
       const [key, ...rest] = line.split('=');
       if (key?.trim() === 'GH_TOKEN') {
         const val = rest.join('=').trim();
@@ -35,14 +35,7 @@ const repoUrl = ghToken
   ? `https://${ghToken}:x-oauth-basic@github.com/Joker055bf/Joker055bf.github.io.git`
   : `https://github.com/Joker055bf/Joker055bf.github.io.git`;
 
-
-/* TRUNCATED CONTENT START
-console.log('\
-🚀 Deploying to GitHub Pages...\
-');
-
-// Use gh-pages Node API directly (avoids Windows shell quoting issues)
-const { default: ghpages } = await import('gh-pages');
+console.log('\n🚀 Deploying to GitHub Pages...\n');
 
 ghpages.publish(
   'dist',
@@ -55,22 +48,18 @@ ghpages.publish(
   },
   (err) => {
     if (err) {
-      console.error('\
-❌ فشل النشر:', err.message || err);
+      console.error('\n❌ فشل النشر:', err.message || err);
       if (!ghToken) {
-        console.error('\
-💡 لم يتم العثور على GitHub Token.');
+        console.error('\n💡 لم يتم العثور على GitHub Token.');
         console.error('   افتح ملف .env.local وضع:');
         console.error('   GH_TOKEN=ghp_xxxxxxxxxxxx');
         console.error('   يمكنك إنشاء token من: https://github.com/settings/tokens');
-        console.error('   (اختر repo > Full control)\
-');
+        console.error('   (اختر repo > Full control)\n');
       }
       process.exit(1);
     } else {
-      console.log('\
-✅ 
-        < truncated 121 bytes >
-*/
-
-console.log('✅ تم النشر بنجاح على GitHub Pages!');
+      console.log('✅ تم النشر بنجاح على GitHub Pages!');
+      process.exit(0);
+    }
+  }
+);

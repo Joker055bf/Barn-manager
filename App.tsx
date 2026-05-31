@@ -900,7 +900,9 @@ function App() {
           changes.push(`تغيير الحالة الصحية من (${getHealthLabel(editingSheep.healthStatus)}) إلى (${getHealthLabel(newSheep.healthStatus)})`);
         }
         if (editingSheep.tagColor !== newSheep.tagColor) {
-          changes.push(`تعديل لون الشارة`);
+          const oldColorLabel = colorNames[editingSheep.tagColor || ''] || 'بدون لون';
+          const newColorLabel = colorNames[newSheep.tagColor || ''] || 'بدون لون';
+          changes.push(`تعديل لون الشارة من (${oldColorLabel}) إلى (${newColorLabel})`);
         }
         if (editingSheep.serialNumber !== newSheep.serialNumber) {
           changes.push(`تعديل الرقم التسلسلي من (#${editingSheep.serialNumber}) إلى (#${newSheep.serialNumber})`);
@@ -1380,37 +1382,41 @@ function App() {
 
           {/* Reproduction Status Button (Females Only) */}
           {sheep.gender === 'female' && (() => {
+            const ageLabel = getAnimalAgeLabel(sheep.birthDate, sheep.type, sheep.gender);
+            const isBaby = ageLabel === 'طفل' || ageLabel === 'حوار' || ageLabel === 'مخلول' || ageLabel === 'صوص' || ageLabel === 'فرخ' || ageLabel === 'زغلول' || ageLabel === 'صوص البط' || ageLabel === 'فـريخ';
+            if (isBaby) return null;
+
             if (!sheep.reproductionStatus || sheep.reproductionStatus === 'empty') {
-              const emptySinceDate = sheep.weaningDate || sheep.createdAt || new Date().toISOString();
-              const daysEmpty = Math.max(0, Math.floor((Date.now() - new Date(emptySinceDate).getTime()) / (1000 * 60 * 60 * 24)));
               return (
                 <button
                   onClick={() => setReproductionConfirmState({ sheep, currentStatus: 'empty', nextStatus: 'pregnant', expectedDurationDays: 150 })}
                   className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-2xl shadow-sm transition"
                 >
-                  غير مضرع ({daysEmpty} يوم)
+                  غير مضرع
                   <Baby size={16} className="text-amber-500" />
                 </button>
               );
             } else if (sheep.reproductionStatus === 'pregnant') {
               const daysPregnant = sheep.pregnancyDate ? Math.max(0, Math.floor((Date.now() - new Date(sheep.pregnancyDate).getTime()) / (1000 * 60 * 60 * 24))) : 0;
+              const remainingDays = Math.max(0, 150 - daysPregnant);
               return (
                 <button
                   onClick={() => setReproductionConfirmState({ sheep, currentStatus: 'pregnant', nextStatus: 'mother', expectedDurationDays: 90 })}
                   className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-2xl shadow-sm transition animate-pulse"
                 >
-                  مضرع ({daysPregnant} يوم)
+                  مضرع (باقي {remainingDays} يوم)
                   <Baby size={16} className="text-rose-500" />
                 </button>
               );
             } else {
               const daysLactation = sheep.lactationStartDate ? Math.max(0, Math.floor((Date.now() - new Date(sheep.lactationStartDate).getTime()) / (1000 * 60 * 60 * 24))) : 0;
+              const remainingLactation = Math.max(0, 90 - daysLactation);
               return (
                 <button
                   onClick={() => setReproductionConfirmState({ sheep, currentStatus: 'mother', nextStatus: 'empty', expectedDurationDays: 0 })}
                   className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-pink-700 bg-pink-50 border border-pink-200 hover:bg-pink-100 rounded-2xl shadow-sm transition"
                 >
-                  أم حضانة ({daysLactation} يوم)
+                  أم حضانة (باقي {remainingLactation} يوم)
                   <Baby size={16} className="text-pink-500" />
                 </button>
               );
@@ -2098,17 +2104,7 @@ function App() {
                                                         </span>
                                                       </div>
                                                     )}
-                                                   {log.changes && log.changes.length > 0 && (
-                                                     <div className="mt-1 p-2 bg-white dark:bg-slate-800 rounded-xl border border-gray-100/50 dark:border-slate-800 space-y-0.5">
-                                                       <span className="text-[#795548] dark:text-orange-400 font-extrabold block">تفاصيل التعديل:</span>
-                                                       {log.changes.map((ch, idx) => (
-                                                         <div key={idx} className="flex items-center justify-end gap-1 text-[9px]">
-                                                           <span>{ch}</span>
-                                                           <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
-                                                         </div>
-                                                       ))}
-                                                     </div>
-                                                   )}
+                                                   
                                                    <div><span className="text-gray-400">التاريخ: </span>{new Date(log.timestamp).toLocaleString('ar-SA')}</div>
                                                  </div>
                                                )}
@@ -2221,12 +2217,12 @@ function App() {
                   <button 
                     key={item.id}
                     onClick={item.onClick}
-                    className="bg-white p-5 rounded-[2rem] border border-[#EFECE6] shadow-sm flex flex-col items-center justify-center gap-2.5 hover:scale-[1.02] active:scale-[0.98] transition-all dark:bg-slate-900 dark:border-slate-800 h-28"
+                    className="bg-white p-3 rounded-2xl border border-[#EFECE6] shadow-sm flex flex-col items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all dark:bg-slate-900 dark:border-slate-800 h-[5.6rem]"
                   >
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${item.color} dark:bg-white/5`}>
-                      <item.icon size={22} />
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${item.color} dark:bg-white/5`}>
+                      <item.icon size={18} />
                     </div>
-                    <span className="font-bold text-xs text-gray-700 dark:text-gray-200">{item.label}</span>
+                    <span className="font-bold text-[10.5px] text-gray-700 dark:text-gray-200">{item.label}</span>
                   </button>
                 ))}
               </div>
@@ -2326,17 +2322,7 @@ function App() {
                               <div><span className="text-gray-400">العامل: </span>{log.userName}</div>
                               <div><span className="text-gray-400">الإجراء: </span>{log.action}</div>
                               <div><span className="text-gray-400">التفاصيل: </span>{log.detail || 'تحديث بيانات'}</div>
-                              {log.changes && log.changes.length > 0 && (
-                                <div className="mt-1 p-2 bg-white dark:bg-slate-800 rounded-xl border border-gray-100/50 dark:border-slate-800 space-y-0.5">
-                                  <span className="text-[#795548] dark:text-orange-400 font-extrabold block">تفاصيل التعديل:</span>
-                                  {log.changes.map((ch, idx) => (
-                                    <div key={idx} className="flex items-center justify-end gap-1 text-[9px]">
-                                      <span>{ch}</span>
-                                      <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
+
                               <div><span className="text-gray-400">التاريخ: </span>{new Date(log.timestamp).toLocaleString('ar-SA')}</div>
                             </div>
                           )}
@@ -2584,17 +2570,7 @@ function App() {
                             </span>
                           </div>
                         )}
-                        {log.changes && log.changes.length > 0 && (
-                          <div className="mt-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-800 space-y-1">
-                            <span className="text-[#795548] dark:text-orange-400 font-extrabold block">تفاصيل التعديل:</span>
-                            {log.changes.map((ch, idx) => (
-                              <div key={idx} className="flex items-center justify-end gap-1.5 text-[10px] text-gray-600 dark:text-gray-300">
-                                <span>{ch}</span>
-                                <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
-                              </div>
-                            ))}
-                          </div>
-                        )}
+
                         <div><span className="text-gray-400">التاريخ والوقت: </span>{new Date(log.timestamp).toLocaleString('ar-SA')}</div>
                       </div>
                     )
@@ -2866,6 +2842,12 @@ function App() {
                   <button
                     onClick={async () => {
                       const { sheep } = reproductionConfirmState;
+                      const reason = prompt('الرجاء كتابة سبب إلغاء الحمل أو الإجهاض (ضروري لحفظ التغيير):');
+                      if (reason === null) return;
+                      if (!reason.trim()) {
+                        showAlert('error', 'خطأ', 'يجب كتابة سبب لإلغاء الحمل.');
+                        return;
+                      }
                       try {
                         await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), {
                           reproductionStatus: 'empty',
@@ -2880,8 +2862,9 @@ function App() {
                           expectedBirthDate: undefined
                         } : undefined);
                         
+                        await logActivity('إلغاء الحمل (إجهاض)', 'تم إلغاء الحمل للحيوان #' + sheep.serialNumber + ' - السبب: ' + reason, sheep.serialNumber, sheep.tagColor);
                         setReproductionConfirmState(null);
-                        showAlert('success', 'تم الإلغاء', 'تم إلغاء الحمل (إجهاض / حمل كاذب) بنجاح.');
+                        showAlert('success', 'تم إلغاء الحمل', 'تم إلغاء الحمل وتسجيل السبب بنجاح.');
                       } catch (e) { console.error(e); }
                     }}
                     className="w-full py-4 rounded-2xl bg-red-50 text-red-700 border border-red-200 font-black text-sm hover:bg-red-100 transition dark:bg-red-900/20 dark:border-red-900 dark:text-red-400"

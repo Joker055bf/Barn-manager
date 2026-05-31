@@ -629,7 +629,7 @@ export function ReportsModal({
                                                     <thead>
                                                         <tr className="bg-gray-50/50 dark:bg-slate-900">
                                                             <th className="p-2.5 px-3 font-black text-[9px] text-gray-400 uppercase tracking-widest">الصنف</th>
-                                                            <th className="p-2.5 px-3 font-black text-[9px] text-gray-400 uppercase tracking-widest text-center">الاستهلاك اليومي (اليوم)</th>
+                                                            
                                                             <th className="p-2.5 px-3 font-black text-[9px] text-gray-400 uppercase tracking-widest text-center">الكمية المتبقية</th>
                                                             <th className="p-2.5 px-3 font-black text-[9px] text-gray-400 uppercase tracking-widest text-center">الحالة</th>
                                                         </tr>
@@ -657,7 +657,7 @@ export function ReportsModal({
                                                             return (
                                                                 <tr key={item.id} className="hover:bg-orange-50/30 transition-colors dark:hover:bg-slate-800">
                                                                     <td className="p-2.5 px-3 font-bold text-gray-900 dark:text-white text-xs">{item.name}</td>
-                                                                    <td className="p-2.5 px-3 text-center font-bold text-amber-700 dark:text-amber-400 text-xs">{todayConsumption} {item.unit}</td>
+                                                                    
                                                                     <td className="p-2.5 px-3 text-center font-bold text-gray-700 dark:text-gray-300 text-xs">{item.quantity} {item.unit}</td>
                                                                     <td className="p-2.5 px-3 text-center">
                                                                         {isLow ? (

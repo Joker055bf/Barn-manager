@@ -264,100 +264,8 @@ export const AnimalRegistryProfile: React.FC<AnimalRegistryProfileProps> = ({
 
                   {/* Red button for Pregnant, gray for dry, pink for mother */}
                   <div className="pt-2">
-                    {(!sheep.reproductionStatus || sheep.reproductionStatus === 'empty') && (
-                      <button
-                        onClick={handleToggleReproduction}
-                        disabled={isLoading}
-                        className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-[#5D4037] border border-gray-200 font-bold py-3.5 px-4 rounded-2xl transition"
-                      >
-                        <HeartPulse size={16} />
-                        <span>تغيير الحالة إلى (مضرع - حامل)</span>
-                      </button>
-                    )}
-
                     {sheep.reproductionStatus === 'pregnant' && (
                       <div className="space-y-4">
-                        {/* Option 1: Confirm Birth */}
-                        <div className="bg-emerald-50/50 border border-emerald-100 p-4 rounded-2xl space-y-2 dark:bg-emerald-950/10 dark:border-emerald-900/30">
-                          <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-400 font-black text-xs">
-                            <Baby size={16} className="text-emerald-600 dark:text-emerald-400" />
-                            <span>الخيار الأول: تسجيل ولادة طبيعية</span>
-                          </div>
-                          <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-500 leading-relaxed">
-                            سيتم نقل الحيوان إلى حالة (أم) لبدء فترة الرضاعة والحضانة الطبيعية (3 أشهر).
-                          </p>
-                          <button
-                            onClick={async () => {
-                              if (!onUpdateReproduction) return;
-                              setIsLoading(true);
-                              try {
-                                const updates = {
-                                  reproductionStatus: 'mother',
-                                  lactationStartDate: new Date().toISOString(),
-                                  lastBirthDate: new Date().toISOString()
-                                };
-                                await onUpdateReproduction(sheep.id, updates);
-                              } catch (e) { console.error(e); }
-                              finally { setIsLoading(false); }
-                            }}
-                            disabled={isLoading}
-                            className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl transition text-xs shadow-md shadow-emerald-600/10"
-                          >
-                            <span>تسجيل ولادة جديدة</span>
-                          </button>
-                        </div>
-
-                        {/* Option 2: Cancel Pregnancy (Abortion) */}
-                        <div className="bg-rose-50/50 border border-rose-100 p-4 rounded-2xl space-y-3 dark:bg-rose-950/10 dark:border-rose-900/30">
-                          <div className="flex items-center gap-2 text-rose-800 dark:text-rose-400 font-black text-xs">
-                            <X size={16} className="text-rose-600 dark:text-rose-400" />
-                            <span>الخيار الثاني: إلغاء الحمل أو حدوث إجهاض</span>
-                          </div>
-                          <p className="text-[10px] font-bold text-rose-600 dark:text-rose-500 leading-relaxed">
-                            سيتم إلغاء الحمل وإعادة الحيوان إلى حالة (غير مضرع) مع حفظ السبب المكتوب في سجل الأحداث الأخيرة.
-                          </p>
-                          
-                          <div className="space-y-1.5">
-                            <label className="block text-[10px] font-bold text-gray-500 text-right">سبب إلغاء الحمل / الإجهاض يدوياً</label>
-                            <input
-                              type="text"
-                              value={miscarriageReason}
-                              onChange={(e) => setMiscarriageReason(e.target.value)}
-                              placeholder="مثال: تعسر في الولادة، سقط الجنين..."
-                              className="w-full px-3 py-2 bg-white text-[#5D4037] border border-[#E0D9D0] rounded-xl outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 text-xs font-bold dark:bg-slate-800 dark:border-slate-700 dark:text-white"
-                            />
-                          </div>
-
-                          <button
-                            onClick={async () => {
-                              if (!onUpdateReproduction) return;
-                              const customReason = miscarriageReason.trim();
-                              if (!customReason) {
-                                alert('الرجاء كتابة سبب إلغاء الحمل أو الإجهاض أولاً.');
-                                return;
-                              }
-                              setIsLoading(true);
-                              try {
-                                const updates = {
-                                  reproductionStatus: 'empty',
-                                  pregnancyDate: null,
-                                  expectedBirthDate: null
-                                };
-                                await onUpdateReproduction(sheep.id, updates);
-                                if (onLogActivity) {
-                                  await onLogActivity('إلغاء الحمل (إجهاض)', `الحيوان #${sheep.serialNumber} - السبب: ${customReason}`);
-                                }
-                                setMiscarriageReason('');
-                              } catch (e) { console.error(e); }
-                              finally { setIsLoading(false); }
-                            }}
-                            disabled={isLoading}
-                            className="w-full flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 px-4 rounded-xl transition text-xs shadow-md shadow-rose-600/10"
-                          >
-                            <span>تأكيد إلغاء الحمل والسبب</span>
-                          </button>
-                        </div>
-
                         {/* Current pregnancy status info banner */}
                         {isPregnancyOverdue() ? (
                           <div className="bg-red-50 border border-red-200 text-red-700 text-[10px] font-bold p-3 rounded-2xl text-center flex items-center gap-2 justify-center dark:bg-red-950/20 dark:border-red-900/50">
@@ -379,8 +287,8 @@ export const AnimalRegistryProfile: React.FC<AnimalRegistryProfileProps> = ({
                               const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
                               const months = Math.floor(diffDays / 30);
                               const days = diffDays % 30;
-                              const durationStr = months > 0 ? `المدة المتبقية للحمل: ${months} شهر و ${days} يوم` : `المدة المتبقية للحمل: ${days} يوم`;
-                              return <span className="text-[10px] font-black text-rose-600 mt-1">{durationStr}</span>;
+                              const durationStr = months > 0 ? (months + " شهر و " + days + " يوم") : (days + " يوم");
+                              return <span className="text-[10px] font-black text-rose-600 mt-1">المدة المتبقية للحمل: {durationStr}</span>;
                             })()}
                           </div>
                         )}
@@ -388,19 +296,9 @@ export const AnimalRegistryProfile: React.FC<AnimalRegistryProfileProps> = ({
                     )}
 
                     {sheep.reproductionStatus === 'mother' && (
-                      <div className="space-y-3">
-                        <button
-                          onClick={handleToggleReproduction}
-                          disabled={isLoading}
-                          className="w-full flex items-center justify-center gap-2 bg-pink-100 hover:bg-pink-200 text-pink-700 border border-pink-200 font-bold py-3.5 px-4 rounded-2xl transition"
-                        >
-                          <Activity size={16} />
-                          <span>إعادة تعيين الحالة يدوياً إلى (غير مضرع)</span>
-                        </button>
-                        <div className="bg-pink-50 border border-pink-100 text-pink-700 text-[10px] font-bold p-3 rounded-2xl text-center flex items-center gap-2 justify-center">
-                          <Clock size={12} />
-                          <span>الوضع الحالي: حضانة ورضاعة طبيعية (متبقي {getLactationRemainingDays()} يوم لتتحول تلقائياً إلى غير مضرع)</span>
-                        </div>
+                      <div className="bg-pink-50 border border-pink-100 text-pink-700 text-[10px] font-bold p-3 rounded-2xl text-center flex items-center gap-2 justify-center">
+                        <Clock size={12} />
+                        <span>الوضع الحالي: حضانة ورضاعة طبيعية (متبقي {getLactationRemainingDays()} يوم لتتحول تلقائياً إلى غير مضرع)</span>
                       </div>
                     )}
                   </div>
