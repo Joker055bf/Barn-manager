@@ -68,7 +68,6 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                                     <button
                                         key={option.value}
                                         type="button"
-                                        disabled={option.disabled}
                                         onClick={() => {
                                             if (!option.disabled) {
                                                 onChange(option.value);
@@ -77,7 +76,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                                         }}
                                         className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all ${
                                             option.disabled 
-                                                ? 'opacity-50 cursor-not-allowed text-gray-400 dark:text-gray-500' 
+                                                ? 'cursor-not-allowed text-gray-600/95 dark:text-slate-400/95 bg-gray-50/70 dark:bg-slate-900/30 font-medium' 
                                                 : isSelected
                                                     ? 'bg-[#795548] text-white shadow-md'
                                                     : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white'

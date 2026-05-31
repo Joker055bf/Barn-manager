@@ -12,6 +12,7 @@ interface ProductionStatsProps {
     allSheep: Sheep[];
     pens: Pen[];
     ownerId?: string | null;
+    onLogActivity?: (action: string, detail: string) => Promise<void>;
 }
 
 // Check if child (<= 6 months) - Used to filter mothers
@@ -90,7 +91,7 @@ const StatSection = ({ title, total, theme, children }: { title: string, total: 
 };
 
 
-export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClose, allSheep, pens }) => {
+export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClose, allSheep, pens, ownerId, onLogActivity }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedType, setSelectedType] = useState<string | null>(null);
     const [selectedMotherForDetails, setSelectedMotherForDetails] = useState<any | null>(null);
@@ -227,20 +228,41 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
 
     if (!isOpen) return null;
 
+    const handleBack = () => {
+        if (selectedMotherForDetails) {
+            setSelectedMotherForDetails(null);
+        } else if (selectedAgeClassBreakdown) {
+            setSelectedAgeClassBreakdown(null);
+        } else if (selectedType) {
+            setSelectedType(null);
+        }
+    };
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
+            <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col dark:bg-slate-900 dark:border dark:border-slate-800">
 
                 {/* Header - Compact */}
-                <div className="flex justify-between items-center px-5 py-4 border-b border-gray-100 bg-[#fcfbf4] flex-shrink-0">
+                <div className="flex justify-between items-center px-4 py-3 border-b border-gray-100 bg-[#fcfbf4] flex-shrink-0 dark:bg-slate-950 dark:border-slate-800" dir="rtl">
                     <div className="flex items-center gap-2">
-                        <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                            <Activity className="text-emerald-600" size={20} />
-                            سجل الإنتاج والإحصائيات
+                        {(selectedType || selectedMotherForDetails || selectedAgeClassBreakdown) && (
+                            <button
+                                onClick={handleBack}
+                                className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-emerald-50 hover:text-emerald-700 text-gray-500 rounded-lg text-[9px] font-black transition-all dark:bg-slate-800 dark:text-gray-300 shadow-sm border border-gray-200/50 dark:border-slate-700 shrink-0 ml-1.5"
+                                title="رجوع"
+                            >
+                                <ArrowRight size={10} className="stroke-[3]" />
+                                <span>رجوع</span>
+                            </button>
+                        )}
+                        <h2 className="text-sm font-black text-gray-800 flex items-center gap-1.5 dark:text-gray-100">
+                            <Activity className="text-emerald-600" size={16} />
+                            <span>سجل الإنتاج والإحصائيات</span>
+                            {selectedType && <span className="text-[9px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded-lg dark:bg-emerald-950/20 dark:text-emerald-400 font-black font-bold">({selectedType})</span>}
                         </h2>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-200 transition">
-                        <X size={20} />
+                    <button onClick={onClose} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-full transition dark:hover:bg-red-900/20">
+                        <X size={16} />
                     </button>
                 </div>
 
@@ -276,15 +298,7 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
                     {/* VIEW 2: Detailed Stats for Selected Type */}
                     {selectedType && !selectedMotherForDetails && !selectedAgeClassBreakdown && detailedStats && (
                         <div className="animate-slide-in-right space-y-5">
-                            <button
-                                onClick={() => setSelectedType(null)}
-                                className="w-full bg-white border border-gray-200 text-gray-600 p-3 rounded-xl flex items-center gap-3 font-bold mb-2 hover:bg-gray-50 hover:border-emerald-200 hover:text-emerald-700 transition-all shadow-sm"
-                            >
-                                <div className="bg-gray-100 p-1.5 rounded-lg group-hover:bg-emerald-100 transition-colors">
-                                    <ArrowRight size={16} />
-                                </div>
-                                <span>العودة للقائمة الرئيسية</span>
-                            </button>
+
 
                             {/* Detailed Breakdown Grid - Compact */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -364,73 +378,91 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
                                 </button>
 
                                 <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isMothersOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                                    <div className="p-3">
-                                        <div className="relative w-full mb-3">
-                                            <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
+                                    <div className="p-2">
+                                        <div className="relative w-full mb-2">
+                                            <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={10} />
                                             <input
                                                 type="text"
                                                 placeholder="بحث..."
                                                 value={searchTerm}
                                                 onChange={e => setSearchTerm(e.target.value)}
                                                 onClick={e => e.stopPropagation()}
-                                                className="w-full pr-7 pl-2 py-1.5 bg-white border border-gray-200 rounded-lg text-xs outline-none focus:border-emerald-400 transition"
+                                                className="w-full pr-7 pl-2 py-1 bg-white border border-gray-200 rounded-lg text-[10px] outline-none focus:border-emerald-400 transition"
                                             />
                                         </div>
 
                                         <div className="max-h-[300px] overflow-y-auto">
                                             <table className="w-full text-right">
-                                                <thead className="bg-[#fcfbf4] text-gray-400 text-[10px] font-medium sticky top-0 z-10">
+                                                <thead className="bg-[#fcfbf4] text-gray-400 text-[9px] font-bold sticky top-0 z-10">
                                                     <tr>
-                                                        <th className="px-3 py-2 font-normal">الأم</th>
-                                                        <th className="px-2 py-2 font-normal">العمر</th>
-                                                        <th className="px-2 py-2 text-center font-normal">ولادات</th>
-                                                        <th className="px-2 py-2 text-center font-normal">الحالة</th>
-                                                        <th className="px-3 py-2 font-normal">سجل الولادات</th>
+                                                        <th className="px-1.5 py-1 font-bold">الأم</th>
+                                                        <th className="px-1 py-1 font-bold">العمر</th>
+                                                        <th className="px-1 py-1 text-center font-bold">حالة الاخصاب</th>
+                                                        <th className="px-1 py-1 text-center font-bold">ولادات</th>
+                                                        <th className="px-1.5 py-1 font-bold">سجل الولادات</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody className="divide-y divide-gray-50 text-xs">
+                                                <tbody className="divide-y divide-gray-50 text-[10px]">
                                                     {filteredMothers.map((mother) => (
                                                         <tr key={mother.id} className="hover:bg-[#fcfbf4] transition-colors group">
-                                                            <td className="px-3 py-2 font-bold text-gray-700">
-                                                                <div className="flex items-center gap-2">
+                                                            <td className="px-1.5 py-1 font-bold text-gray-700">
+                                                                <div className="flex items-center gap-1.5">
                                                                     <div
-                                                                        className={`w-3 h-3 rounded-full border shrink-0 ${mother.tagColor ? 'border-gray-200' : 'border-dashed border-gray-300'}`}
+                                                                        className={`w-2 h-2 rounded-full border shrink-0 ${mother.tagColor ? 'border-gray-200' : 'border-dashed border-gray-300'}`}
                                                                         style={{ backgroundColor: mother.tagColor || 'transparent' }}
                                                                     />
                                                                     <div className="flex flex-col text-right">
-                                                                        <button onClick={() => setViewingRegistryAnimal(mother)} className="hover:underline text-right font-black">
+                                                                        <button onClick={() => setViewingRegistryAnimal(mother)} className="hover:underline text-right font-black text-[10px]">
                                                                             {mother.serialNumber}
                                                                         </button>
-                                                                        {mother.nickname && <span className="text-[9px] text-gray-400 font-normal">{mother.nickname}</span>}
+                                                                        {mother.nickname && <span className="text-[8px] text-gray-400 font-normal leading-none mt-0.5">{mother.nickname}</span>}
                                                                     </div>
                                                                 </div>
                                                             </td>
-                                                            <td className="px-2 py-2 text-gray-500 text-[10px]">
+                                                            <td className="px-1 py-1 text-gray-500 text-[9px]">
                                                                 {getAnimalAgeLabel(mother.birthDate, mother.type, mother.gender)}
                                                             </td>
-                                                            <td className="px-2 py-2 text-center">
-                                                                <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold ${mother.totalBirths > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
+                                                            <td className="px-1 py-1 text-center align-middle">
+                                                                {(() => {
+                                                                    const status = mother.reproductionStatus;
+                                                                    if (!status || status === 'empty') {
+                                                                        return (
+                                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-lg text-[8px] font-black bg-amber-500 text-white shadow-sm whitespace-nowrap">
+                                                                                غير مضرع
+                                                                            </span>
+                                                                        );
+                                                                    } else if (status === 'pregnant') {
+                                                                        return (
+                                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-lg text-[8px] font-black bg-rose-500 text-white shadow-sm animate-pulse whitespace-nowrap">
+                                                                                مضرع
+                                                                            </span>
+                                                                        );
+                                                                    } else if (status === 'mother') {
+                                                                        return (
+                                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-lg text-[8px] font-black bg-pink-500 text-white shadow-sm whitespace-nowrap">
+                                                                                ام مرضعه
+                                                                            </span>
+                                                                        );
+                                                                    }
+                                                                    return '-';
+                                                                })()}
+                                                            </td>
+                                                            <td className="px-1 py-1 text-center">
+                                                                <span className={`inline-flex items-center justify-center w-4 h-4 rounded text-[9px] font-bold ${mother.totalBirths > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
                                                                     {mother.totalBirths}
                                                                 </span>
                                                             </td>
-                                                            <td className="px-2 py-2 text-center align-middle">
-                                                                {mother.isProductive ? (
-                                                                    <div className="w-2 h-2 rounded-full bg-emerald-500 mx-auto" title="منتجة"></div>
-                                                                ) : (
-                                                                    <div className="w-2 h-2 rounded-full bg-red-500 mx-auto" title="غير منتجة"></div>
-                                                                )}
-                                                            </td>
-                                                            <td className="px-3 py-2">
-                                                                <div className="flex gap-1 overflow-x-auto no-scrollbar max-w-[150px]">
+                                                            <td className="px-1.5 py-1">
+                                                                <div className="flex gap-1 overflow-x-auto no-scrollbar max-w-[120px]">
                                                                     {mother.birthDates.length > 0 ? (
                                                                         <button
                                                                             onClick={() => setSelectedMotherForDetails(mother)}
-                                                                            className="flex-shrink-0 text-[9px] bg-blue-50 text-[#795548] px-2 py-1 rounded border border-blue-100 whitespace-nowrap hover:bg-[#5D4037] transition"
+                                                                            className="flex-shrink-0 text-[8px] bg-blue-50 text-[#795548] px-1.5 py-0.5 rounded border border-blue-100 whitespace-nowrap hover:bg-[#5D4037] hover:text-white transition"
                                                                         >
-                                                                            عرض السجل ({mother.birthDates.length})
+                                                                            عرض ({mother.birthDates.length})
                                                                         </button>
                                                                     ) : (
-                                                                        <span className="text-gray-300 text-[9px]">-</span>
+                                                                        <span className="text-gray-300 text-[8px]">-</span>
                                                                     )}
                                                                 </div>
                                                             </td>
@@ -455,15 +487,7 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
                     {/* VIEW 3: Detailed Age Class Breakdown (New) */}
                     {selectedAgeClassBreakdown && (
                         <div className="animate-slide-in-right space-y-5">
-                            <button
-                                onClick={() => setSelectedAgeClassBreakdown(null)}
-                                className="w-full bg-white border border-gray-200 text-gray-600 p-3 rounded-xl flex items-center gap-3 font-bold mb-2 hover:bg-gray-50 hover:border-emerald-200 hover:text-emerald-700 transition-all shadow-sm"
-                            >
-                                <div className="bg-gray-100 p-1.5 rounded-lg group-hover:bg-emerald-100 transition-colors">
-                                    <ArrowRight size={16} />
-                                </div>
-                                <span>العودة للإحصائيات</span>
-                            </button>
+
 
                             <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
                                 <div className="p-4 border-b border-gray-100 bg-[#fcfbf4]/50 flex justify-between items-center">
@@ -512,15 +536,7 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
                     {/* VIEW 4: Detailed Birth Record for Selected Mother */}
                     {selectedMotherForDetails && (
                         <div className="animate-slide-in-right space-y-5">
-                            <button
-                                onClick={() => setSelectedMotherForDetails(null)}
-                                className="w-full bg-white border border-gray-200 text-gray-600 p-3 rounded-xl flex items-center gap-3 font-bold mb-2 hover:bg-gray-50 hover:border-emerald-200 hover:text-emerald-700 transition-all shadow-sm"
-                            >
-                                <div className="bg-gray-100 p-1.5 rounded-lg group-hover:bg-emerald-100 transition-colors">
-                                    <ArrowRight size={16} />
-                                </div>
-                                <span>العودة لسجل الأمهات</span>
-                            </button>
+
 
                             <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
                                 <div className="p-4 border-b border-gray-100 bg-[#fcfbf4]/50">
@@ -594,27 +610,18 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
                 sheep={viewingRegistryAnimal}
                 allSheep={allSheep}
                 pens={pens}
-                onUpdateReproduction={async (sheepId, status) => {
+                onUpdateReproduction={async (sheepId, updates) => {
                   if (!ownerId) return;
                   try {
-                    const updateData: any = { reproductionStatus: status };
-                    if (status === 'pregnant') {
-                      updateData.pregnancyDate = new Date().toISOString();
-                      updateData.expectedBirthDate = new Date(Date.now() + 150 * 24 * 60 * 60 * 1000).toISOString();
-                    } else if (status === 'mother') {
-                      updateData.lactationStartDate = new Date().toISOString();
-                      updateData.lastBirthDate = new Date().toISOString();
-                    } else if (status === 'empty') {
-                      updateData.lactationStartDate = null;
-                    }
-                    await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheepId), updateData);
+                    await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheepId), updates);
                     
                     // Keep localized state up to date so active tabs refresh
-                    setViewingRegistryAnimal(prev => prev ? { ...prev, ...updateData } : null);
+                    setViewingRegistryAnimal(prev => prev ? { ...prev, ...updates } : null);
                   } catch (e) {
                     console.error("Error toggling breeding status in registry profile:", e);
                   }
                 }}
+                onLogActivity={onLogActivity}
               />
             )}
         </div>

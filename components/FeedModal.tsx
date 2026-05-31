@@ -8,6 +8,7 @@ interface FeedModalProps {
   onClose: () => void;
   onSave: (item: FeedItem) => void;
   initialData?: FeedItem;
+  userName?: string;
 }
 
 const DAYS = [
@@ -23,7 +24,7 @@ const DAYS = [
 const GRAIN_OPTIONS = ['شعير', 'مكعب', 'ذرة', 'نخالة', 'مشكل'];
 const FODDER_OPTIONS = ['برسيم', 'تبن', 'رودس', 'ذرة'];
 
-export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, initialData }) => {
+export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, initialData, userName }) => {
   const [category, setCategory] = useState<'grain' | 'fodder'>('grain');
   const [name, setName] = useState('');
   const [isCustomName, setIsCustomName] = useState(false);
@@ -119,7 +120,8 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
       id: crypto.randomUUID(),
       date: new Date().toISOString(),
       amount: actualQtyToAdd,
-      type: 'add'
+      type: 'add',
+      addedBy: userName || 'غير معروف'
     };
 
     const finalLogs = isUpdate ? [...(initialData.logs || [])] : [];

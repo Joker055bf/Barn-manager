@@ -144,7 +144,9 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({ isOpen, onClose, she
                     <div className="flex-1">
                       <div className="flex justify-between items-start">
                         <h4 className="font-bold text-gray-800">{rec.name}</h4>
-                        <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded-md border border-gray-200">{rec.date}</span>
+                        <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded-md border border-gray-200">
+                          {rec.date ? (rec.date.includes('T') ? rec.date.split('T')[0] : rec.date) : ''}
+                        </span>
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
                           {rec.type === 'vaccine' ? 'تطعيم' : (rec.type === 'treatment' ? 'علاج' : 'فحص دوري')}

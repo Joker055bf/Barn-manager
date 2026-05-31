@@ -49,7 +49,20 @@ export function ReportsModal({
     // --- Calculations ---
 
     // Feed
-    const lowStockCount = feedItems.filter(i => i.quantity <= 0).length;
+    const lowStockCount = feedItems.filter(item => {
+        if (item.quantity <= 0) return true;
+        const isVaried = item.consumptionMethod === 'varied';
+        const dailyAvg = item.dailyConsumption || 0;
+        let daysLeft: number | null = null;
+        if (isVaried && item.variedDailyConsumption) {
+            const sum = Object.values(item.variedDailyConsumption).reduce((acc, val) => acc + (val || 0), 0);
+            const weeklyAvg = sum / 7;
+            if (weeklyAvg > 0) daysLeft = Math.floor(item.quantity / weeklyAvg);
+        } else if (dailyAvg > 0) {
+            daysLeft = Math.floor(item.quantity / dailyAvg);
+        }
+        return daysLeft !== null && daysLeft <= 15;
+    }).length;
     const totalFeedValue = feedItems.reduce((acc, item) => acc + (item.quantity * 0), 0); // Cost not tracked yet
 
     // Financial (Expenses)
@@ -209,7 +222,7 @@ export function ReportsModal({
             const arTitle = categoryTranslationsAr[activeReport] || activeReport;
             // Clean barn name for filename
             const cleanBarnName = barnName.replace(/[^ \u0600-\u06FFa-zA-Z0-9]/g, '').trim();
-            const fileName = `${cleanBarnName}_${arTitle}_${new Date().toLocaleDateString('ar-SA').replace(/\//g, '-')}.pdf`;
+            const fileName = `${cleanBarnName}_${arTitle}_${new Date().toLocaleDateString('en-GB').replace(/\//g, '-')}.pdf`;
             const pdfBlob = pdf.output('blob');
 
             setGenerationStatus('جاري المشاركة...');
@@ -240,7 +253,7 @@ export function ReportsModal({
                     </div>
                     <div className="text-left text-sm text-gray-500">
                         <p>تاريخ التقرير</p>
-                        <p className="font-bold text-gray-800 text-lg">{new Date().toLocaleDateString('ar-SA')}</p>
+                        <p className="font-bold text-gray-800 text-lg">{new Date().toLocaleDateString('en-GB')}</p>
                     </div>
                 </div>
 
@@ -281,23 +294,47 @@ export function ReportsModal({
                                 <thead className="bg-gray-800 text-white">
                                     <tr>
                                         <th className="p-3 border border-gray-800">الصنف</th>
-                                        <th className="p-3 border border-gray-800">الكمية الحالية</th>
+                                        <th className="p-3 border border-gray-800">الاستهلاك اليومي (اليوم)</th>
+                                        <th className="p-3 border border-gray-800">الكمية المتبقية</th>
                                         <th className="p-3 border border-gray-800">الحالة</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {feedItems.map((item, idx) => (
-                                        <tr key={item.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                            <td className="p-3 border border-gray-200 font-bold">{item.name}</td>
-                                            <td className="p-3 border border-gray-200">{item.quantity} {item.unit}</td>
-                                            <td className="p-3 border border-gray-200 text-center">
-                                                {item.quantity <= 0 ?
-                                                    <span className="text-red-600 font-bold">منفذ</span> :
-                                                    <span className="text-green-600">متوفر</span>
-                                                }
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {feedItems.map((item, idx) => {
+                                        const dayId = new Date().getDay();
+                                        const todayConsumption = item.consumptionMethod === 'varied' && item.variedDailyConsumption
+                                            ? (item.variedDailyConsumption[dayId as keyof typeof item.variedDailyConsumption] || 0)
+                                            : (item.dailyConsumption || 0);
+
+                                        const dailyAvg = item.dailyConsumption || 0;
+                                        let daysLeft: number | null = null;
+                                        if (item.consumptionMethod === 'varied' && item.variedDailyConsumption) {
+                                            const sum = Object.values(item.variedDailyConsumption).reduce((acc, val) => acc + (val || 0), 0);
+                                            const weeklyAvg = sum / 7;
+                                            if (weeklyAvg > 0) daysLeft = Math.floor(item.quantity / weeklyAvg);
+                                        } else if (dailyAvg > 0) {
+                                            daysLeft = Math.floor(item.quantity / dailyAvg);
+                                        }
+
+                                        const isLow = item.quantity <= 0;
+
+                                        return (
+                                            <tr key={item.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                                <td className="p-3 border border-gray-200 font-bold">{item.name}</td>
+                                                <td className="p-3 border border-gray-200 font-bold text-amber-700">{todayConsumption} {item.unit}</td>
+                                                <td className="p-3 border border-gray-200">{item.quantity} {item.unit}</td>
+                                                <td className="p-3 border border-gray-200 text-center font-bold">
+                                                    {isLow ? (
+                                                        <span className="text-red-600">نافد</span>
+                                                    ) : daysLeft !== null && daysLeft <= 15 ? (
+                                                        <span className="text-amber-600">⚠️ ينتهي خلال {daysLeft} {daysLeft >= 3 && daysLeft <= 10 ? 'أيام' : 'يوم'}</span>
+                                                    ) : (
+                                                        <span className="text-green-600">متوفر</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </>
                         )}
@@ -414,7 +451,7 @@ export function ReportsModal({
                                                         <div>
                                                             <span className="font-bold">{latest.name}</span>
                                                             <span className="mx-1 opacity-50">|</span>
-                                                            <span>{latest.date}</span>
+                                                            <span>{latest.date ? (latest.date.includes('T') ? latest.date.split('T')[0] : latest.date) : ''}</span>
                                                             {latest.notes && <div className="text-gray-500 mt-1">{latest.notes}</div>}
                                                         </div>
                                                     ) : '-'}
@@ -443,7 +480,7 @@ export function ReportsModal({
                                         <tr key={sheep.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                                             <td className="p-3 border border-gray-200 font-bold">#{sheep.serialNumber}</td>
                                             <td className="p-3 border border-gray-200">{sheep.type}</td>
-                                            <td className="p-3 border border-gray-200 text-red-600 font-bold">{sheep.exclusionDate ? new Date(sheep.exclusionDate).toLocaleDateString() : '-'}</td>
+                                            <td className="p-3 border border-gray-200 text-red-600 font-bold">{sheep.exclusionDate ? new Date(sheep.exclusionDate).toLocaleDateString('en-GB') : '-'}</td>
                                             <td className="p-3 border border-gray-200 font-bold">{sheep.notes || '-'}</td>
                                             <td className="p-3 border border-gray-200 text-gray-500 text-xs"></td>
                                         </tr>
@@ -471,35 +508,35 @@ export function ReportsModal({
     const renderOverviewCard = (title: string, value: string | number, subtitle: string, icon: React.ReactNode, colorClass: string, onClick: () => void, delayClass: string) => (
         <button 
             onClick={onClick} 
-            className={`bg-white/90 dark:bg-slate-800 backdrop-blur-md p-4 rounded-3xl border border-white/50 shadow-lg hover:scale-[1.02] transition-all duration-300 text-right w-full flex items-center justify-between group ${delayClass} dark:border-slate-800 min-h-[90px]`}
+            className={`bg-white/90 dark:bg-slate-800 backdrop-blur-md p-3 rounded-2xl border border-white/50 shadow-sm hover:scale-[1.01] transition-all duration-300 text-right w-full flex items-center justify-between group ${delayClass} dark:border-slate-800 min-h-[72px]`}
         >
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colorClass} bg-opacity-10 text-opacity-100 dark:bg-opacity-20 shrink-0`}>
-                {React.cloneElement(icon as React.ReactElement, { size: 20 })}
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${colorClass} bg-opacity-10 text-opacity-100 dark:bg-opacity-20 shrink-0`}>
+                {React.cloneElement(icon as React.ReactElement, { size: 16 })}
             </div>
-            <div className="flex-1 pr-4 min-w-0">
-                <h3 className="text-gray-400 text-[9px] font-black uppercase tracking-tight mb-0.5 truncate">{title}</h3>
-                <div className="text-lg font-black text-gray-900 dark:text-white tracking-tighter truncate">{value}</div>
-                <div className="text-[8px] font-bold text-gray-400 mt-0.5 uppercase tracking-tighter truncate">{subtitle}</div>
+            <div className="flex-1 pr-3 min-w-0">
+                <h3 className="text-gray-400 text-[8px] font-black uppercase tracking-tight mb-0.5 truncate">{title}</h3>
+                <div className="text-sm font-black text-gray-900 dark:text-white tracking-tighter truncate">{value}</div>
+                <div className="text-[7.5px] font-bold text-gray-400 mt-0.5 uppercase tracking-tighter truncate">{subtitle}</div>
             </div>
-            <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-[#795548] group-hover:text-white transition-all dark:bg-slate-900 shrink-0">
-                <ChevronRight size={14} />
+            <div className="w-6 h-6 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-[#795548] group-hover:text-white transition-all dark:bg-slate-900 shrink-0">
+                <ChevronRight size={12} />
             </div>
         </button>
     );
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" dir="rtl">
-            <div className="bg-[#FCFBF4] rounded-[2.5rem] w-full max-w-5xl h-[90vh] shadow-2xl overflow-hidden flex flex-col animate-scale-in dark:bg-slate-900 dark:border dark:border-slate-800">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-black/40 backdrop-blur-md animate-fade-in" dir="rtl">
+            <div className="bg-[#FCFBF4] rounded-[1.5rem] sm:rounded-[2.5rem] w-full max-w-5xl h-[90vh] shadow-2xl overflow-hidden flex flex-col animate-scale-in dark:bg-slate-900 dark:border dark:border-slate-800">
 
                 {/* Header */}
-                <div className="bg-[#5D4037] px-6 py-5 rounded-t-[2.5rem] shrink-0 text-white flex items-center justify-between no-print">
+                <div className="bg-[#5D4037] px-4 py-3 sm:px-6 sm:py-5 rounded-t-[1.5rem] sm:rounded-t-[2.5rem] shrink-0 text-white flex items-center justify-between no-print">
                     <button 
                         onClick={onClose} 
-                        className="w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-all"
+                        className="w-8 h-8 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-all"
                     >
-                        <X size={20} />
+                        <X size={16} />
                     </button>
-                    <h2 className="text-xl font-bold text-white text-center flex-1">
+                    <h2 className="text-base sm:text-xl font-bold text-white text-center flex-1">
                         {activeReport === 'overview' && 'مركز التقارير'}
                         {activeReport === 'financial' && 'سجل المصروفات'}
                         {activeReport === 'sales' && 'المبيعات'}
@@ -508,13 +545,13 @@ export function ReportsModal({
                         {activeReport === 'mortality' && 'سجل النفوق'}
                         {activeReport === 'production' && 'سجل الإنتاج'}
                     </h2>
-                    <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-white shrink-0">
-                        <FileText size={20} />
+                    <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center text-white shrink-0">
+                        <FileText size={16} />
                     </div>
                 </div>
 
                 <div className="flex flex-1 overflow-hidden">
-                    <main className="flex-1 overflow-y-auto p-6 bg-[#F4F0EA] custom-scrollbar">
+                    <main className="flex-1 overflow-y-auto p-3.5 sm:p-6 bg-[#F4F0EA] custom-scrollbar">
 
                         {activeReport === 'overview' && (
                             <div className="space-y-8">
@@ -571,45 +608,71 @@ export function ReportsModal({
                             <div className="animate-slide-in-left space-y-6">
 
 
-                                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100/50 dark:bg-slate-900 dark:border-slate-800">
+                                <div className="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-6 shadow-sm border border-gray-100/50 dark:bg-slate-900 dark:border-slate-800">
                                     {activeReport === 'feed' && (
-                                        <div className="space-y-6">
-                                            <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6 dark:border-slate-800">
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4 dark:border-slate-800">
                                                 {isOwner ? (
-                                                    <button onClick={handleShare} disabled={!!generationStatus} className="p-2.5 bg-[#F4F0EA] hover:bg-gray-100 rounded-xl text-gray-500 transition-all flex items-center justify-center dark:bg-slate-800 dark:text-gray-400">
-                                                        <Share2 size={18} />
+                                                    <button onClick={handleShare} disabled={!!generationStatus} className="p-2 bg-[#F4F0EA] hover:bg-gray-100 rounded-lg text-gray-500 transition-all flex items-center justify-center dark:bg-slate-800 dark:text-gray-400">
+                                                        <Share2 size={16} />
                                                     </button>
                                                 ) : <div />}
-                                                <div className="flex items-center gap-3">
-                                                    <h3 className="font-bold text-[#5D4037] text-base dark:text-white">تقرير المخزون</h3>
-                                                    <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600 dark:bg-orange-900/20">
-                                                        <Wheat size={20} />
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="font-bold text-[#5D4037] text-sm dark:text-white">تقرير المخزون</h3>
+                                                    <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center text-orange-600 dark:bg-orange-900/20">
+                                                        <Wheat size={16} />
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="overflow-hidden rounded-[2rem] border border-gray-50 dark:border-slate-700">
+                                            <div className="overflow-hidden rounded-xl border border-gray-50 dark:border-slate-700">
                                                 <table className="w-full text-right border-collapse">
                                                     <thead>
                                                         <tr className="bg-gray-50/50 dark:bg-slate-900">
-                                                            <th className="p-5 font-black text-[10px] text-gray-400 uppercase tracking-widest">الصنف</th>
-                                                            <th className="p-5 font-black text-[10px] text-gray-400 uppercase tracking-widest text-center">الكمية</th>
-                                                            <th className="p-5 font-black text-[10px] text-gray-400 uppercase tracking-widest text-center">الحالة</th>
+                                                            <th className="p-2.5 px-3 font-black text-[9px] text-gray-400 uppercase tracking-widest">الصنف</th>
+                                                            <th className="p-2.5 px-3 font-black text-[9px] text-gray-400 uppercase tracking-widest text-center">الاستهلاك اليومي (اليوم)</th>
+                                                            <th className="p-2.5 px-3 font-black text-[9px] text-gray-400 uppercase tracking-widest text-center">الكمية المتبقية</th>
+                                                            <th className="p-2.5 px-3 font-black text-[9px] text-gray-400 uppercase tracking-widest text-center">الحالة</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-gray-50 dark:divide-slate-700/50">
-                                                        {feedItems.map(item => (
-                                                            <tr key={item.id} className="hover:bg-orange-50/30 transition-colors dark:hover:bg-slate-800">
-                                                                <td className="p-5 font-black text-gray-900 dark:text-white">{item.name}</td>
-                                                                <td className="p-5 text-center font-bold text-gray-700 dark:text-gray-300">{item.quantity} {item.unit}</td>
-                                                                <td className="p-5 text-center">
-                                                                    {item.quantity <= 0 ? (
-                                                                        <span className="bg-red-50 text-red-600 px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-tighter border border-red-100 dark:bg-red-900/20 dark:border-red-900/40">نافد تماماً</span>
-                                                                    ) : (
-                                                                        <span className="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-tighter border border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-900/40">متوفر</span>
-                                                                    )}
-                                                                </td>
-                                                            </tr>
-                                                        ))}
+                                                        {feedItems.map(item => {
+                                                            const isGrain = item.category === 'grain';
+                                                            const dayId = new Date().getDay();
+                                                            const todayConsumption = item.consumptionMethod === 'varied' && item.variedDailyConsumption
+                                                                ? (item.variedDailyConsumption[dayId as keyof typeof item.variedDailyConsumption] || 0)
+                                                                : (item.dailyConsumption || 0);
+
+                                                            const dailyAvg = item.dailyConsumption || 0;
+                                                            let daysLeft: number | null = null;
+                                                            if (item.consumptionMethod === 'varied' && item.variedDailyConsumption) {
+                                                                const sum = Object.values(item.variedDailyConsumption).reduce((acc, val) => acc + (val || 0), 0);
+                                                                const weeklyAvg = sum / 7;
+                                                                if (weeklyAvg > 0) daysLeft = Math.floor(item.quantity / weeklyAvg);
+                                                            } else if (dailyAvg > 0) {
+                                                                daysLeft = Math.floor(item.quantity / dailyAvg);
+                                                            }
+
+                                                            const isLow = item.quantity <= 0;
+
+                                                            return (
+                                                                <tr key={item.id} className="hover:bg-orange-50/30 transition-colors dark:hover:bg-slate-800">
+                                                                    <td className="p-2.5 px-3 font-bold text-gray-900 dark:text-white text-xs">{item.name}</td>
+                                                                    <td className="p-2.5 px-3 text-center font-bold text-amber-700 dark:text-amber-400 text-xs">{todayConsumption} {item.unit}</td>
+                                                                    <td className="p-2.5 px-3 text-center font-bold text-gray-700 dark:text-gray-300 text-xs">{item.quantity} {item.unit}</td>
+                                                                    <td className="p-2.5 px-3 text-center">
+                                                                        {isLow ? (
+                                                                            <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded-lg font-black text-[9px] uppercase tracking-tighter border border-red-100 dark:bg-red-900/20 dark:border-red-900/40">نافد</span>
+                                                                        ) : daysLeft !== null && daysLeft <= 15 ? (
+                                                                            <span className="bg-amber-50 text-amber-600 px-2 py-0.5 rounded-lg font-black text-[9px] uppercase tracking-tighter border border-amber-100 dark:bg-amber-900/20 dark:border-amber-900/40 animate-pulse inline-flex items-center gap-0.5">
+                                                                                ⚠️ {daysLeft} {daysLeft >= 3 && daysLeft <= 10 ? 'أيام' : 'يوم'}
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-lg font-black text-[9px] uppercase tracking-tighter border border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-900/40">متوفر</span>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
                                                     </tbody>
                                                 </table>
                                             </div>
@@ -617,57 +680,57 @@ export function ReportsModal({
                                     )}
 
                                     {activeReport === 'financial' && (
-                                        <div className="space-y-8">
-                                            <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6 dark:border-slate-800">
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4 dark:border-slate-800">
                                                 {isOwner ? (
-                                                    <button onClick={handleShare} disabled={!!generationStatus} className="p-2.5 bg-[#F4F0EA] hover:bg-gray-100 rounded-xl text-gray-500 transition-all flex items-center justify-center dark:bg-slate-800 dark:text-gray-400">
-                                                        <Share2 size={18} />
+                                                    <button onClick={handleShare} disabled={!!generationStatus} className="p-2 bg-[#F4F0EA] hover:bg-gray-100 rounded-lg text-gray-500 transition-all flex items-center justify-center dark:bg-slate-800 dark:text-gray-400">
+                                                        <Share2 size={16} />
                                                     </button>
                                                 ) : <div />}
-                                                <div className="flex items-center gap-3">
-                                                    <h3 className="font-bold text-[#5D4037] text-base dark:text-white">سجل المصروفات</h3>
-                                                    <div className="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center text-teal-600 dark:bg-teal-900/20">
-                                                        <Wallet size={20} />
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="font-bold text-[#5D4037] text-sm dark:text-white">سجل المصروفات</h3>
+                                                    <div className="w-8 h-8 bg-teal-50 rounded-lg flex items-center justify-center text-teal-600 dark:bg-teal-900/20">
+                                                        <Wallet size={16} />
                                                     </div>
                                                 </div>
                                             </div>
                                             
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div className="bg-gray-50/50 p-5 rounded-2xl border border-gray-50 dark:bg-slate-900 dark:border-slate-800">
-                                                    <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">التوزيع حسب الفئة</h4>
-                                                    <div className="space-y-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <div className="bg-gray-50/50 p-3.5 rounded-xl border border-gray-50 dark:bg-slate-900 dark:border-slate-800">
+                                                    <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">التوزيع حسب الفئة</h4>
+                                                    <div className="space-y-2">
                                                         {Object.entries(expenseCategories).map(([cat, amount]) => (
                                                             <div key={cat} className="flex justify-between items-center group">
-                                                                <span className="text-xs font-bold text-gray-700 dark:text-gray-400 group-hover:text-teal-600 transition-colors">{categoryTranslations[cat] || cat}</span>
-                                                                <span className="text-sm font-black text-gray-900 dark:text-white">{amount.toLocaleString()} ريال</span>
+                                                                <span className="text-[10px] font-bold text-gray-700 dark:text-gray-400 group-hover:text-teal-600 transition-colors">{categoryTranslations[cat] || cat}</span>
+                                                                <span className="text-xs font-black text-gray-900 dark:text-white">{amount.toLocaleString()} ريال</span>
                                                             </div>
                                                         ))}
                                                     </div>
                                                 </div>
-                                                <div className="bg-teal-600 p-6 rounded-2xl shadow-xl shadow-teal-600/20 flex flex-col justify-center text-white relative overflow-hidden">
+                                                <div className="bg-teal-600 p-4 rounded-xl shadow-md flex flex-col justify-center text-white relative overflow-hidden">
                                                     <div className="relative z-10">
-                                                        <h4 className="text-[9px] font-black uppercase tracking-widest text-teal-100/60 mb-1">إجمالي المصاريف</h4>
-                                                        <div className="text-3xl font-black tracking-tighter">{totalExpenses.toLocaleString()} <span className="text-xs font-bold">ريال</span></div>
+                                                        <h4 className="text-[8px] font-black uppercase tracking-widest text-teal-100/60 mb-0.5">إجمالي المصاريف</h4>
+                                                        <div className="text-xl font-black tracking-tighter">{totalExpenses.toLocaleString()} <span className="text-[10px] font-bold">ريال</span></div>
                                                     </div>
-                                                    <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+                                                    <div className="absolute -right-6 -bottom-6 w-16 h-16 bg-white/10 rounded-full blur-xl" />
                                                 </div>
                                             </div>
 
-                                            <div className="rounded-[2rem] border border-gray-50 overflow-hidden dark:border-slate-800">
+                                            <div className="rounded-xl border border-gray-50 overflow-hidden dark:border-slate-800">
                                                 <table className="w-full text-right border-collapse">
                                                     <thead>
                                                         <tr className="bg-gray-50/50 dark:bg-slate-900">
-                                                            <th className="p-5 font-black text-[10px] text-gray-400 uppercase tracking-widest">التاريخ</th>
-                                                            <th className="p-5 font-black text-[10px] text-gray-400 uppercase tracking-widest">الصنف</th>
-                                                            <th className="p-5 font-black text-[10px] text-gray-400 uppercase tracking-widest text-left">المبلغ</th>
+                                                            <th className="p-2.5 px-3 font-black text-[9px] text-gray-400 uppercase tracking-widest">التاريخ</th>
+                                                            <th className="p-2.5 px-3 font-black text-[9px] text-gray-400 uppercase tracking-widest">الصنف</th>
+                                                            <th className="p-2.5 px-3 font-black text-[9px] text-gray-400 uppercase tracking-widest text-left">المبلغ</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-gray-50 dark:divide-slate-700/50">
                                                         {expenseRecords.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(exp => (
                                                             <tr key={exp.id} className="hover:bg-teal-50/30 transition-colors dark:hover:bg-slate-800/50">
-                                                                <td className="p-5 text-xs text-gray-500 font-bold dark:text-gray-500" dir="ltr">{new Date(exp.date).toLocaleDateString('en-GB')}</td>
-                                                                <td className="p-5 font-black text-gray-900 dark:text-white uppercase tracking-tighter">{exp.title}</td>
-                                                                <td className="p-5 text-left font-black text-teal-600 dark:text-teal-400">{exp.amount.toLocaleString()} ريال</td>
+                                                                <td className="p-2.5 px-3 text-[10px] text-gray-500 font-bold dark:text-gray-500" dir="ltr">{new Date(exp.date).toLocaleDateString('en-GB')}</td>
+                                                                <td className="p-2.5 px-3 font-bold text-gray-900 dark:text-white text-xs uppercase tracking-tighter">{exp.title}</td>
+                                                                <td className="p-2.5 px-3 text-left font-bold text-teal-600 dark:text-teal-400 text-xs">{exp.amount.toLocaleString()} ريال</td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
@@ -677,44 +740,44 @@ export function ReportsModal({
                                     )}
 
                                     {activeReport === 'sales' && (
-                                        <div className="space-y-8">
-                                            <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6 dark:border-slate-800">
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4 dark:border-slate-800">
                                                 {isOwner ? (
-                                                    <button onClick={handleShare} disabled={!!generationStatus} className="p-2.5 bg-[#F4F0EA] hover:bg-gray-100 rounded-xl text-gray-500 transition-all flex items-center justify-center dark:bg-slate-800 dark:text-gray-400">
-                                                        <Share2 size={18} />
+                                                    <button onClick={handleShare} disabled={!!generationStatus} className="p-2 bg-[#F4F0EA] hover:bg-gray-100 rounded-lg text-gray-500 transition-all flex items-center justify-center dark:bg-slate-800 dark:text-gray-400">
+                                                        <Share2 size={16} />
                                                     </button>
                                                 ) : <div />}
-                                                <div className="flex items-center gap-3">
-                                                    <h3 className="font-bold text-[#5D4037] text-base dark:text-white">تقرير المبيعات</h3>
-                                                    <div className="w-10 h-10 bg-[#E8F5E9] rounded-xl flex items-center justify-center text-emerald-600 dark:bg-emerald-900/20">
-                                                        <Banknote size={20} />
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="font-bold text-[#5D4037] text-sm dark:text-white">تقرير المبيعات</h3>
+                                                    <div className="w-8 h-8 bg-[#E8F5E9] rounded-lg flex items-center justify-center text-emerald-600 dark:bg-emerald-900/20">
+                                                        <Banknote size={16} />
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div className="bg-gradient-to-br from-emerald-600 to-green-800 p-5 rounded-2xl shadow-xl flex justify-center items-center text-white relative overflow-hidden h-24">
+                                            <div className="bg-gradient-to-br from-emerald-600 to-green-800 py-3 px-4 rounded-xl shadow-md flex justify-center items-center text-white relative overflow-hidden h-16">
                                                 <div className="relative z-10 text-center">
-                                                    <p className="text-[9px] font-black uppercase tracking-widest text-emerald-100/60 mb-1">صافي المبيعات</p>
-                                                    <h2 className="text-4xl font-black tracking-tighter">{totalSalesValue.toLocaleString()} <span className="text-xs">ريال</span></h2>
+                                                    <p className="text-[8px] font-black uppercase tracking-widest text-emerald-100/60 mb-0.5">صافي المبيعات</p>
+                                                    <h2 className="text-xl font-black tracking-tighter">{totalSalesValue.toLocaleString()} <span className="text-[10px]">ريال</span></h2>
                                                 </div>
-                                                <div className="absolute -right-10 top-0 w-32 h-32 bg-white/5 rounded-full blur-3xl" />
+                                                <div className="absolute -right-10 top-0 w-24 h-24 bg-white/5 rounded-full blur-2xl" />
                                             </div>
 
-                                            <div className="rounded-2xl border border-gray-50 overflow-hidden dark:border-slate-800">
+                                            <div className="rounded-xl border border-gray-50 overflow-hidden dark:border-slate-800">
                                                 <table className="w-full text-right border-collapse">
                                                     <thead>
                                                         <tr className="bg-gray-50/50 dark:bg-slate-900">
-                                                            <th className="p-4 font-black text-[9px] text-gray-400 uppercase tracking-widest">التاريخ</th>
-                                                            <th className="p-4 font-black text-[9px] text-gray-400 uppercase tracking-widest">العملية</th>
-                                                            <th className="p-4 font-black text-[9px] text-gray-400 uppercase tracking-widest text-left">المبلغ</th>
+                                                            <th className="p-2.5 px-3 font-black text-[9px] text-gray-400 uppercase tracking-widest">التاريخ</th>
+                                                            <th className="p-2.5 px-3 font-black text-[9px] text-gray-400 uppercase tracking-widest">العملية</th>
+                                                            <th className="p-2.5 px-3 font-black text-[9px] text-gray-400 uppercase tracking-widest text-left">المبلغ</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-gray-50 dark:divide-slate-700/50">
                                                         {salesRecords.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(exp => (
                                                             <tr key={exp.id} className="hover:bg-emerald-50/30 transition-colors dark:hover:bg-slate-800/50">
-                                                                <td className="p-4 text-[10px] text-gray-500 font-bold" dir="ltr">{new Date(exp.date).toLocaleDateString('en-GB')}</td>
-                                                                <td className="p-4 font-black text-gray-900 dark:text-white text-xs">{exp.title}</td>
-                                                                <td className="p-4 text-left font-black text-emerald-600 dark:text-emerald-400 text-xs">{exp.amount.toLocaleString()} ريال</td>
+                                                                <td className="p-2.5 px-3 text-[10px] text-gray-500 font-bold" dir="ltr">{new Date(exp.date).toLocaleDateString('en-GB')}</td>
+                                                                <td className="p-2.5 px-3 font-bold text-gray-900 dark:text-white text-xs">{exp.title}</td>
+                                                                <td className="p-2.5 px-3 text-left font-bold text-emerald-600 dark:text-emerald-400 text-xs">{exp.amount.toLocaleString()} ريال</td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
@@ -724,32 +787,32 @@ export function ReportsModal({
                                     )}
 
                                     {activeReport === 'mortality' && (
-                                        <div className="space-y-6">
-                                            <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6 dark:border-slate-800">
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4 dark:border-slate-800">
                                                 {isOwner ? (
-                                                    <button onClick={handleShare} disabled={!!generationStatus} className="p-2.5 bg-[#F4F0EA] hover:bg-gray-100 rounded-xl text-gray-500 transition-all flex items-center justify-center dark:bg-slate-800 dark:text-gray-400">
-                                                        <Share2 size={18} />
+                                                    <button onClick={handleShare} disabled={!!generationStatus} className="p-2 bg-[#F4F0EA] hover:bg-gray-100 rounded-lg text-gray-500 transition-all flex items-center justify-center dark:bg-slate-800 dark:text-gray-400">
+                                                        <Share2 size={16} />
                                                     </button>
                                                 ) : <div />}
-                                                <div className="flex items-center gap-3">
-                                                    <h3 className="font-bold text-[#5D4037] text-base dark:text-white">سجل النفوق والنافق</h3>
-                                                    <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center text-red-600 dark:bg-red-900/20">
-                                                        <Skull size={20} />
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="font-bold text-[#5D4037] text-sm dark:text-white">سجل النفوق والنافق</h3>
+                                                    <div className="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center text-red-600 dark:bg-red-900/20">
+                                                        <Skull size={16} />
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="bg-red-50/50 backdrop-blur-md p-6 rounded-[2rem] border border-red-100 flex justify-between items-center dark:bg-red-900/10 dark:border-red-900/20">
-                                                <span className="text-sm font-black text-red-900 dark:text-red-400 uppercase tracking-widest">معدل الخسارة الكلية</span>
-                                                <span className="text-3xl font-black text-red-600">{deceasedSheep.length} <span className="text-sm">رأس</span></span>
+                                            <div className="bg-red-50/50 backdrop-blur-md p-3 rounded-xl border border-red-100 flex justify-between items-center dark:bg-red-900/10 dark:border-red-900/20">
+                                                <span className="text-xs font-bold text-red-900 dark:text-red-400 uppercase tracking-widest">معدل الخسارة الكلية</span>
+                                                <span className="text-xl font-black text-red-600">{deceasedSheep.length} <span className="text-xs">رأس</span></span>
                                             </div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                                 {deceasedSheep.map(s => (
-                                                    <div key={s.id} className="p-5 bg-white rounded-2xl border border-gray-100 shadow-sm flex justify-between items-center group hover:border-red-200 transition-all dark:bg-slate-900 dark:border-slate-800">
+                                                    <div key={s.id} className="p-2.5 bg-white rounded-xl border border-gray-100 shadow-sm flex justify-between items-center group hover:border-red-200 transition-all dark:bg-slate-900 dark:border-slate-800">
                                                         <div>
-                                                            <span className="text-xs font-black text-gray-900 dark:text-white group-hover:text-red-600 transition-colors">#{s.serialNumber}</span>
-                                                            <p className="text-[10px] text-gray-400 font-bold mt-0.5">{s.type}</p>
+                                                            <span className="text-xs font-bold text-gray-900 dark:text-white group-hover:text-red-600 transition-colors">#{s.serialNumber}</span>
+                                                            <p className="text-[9px] text-gray-400 font-bold mt-0.5">{s.type}</p>
                                                         </div>
-                                                        <span className="text-[10px] font-black text-red-500 bg-red-50 px-3 py-1.5 rounded-xl uppercase tracking-tighter dark:bg-red-900/20">{s.notes || 'غير موثق'}</span>
+                                                        <span className="text-[9px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-lg uppercase tracking-tighter dark:bg-red-900/20">{s.notes || 'غير موثق'}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -757,60 +820,60 @@ export function ReportsModal({
                                     )}
 
                                     {activeReport === 'health' && (
-                                        <div className="space-y-8">
-                                            <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6 dark:border-slate-800">
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4 dark:border-slate-800">
                                                 {isOwner ? (
-                                                    <button onClick={handleShare} disabled={!!generationStatus} className="p-2.5 bg-[#F4F0EA] hover:bg-gray-100 rounded-xl text-gray-500 transition-all flex items-center justify-center dark:bg-slate-800 dark:text-gray-400">
-                                                        <Share2 size={18} />
+                                                    <button onClick={handleShare} disabled={!!generationStatus} className="p-2 bg-[#F4F0EA] hover:bg-gray-100 rounded-lg text-gray-500 transition-all flex items-center justify-center dark:bg-slate-800 dark:text-gray-400">
+                                                        <Share2 size={16} />
                                                     </button>
                                                 ) : <div />}
-                                                <div className="flex items-center gap-3">
-                                                    <h3 className="font-bold text-[#5D4037] text-base dark:text-white">تقرير السلامة الحيوية</h3>
-                                                    <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 dark:bg-blue-900/20">
-                                                        <Activity size={20} />
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="font-bold text-[#5D4037] text-sm dark:text-white">تقرير السلامة الحيوية</h3>
+                                                    <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 dark:bg-blue-900/20">
+                                                        <Activity size={16} />
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div className="grid grid-cols-2 gap-6">
-                                                <div className="bg-emerald-50 rounded-[2rem] p-8 border border-emerald-100 text-center dark:bg-emerald-900/10 dark:border-emerald-900/20">
-                                                    <p className="text-[10px] font-black text-emerald-800 dark:text-emerald-400 uppercase tracking-widest mb-2">إجمالي السليم</p>
-                                                    <p className="text-4xl font-black text-emerald-600">{healthyCount}</p>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="bg-emerald-50 rounded-xl p-3.5 border border-emerald-100 text-center dark:bg-emerald-900/10 dark:border-emerald-900/20">
+                                                    <p className="text-[9px] font-black text-emerald-800 dark:text-emerald-400 uppercase tracking-widest mb-1">إجمالي السليم</p>
+                                                    <p className="text-xl font-black text-emerald-600">{healthyCount}</p>
                                                 </div>
-                                                <div className="bg-red-50 rounded-[2rem] p-8 border border-red-100 text-center dark:bg-red-900/10 dark:border-red-900/20">
-                                                    <p className="text-[10px] font-black text-red-800 dark:text-red-400 uppercase tracking-widest mb-2">الحالات المرضية</p>
-                                                    <p className="text-4xl font-black text-red-600">{sickCount}</p>
+                                                <div className="bg-red-50 rounded-xl p-3.5 border border-red-100 text-center dark:bg-red-900/10 dark:border-red-900/20">
+                                                    <p className="text-[9px] font-black text-red-800 dark:text-red-400 uppercase tracking-widest mb-1">الحالات المرضية</p>
+                                                    <p className="text-xl font-black text-red-600">{sickCount}</p>
                                                 </div>
                                             </div>
 
                                             {sickCount > 0 && (
-                                                <div className="space-y-4">
-                                                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">قائمة المتابعة الطبية الحرجة</h4>
-                                                    <div className="grid grid-cols-1 gap-4">
+                                                <div className="space-y-2">
+                                                    <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest px-1">قائمة المتابعة الطبية الحرجة</h4>
+                                                    <div className="grid grid-cols-1 gap-2">
                                                         {activeSheepCtx.filter(s => s.status === 'sick').map(sheep => {
                                                             const sortedRecords = [...(sheep.medicalRecords || [])].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                                                             const latest = sortedRecords[0];
                                                             return (
-                                                                <div key={sheep.id} className="bg-white/50 p-6 rounded-[2rem] border border-red-50 shadow-sm flex flex-col gap-4 dark:bg-slate-900 dark:border-red-900/10">
+                                                                <div key={sheep.id} className="bg-white/50 p-3 rounded-xl border border-red-50 shadow-sm flex flex-col gap-2.5 dark:bg-slate-900 dark:border-red-900/10">
                                                                     <div className="flex justify-between items-center">
-                                                                        <div className="flex items-center gap-4">
-                                                                            <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center text-red-600 dark:bg-red-900/20">
-                                                                                <AlertTriangle size={24} />
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center text-red-600 dark:bg-red-900/20">
+                                                                                <AlertTriangle size={16} />
                                                                             </div>
                                                                             <div>
-                                                                                <h4 className="font-black text-gray-900 dark:text-white text-lg tracking-tighter">#{sheep.serialNumber} <span className="text-[10px] font-bold text-gray-400">({sheep.type})</span></h4>
-                                                                                <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mt-0.5">رقابة حرجة</p>
+                                                                                <h4 className="font-black text-gray-900 dark:text-white text-xs tracking-tighter">#{sheep.serialNumber} <span className="text-[9px] font-bold text-gray-400">({sheep.type})</span></h4>
+                                                                                <p className="text-[8px] font-black text-red-500 uppercase tracking-widest mt-0.5">رقابة حرجة</p>
                                                                             </div>
                                                                         </div>
-                                                                        {latest && <span className="text-[10px] font-black bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100 dark:bg-slate-900 dark:border-slate-800">{latest.date}</span>}
+                                                                        {latest && <span className="text-[9px] font-bold bg-gray-50 px-2 py-0.5 rounded-lg border border-gray-100 dark:bg-slate-900 dark:border-slate-800">{latest.date ? (latest.date.includes('T') ? latest.date.split('T')[0] : latest.date) : ''}</span>}
                                                                     </div>
                                                                     {latest && (
-                                                                        <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-50 dark:bg-slate-900 dark:border-slate-800">
-                                                                            <div className="flex justify-between mb-2">
-                                                                                <span className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-tighter">{latest.name}</span>
-                                                                                <span className="text-[9px] font-black text-teal-600 bg-teal-50 px-2 py-0.5 rounded-lg dark:bg-teal-900/20">{latest.type === 'treatment' ? 'علاج' : 'فحص'}</span>
+                                                                        <div className="bg-gray-50/50 p-2.5 rounded-lg border border-gray-50 dark:bg-slate-900 dark:border-slate-800">
+                                                                            <div className="flex justify-between mb-1">
+                                                                                <span className="text-[10px] font-bold text-gray-900 dark:text-white uppercase tracking-tighter">{latest.name}</span>
+                                                                                <span className="text-[8px] font-bold text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded dark:bg-teal-900/20">{latest.type === 'treatment' ? 'علاج' : 'فحص'}</span>
                                                                             </div>
-                                                                            <p className="text-[11px] font-bold text-gray-500 italic">"{latest.notes || 'لا توجد ملاحظات طبية دقيقة مسجلة.'}"</p>
+                                                                            <p className="text-[10px] font-bold text-gray-500 italic">"{latest.notes || 'لا توجد ملاحظات طبية دقيقة مسجلة.'}"</p>
                                                                         </div>
                                                                     )}
                                                                 </div>
@@ -822,42 +885,42 @@ export function ReportsModal({
                                         </div>
                                     )}
 
-                                    {activeReport === 'production' && (
-                                        <div className="space-y-8">
-                                            <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6 dark:border-slate-800">
+                                     {activeReport === 'production' && (
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4 dark:border-slate-800">
                                                 {isOwner ? (
-                                                    <button onClick={handleShare} disabled={!!generationStatus} className="p-2.5 bg-[#F4F0EA] hover:bg-gray-100 rounded-xl text-gray-500 transition-all flex items-center justify-center dark:bg-slate-800 dark:text-gray-400">
-                                                        <Share2 size={18} />
+                                                    <button onClick={handleShare} disabled={!!generationStatus} className="p-2 bg-[#F4F0EA] hover:bg-gray-100 rounded-lg text-gray-500 transition-all flex items-center justify-center dark:bg-slate-800 dark:text-gray-400">
+                                                        <Share2 size={16} />
                                                     </button>
                                                 ) : <div />}
-                                                <div className="flex items-center gap-3">
-                                                    <h3 className="font-bold text-[#5D4037] text-base dark:text-white">سجل الإنتاج والمواليد</h3>
-                                                    <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600 dark:bg-purple-900/20">
-                                                        <BarChart3 size={20} />
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="font-bold text-[#5D4037] text-sm dark:text-white">سجل الإنتاج والمواليد</h3>
+                                                    <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center text-purple-600 dark:bg-purple-900/20">
+                                                        <BarChart3 size={16} />
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div className="grid grid-cols-2 gap-6">
-                                                <div className="bg-purple-50 rounded-[2rem] p-8 border border-purple-100 text-center dark:bg-purple-900/10 dark:border-purple-900/20">
-                                                    <p className="text-[10px] font-black text-purple-800 dark:text-purple-400 uppercase tracking-widest mb-2">إجمالي الأمهات</p>
-                                                    <p className="text-4xl font-black text-purple-600">{totalMothers}</p>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="bg-purple-50 rounded-xl p-3.5 border border-purple-100 text-center dark:bg-purple-900/10 dark:border-purple-900/20">
+                                                    <p className="text-[9px] font-black text-purple-800 dark:text-purple-400 uppercase tracking-widest mb-1">إجمالي الأمهات</p>
+                                                    <p className="text-xl font-black text-purple-600">{totalMothers}</p>
                                                 </div>
-                                                <div className="bg-blue-50 rounded-[2rem] p-8 border border-blue-100 text-center dark:bg-blue-900/10 dark:border-blue-900/20">
-                                                    <p className="text-[10px] font-black text-blue-800 dark:text-blue-400 uppercase tracking-widest mb-2">إجمالي الإنتاج (المواليد)</p>
-                                                    <p className="text-4xl font-black text-blue-600">{children.length}</p>
+                                                <div className="bg-blue-50 rounded-xl p-3.5 border border-blue-100 text-center dark:bg-blue-900/10 dark:border-blue-900/20">
+                                                    <p className="text-[9px] font-black text-blue-800 dark:text-blue-400 uppercase tracking-widest mb-1">إجمالي الإنتاج</p>
+                                                    <p className="text-xl font-black text-blue-600">{children.length}</p>
                                                 </div>
                                             </div>
 
-                                            <div className="bg-white/50 p-6 rounded-[2rem] border border-gray-100 dark:bg-slate-900 dark:border-slate-800">
-                                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 px-1">تفاصيل إنتاج الأمهات</h4>
-                                                <div className="overflow-hidden rounded-2xl border border-gray-50 dark:border-slate-800">
+                                            <div className="bg-white/50 p-3 rounded-xl border border-gray-100 dark:bg-slate-900 dark:border-slate-800">
+                                                <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">تفاصيل إنتاج الأمهات</h4>
+                                                <div className="overflow-hidden rounded-xl border border-gray-50 dark:border-slate-800">
                                                     <table className="w-full text-right border-collapse">
                                                         <thead>
                                                             <tr className="bg-gray-50/50 dark:bg-slate-900">
-                                                                <th className="p-4 font-black text-[9px] text-gray-400 uppercase tracking-widest">الأم (الرقم)</th>
-                                                                <th className="p-4 font-black text-[9px] text-gray-400 uppercase tracking-widest">النوع</th>
-                                                                <th className="p-4 font-black text-[9px] text-gray-400 uppercase tracking-widest text-center">عدد المواليد</th>
+                                                                <th className="p-2.5 px-3 font-black text-[9px] text-gray-400 uppercase tracking-widest">الأم (الرقم)</th>
+                                                                <th className="p-2.5 px-3 font-black text-[9px] text-gray-400 uppercase tracking-widest">النوع</th>
+                                                                <th className="p-2.5 px-3 font-black text-[9px] text-gray-400 uppercase tracking-widest text-center">عدد المواليد</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody className="divide-y divide-gray-50 dark:divide-slate-700/50">
@@ -865,10 +928,10 @@ export function ReportsModal({
                                                                 const motherProduction = children.filter(c => c.motherId === mother.id).length;
                                                                 return (
                                                                     <tr key={mother.id} className="hover:bg-purple-50/30 transition-colors">
-                                                                        <td className="p-4 font-black text-gray-900 dark:text-white text-xs">#{mother.serialNumber}</td>
-                                                                        <td className="p-4 text-gray-500 font-bold text-[10px]">{mother.type}</td>
-                                                                        <td className="p-4 text-center">
-                                                                            <span className={`px-3 py-1 rounded-full text-xs font-black ${motherProduction > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-50 text-gray-400'}`}>
+                                                                        <td className="p-2.5 px-3 font-bold text-gray-900 dark:text-white text-xs">#{mother.serialNumber}</td>
+                                                                        <td className="p-2.5 px-3 text-gray-500 font-bold text-[9px]">{mother.type}</td>
+                                                                        <td className="p-2.5 px-3 text-center">
+                                                                            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${motherProduction > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-50 text-gray-400'}`}>
                                                                                 {motherProduction}
                                                                             </span>
                                                                         </td>

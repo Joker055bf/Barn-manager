@@ -471,7 +471,10 @@ ${expense.notes ? `ملاحظات: ${expense.notes}` : ''}
 
                         {!isOpen && (
                             <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
-                                <span className="flex items-center gap-1"><Calendar size={12} /> {expense.date}</span>
+                                <span className="flex items-center gap-1">
+                                    <Calendar size={12} />
+                                    {expense.date ? (expense.date.includes('T') ? expense.date.split('T')[0] : expense.date) : ''}
+                                </span>
                                 <span className={`px-2 py-0.5 rounded text-[10px] ${categoryLabels[expense.category].color}`}>{categoryLabels[expense.category].label}</span>
                             </div>
                         )}
@@ -497,7 +500,9 @@ ${expense.notes ? `ملاحظات: ${expense.notes}` : ''}
                         <div className="space-y-2 text-sm text-gray-600">
                             <div className="flex items-center gap-2">
                                 <span className="text-gray-400 w-16 text-xs">التاريخ:</span>
-                                <span className="font-medium">{expense.date}</span>
+                                <span className="font-medium">
+                                    {expense.date ? (expense.date.includes('T') ? expense.date.split('T')[0] : expense.date) : ''}
+                                </span>
                             </div>
 
                             {expense.category === 'sales' && (

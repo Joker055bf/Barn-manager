@@ -7,9 +7,17 @@ import { FeedModal } from './FeedModal';
 interface FeedManagerProps {
   items: FeedItem[];
   onUpdate: (items: FeedItem[]) => void;
+  currentUser?: any;
+  penId?: string | null;
+  animalType?: string;
+  onAddExpense?: any;
+  isOwner?: boolean;
+  canEdit?: boolean;
+  onShowAlert?: any;
+  onShowConfirm?: any;
 }
 
-export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate }) => {
+export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, currentUser }) => {
   const [activeTab, setActiveTab] = useState<'all' | 'grain' | 'fodder'>('all');
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   
@@ -60,21 +68,21 @@ export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate }) => 
       
       {/* Header Section */}
       <div className="flex justify-between items-center px-2">
+         <div className="text-right flex flex-col items-end">
+           <h2 className="text-sm font-extrabold text-gray-800 flex items-center gap-1.5">
+             إدارة الأعلاف والمخزون
+             <Wheat className="text-[#765341]" size={14} />
+           </h2>
+           <p className="text-[9px] font-bold text-gray-400 mt-0.5">متابعة وإدارة استهلاك الأعلاف والحبوب</p>
+         </div>
+
          <button 
            onClick={() => { setEditingItem(undefined); setIsModalOpen(true); }}
-           className="bg-[#765341] hover:bg-[#5D4037] text-white px-5 py-3 rounded-2xl transition shadow-lg flex items-center justify-center gap-2 font-bold text-sm"
+           className="w-10 h-10 bg-[#765341] hover:bg-[#5D4037] text-white rounded-xl transition shadow-md flex items-center justify-center font-bold text-sm shrink-0"
+           title="إضافة أعلاف"
          >
-           <Plus size={16} />
-           <span>إضافة أعلاف</span>
+           <Plus size={20} />
          </button>
-         
-         <div className="text-right flex flex-col items-end">
-           <h2 className="text-2xl font-black text-gray-800 flex items-center gap-2">
-             إدارة الأعلاف والمخزون
-             <Wheat className="text-[#765341]" size={24} />
-           </h2>
-           <p className="text-xs font-bold text-gray-400 mt-1">متابعة وإدارة استهلاك الأعلاف والحبوب</p>
-         </div>
       </div>
 
       {/* Tabs */}
@@ -121,7 +129,7 @@ export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate }) => 
           
           let daysLeft: number | null = null;
           if (isVaried && item.variedDailyConsumption) {
-             const sum = Object.values(item.variedDailyConsumption).reduce((acc, val) => acc + (val || 0), 0);
+             const sum = (Object.values(item.variedDailyConsumption) as number[]).reduce((acc, val) => acc + (val || 0), 0);
              const weeklyAvg = sum / 7;
              if (weeklyAvg > 0) daysLeft = Math.floor(displayQty / weeklyAvg);
           } else if (dailyAvg > 0) {
@@ -143,12 +151,35 @@ export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate }) => 
                  <div className="flex items-center gap-4 text-right">
                    <div className="flex flex-col items-end">
                      <h3 className="font-extrabold text-xl text-gray-800">{item.name}</h3>
-                     <div className="flex items-center gap-2 mt-1">
-                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${isLow ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-                         {isLow ? 'نفد' : 'متوفر'}
-                       </span>
-                       <span className="text-xs text-gray-400 font-medium">{displayQty} {isGrain ? 'كجم' : 'حزمة'}</span>
-                     </div>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap justify-end">
+                        <span className="text-xs text-gray-400 font-medium">{displayQty} {isGrain ? 'كجم' : 'حزمة'}</span>
+                        {isLow ? (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-red-50 text-red-600 border border-red-100 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/30">
+                            نفد
+                          </span>
+                        ) : daysLeft !== null && daysLeft <= 15 ? (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-50 text-amber-600 border border-amber-200 animate-pulse flex items-center gap-0.5 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/30 shadow-sm">
+                            ⚠️ ينتهي خلال {daysLeft} {daysLeft >= 3 && daysLeft <= 10 ? 'أيام' : 'يوم'}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-green-50 text-green-600 border border-green-100 dark:bg-green-950/40 dark:text-green-400 dark:border-green-900/30">
+                            متوفر
+                          </span>
+                        )}
+                        {(() => {
+                          const dayId = new Date().getDay(); // 0: Sunday, 1: Monday, etc.
+                          const todayAr = getDayName(dayId);
+                          const todayConsumption = item.consumptionMethod === 'varied' && item.variedDailyConsumption
+                            ? (item.variedDailyConsumption[dayId as keyof typeof item.variedDailyConsumption] || 0)
+                            : (item.dailyConsumption || 0);
+                          
+                          return (
+                            <span className="text-[9px] font-black text-amber-800 bg-amber-50/80 px-2 py-0.5 rounded-full border border-amber-200/60 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/40 shrink-0 leading-none shadow-sm">
+                              {todayAr}: {todayConsumption} {isGrain ? 'كجم' : 'حزمة'}
+                            </span>
+                          );
+                        })()}
+                      </div>
                    </div>
                    <div className={`w-12 h-12 rounded-[1rem] flex items-center justify-center ${isGrain ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'}`}>
                       {isGrain ? <Wheat size={24} /> : <Layers size={24} />}
@@ -216,7 +247,7 @@ export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate }) => 
                       <div className="mb-6 bg-gray-50 rounded-2xl p-4 border border-gray-100">
                          <h4 className="text-[11px] font-bold text-gray-500 mb-3 text-right">جدول الاستهلاك المتغير (كجم/يوم)</h4>
                          <div className="grid grid-cols-4 gap-2">
-                            {Object.entries(item.variedDailyConsumption).map(([dayId, val]) => (
+                            {(Object.entries(item.variedDailyConsumption) as [string, number][]).map(([dayId, val]) => (
                                val > 0 && (
                                  <div key={dayId} className="bg-white p-2 rounded-xl text-center shadow-sm border border-gray-100">
                                    <div className="text-[9px] text-gray-400 font-bold mb-1">{getDayName(Number(dayId))}</div>
@@ -268,6 +299,7 @@ export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate }) => 
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveFeed}
         initialData={editingItem}
+        userName={currentUser?.name}
       />
     </div>
   );

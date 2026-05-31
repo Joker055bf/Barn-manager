@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Plus, Search, MoreVertical, LayoutGrid, Calendar, ChevronLeft, ArrowRight, Star, Dna, Settings, Check, X, Filter, Target,
-  Warehouse, Wheat, ShieldCheck, Activity, Wallet, Eye, Edit, Trash2, Syringe, ArrowRightLeft, Skull, FileText, LayoutDashboard, MoreHorizontal, LogOut, Users, Shield, History, Share2, Banknote, BarChart3, Baby, HeartPulse, MessageCircle
+  Warehouse, Wheat, ShieldCheck, Activity, Wallet, Eye, Edit, Trash2, Syringe, ArrowRightLeft, Skull, FileText, LayoutDashboard, MoreHorizontal, LogOut, Users, Shield, History, Share2, Banknote, BarChart3, Baby, HeartPulse, MessageCircle, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { ChatModal } from './components/ChatModal';
 import { PenModal } from './components/PenModal';
@@ -10,6 +10,7 @@ import { MoveSheepModal } from './components/MoveSheepModal';
 import { MedicalModal } from './components/MedicalModal';
 import { VaccinationGuide } from './components/VaccinationGuide';
 import { ProductionStats } from './components/ProductionStats';
+import { ReorderPensModal } from './components/ReorderPensModal';
 import { FeedManager } from './components/FeedManager';
 import { FinanceManager } from './components/FinanceManager';
 import { SheepStatsModal } from './components/SheepStatsModal';
@@ -23,6 +24,17 @@ import { Pen, MedicalRecord, FeedItem, FeedLogEntry, Sheep, SheepType, ChatMessa
 import CustomAlert, { AlertType } from './components/CustomAlert';
 import { ReportType } from './components/ReportsModal';
 import { getAnimalMetadata, calculateVaccineDueDate, getAnimalAgeLabel, generateId } from './utils/animalHelpers';
+
+const colorNames: { [key: string]: string } = {
+  '#EF4444': 'أحمر',
+  '#F59E0B': 'برتقالي',
+  '#10B981': 'أخضر',
+  '#3B82F6': 'أزرق',
+  '#6366F1': 'نيلي',
+  '#8B5CF6': 'بنفسجي',
+  '#EC4899': 'وردي',
+  '#FACC15': 'أصفر'
+};
 import { translations } from './constants/translations';
 import { shareFile } from './utils/shareUtils';
 import { db } from './firebase';
@@ -55,9 +67,9 @@ function App() {
 
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
 
-  const logActivity = async (action: string, detail: string) => {
+  const logActivity = async (action: string, detail: string, serialNumber?: string, tagColor?: string, changes?: string[]) => {
     if (!currentUser || !ownerId) return;
-    const entry: ActivityEntry = {
+    const entry: ActivityEntry = JSON.parse(JSON.stringify({
       id: generateId(),
       userId: currentUser.id,
       userName: currentUser.name,
@@ -65,7 +77,10 @@ function App() {
       action,
       detail,
       timestamp: new Date().toISOString(),
-    };
+      serialNumber: serialNumber || null,
+      tagColor: tagColor || null,
+      changes: changes || null
+    }));
     try {
       await addDoc(collection(db, 'farms', ownerId, 'activity'), entry);
     } catch (e) {
@@ -335,12 +350,15 @@ function App() {
   const [isMedicalModalOpen, setIsMedicalModalOpen] = useState(false);
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [isDashboardOpen, setIsDashboardOpen] = useState(false);
+  const [sectionSearchQuery, setSectionSearchQuery] = useState('');
+  const [isReorderPensOpen, setIsReorderPensOpen] = useState(false);
 
   const [isReportsModalOpen, setIsReportsModalOpen] = useState(false);
   const [reportsInitialTab, setReportsInitialTab] = useState<ReportType>('overview');
   const [isRecentsOpen, setIsRecentsOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
+  const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null);
   const [recentsDateFilter, setRecentsDateFilter] = useState<'all' | 'today' | 'week' | 'month' | 'year'>('all');
   const [recentsTypeFilter, setRecentsTypeFilter] = useState<'all' | 'birth' | 'death' | 'medical' | 'expense'>('all');
   const [unreadChatCount, setUnreadChatCount] = useState(0);
@@ -409,7 +427,11 @@ function App() {
 
     const updatedItems = items.map(item => {
       // Skip if no daily consumption set or empty stock
-      if (!item.dailyConsumption || item.dailyConsumption <= 0 || item.quantity <= 0) {
+      const hasConsumption = item.consumptionMethod === 'varied'
+        ? (item.variedDailyConsumption && Object.values(item.variedDailyConsumption).some(val => (val || 0) > 0))
+        : (item.dailyConsumption && item.dailyConsumption > 0);
+
+      if (!hasConsumption || item.quantity <= 0) {
         return item;
       }
 
@@ -492,7 +514,7 @@ function App() {
       const q = query(collection(db, 'activity_log'), where('ownerId', '==', ownerId));
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const activities = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ActivityEntry));
-        activities.sort((a, b) => b.timestamp - a.timestamp);
+        activities.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
         setActivityLog(activities);
       });
       return unsubscribe;
@@ -652,7 +674,7 @@ function App() {
   };
 
   const handleDeleteExpense = async (id: string) => {
-    if (!ownerId || !isOwner) return;
+    if (!ownerId || !can('canDeleteExpenses')) return;
     showConfirm('حذف مصروف', 'هل أنت متأكد من حذف هذا المصروف؟', async () => {
       try {
         await deleteDoc(doc(db, 'farms', ownerId, 'expenses', id));
@@ -661,7 +683,7 @@ function App() {
   };
 
   const handleDeleteSale = async (id: string) => {
-    if (!ownerId || !isOwner) return;
+    if (!ownerId || !can('canDeleteExpenses')) return;
     showConfirm('حذف سجل مبيعات', 'هل أنت متأكد من حذف هذا السجل؟', async () => {
       try {
         await deleteDoc(doc(db, 'farms', ownerId, 'sales', id));
@@ -741,6 +763,34 @@ function App() {
     setEditingPen(undefined);
   };
 
+  const handleReorderPens = async (orderedPens: Pen[]) => {
+    if (!ownerId) return;
+    try {
+      // Local optimistic update for instant responsive feel
+      setPens(prev => {
+        const copy = [...prev];
+        orderedPens.forEach((op, index) => {
+          const idx = copy.findIndex(p => p.id === op.id);
+          if (idx !== -1) {
+            copy[idx] = { ...copy[idx], sortOrder: index };
+          }
+        });
+        return copy;
+      });
+
+      // Save to Firebase asynchronously
+      const promises = orderedPens.map((pen, index) => {
+        const penRef = doc(db, 'farms', ownerId, 'pens', pen.id);
+        return updateDoc(penRef, { sortOrder: index });
+      });
+      await Promise.all(promises);
+      logActivity('ترتيب الأقسام', 'تم تحديث ترتيب الأقسام بنجاح');
+    } catch (e: any) {
+      console.error('Failed to save pens order:', e);
+      showAlert('error', 'فشل حفظ الترتيب', `فشل تحديث الترتيب في السحابة: ${e.message || e}`);
+    }
+  };
+
   const handleDeletePen = async (id: string, isGroup: boolean) => {
     if (!ownerId || !isOwner) return;
     const penToDelete = pens.find(p => p.id === id);
@@ -783,7 +833,7 @@ function App() {
     setEditingPen(pen);
     // If it has children or parentId is null/undefined, it MIGHT be a group, but let's rely on the explicit format
     // Actually, simpler: check the 'isGroup' flag or if we are at root level editing a barn
-    setIsAddingGroup(pen.isGroup === true);
+    setIsAddingGroup(pen.isGroup === true || !pen.parentId);
     setIsModalOpen(true);
   };
 
@@ -828,9 +878,48 @@ function App() {
       }
       
       if (editingSheep && !Array.isArray(sheepData)) {
-        logActivity('تعديل حيوان', `تم تعديل #${(sheepData as Sheep).serialNumber}`);
+        const changes: string[] = [];
+        const newSheep = sheepData as Sheep;
+        
+        if (editingSheep.type !== newSheep.type) {
+          changes.push(`تغيير الصنف من (${editingSheep.type}) إلى (${newSheep.type})`);
+        }
+        if (editingSheep.gender !== newSheep.gender) {
+          changes.push(`تغيير الجنس من (${editingSheep.gender === 'male' ? 'ذكر' : 'أنثى'}) إلى (${newSheep.gender === 'male' ? 'ذكر' : 'أنثى'})`);
+        }
+        if (editingSheep.reproductionStatus !== newSheep.reproductionStatus) {
+          const getRepStatusLabel = (status?: string) => {
+            if (status === 'pregnant') return 'مضرع';
+            if (status === 'mother') return 'أم مرضعة';
+            return 'غير مضرع';
+          };
+          changes.push(`تغيير حالة الإخصاب من (${getRepStatusLabel(editingSheep.reproductionStatus)}) إلى (${getRepStatusLabel(newSheep.reproductionStatus)})`);
+        }
+        if (editingSheep.healthStatus !== newSheep.healthStatus && (editingSheep.healthStatus || newSheep.healthStatus)) {
+          const getHealthLabel = (st?: string) => st === 'sick' ? 'مريض' : 'سليم';
+          changes.push(`تغيير الحالة الصحية من (${getHealthLabel(editingSheep.healthStatus)}) إلى (${getHealthLabel(newSheep.healthStatus)})`);
+        }
+        if (editingSheep.tagColor !== newSheep.tagColor) {
+          changes.push(`تعديل لون الشارة`);
+        }
+        if (editingSheep.serialNumber !== newSheep.serialNumber) {
+          changes.push(`تعديل الرقم التسلسلي من (#${editingSheep.serialNumber}) إلى (#${newSheep.serialNumber})`);
+        }
+        if (editingSheep.penId !== newSheep.penId) {
+          const oldPenName = pens.find(p => p.id === editingSheep.penId)?.name || 'غير معروف';
+          const newPenName = pens.find(p => p.id === newSheep.penId)?.name || 'غير معروف';
+          changes.push(`نقل من قسم (${oldPenName}) إلى (${newPenName})`);
+        }
+        
+        const detailsText = changes.length > 0 ? `تم تعديل #${newSheep.serialNumber} (${changes.join(' | ')})` : `تم تعديل بيانات #${newSheep.serialNumber}`;
+        logActivity('تعديل حيوان', detailsText, newSheep.serialNumber, newSheep.tagColor, changes);
       } else {
-        logActivity('إضافة حيوان', `تمت إضافة ${sheepList.length} رأس`);
+        if (!Array.isArray(sheepData)) {
+          const newSheep = sheepData as Sheep;
+          logActivity('إضافة حيوان', `تمت إضافة رأس #${newSheep.serialNumber} (${newSheep.type})`, newSheep.serialNumber, newSheep.tagColor);
+        } else {
+          logActivity('إضافة حيوان', `تمت إضافة ${sheepList.length} رأس`);
+        }
       }
     } catch (e: any) { 
       console.error('Sheep Save Error:', e);
@@ -841,13 +930,13 @@ function App() {
   };
 
   const handleDeleteSheep = async (id: string, skipConfirm: boolean = false) => {
-    if (!ownerId || !isOwner) return;
+    if (!ownerId || !can('canDeleteAnimals')) return;
     const performDelete = async () => {
       const sheepToDelete = allSheep.find(s => s.id === id);
       try {
         await deleteDoc(doc(db, 'farms', ownerId, 'sheep', id));
         if (sheepToDelete) {
-          logActivity('حذف حيوان', `تم حذف #${sheepToDelete.serialNumber} (${sheepToDelete.type})`);
+          logActivity('حذف حيوان', `تم حذف #${sheepToDelete.serialNumber} (${sheepToDelete.type})`, sheepToDelete.serialNumber, sheepToDelete.tagColor);
         }
       } catch (e) { console.error(e); }
     };
@@ -937,7 +1026,7 @@ function App() {
           exclusionDate: isExcl ? new Date().toISOString() : (selectedSheepForAction.exclusionDate || null),
           movementHistory: updatedHistory
         });
-        logActivity('نقل حيوان', `تم نقل #${selectedSheepForAction.serialNumber} من [${sourceName}] إلى [${targetPenName}]`);
+        logActivity('نقل حيوان', `تم نقل #${selectedSheepForAction.serialNumber} من [${sourceName}] إلى [${targetPenName}]`, selectedSheepForAction.serialNumber, selectedSheepForAction.tagColor);
         setSelectedSheepForAction(undefined);
       }
     } catch (e) { console.error(e); }
@@ -971,7 +1060,7 @@ function App() {
         await updateDoc(doc(db, 'farms', ownerId, 'sheep', selectedSheepForAction.id), {
           medicalRecords: [...(selectedSheepForAction.medicalRecords || []), newRecord]
         });
-        logActivity('سجل طبي', `${record.type === 'vaccine' ? 'تلقيح' : 'علاج'} #${selectedSheepForAction.serialNumber}`);
+        logActivity('سجل طبي', `${record.type === 'vaccine' ? 'تلقيح' : 'علاج'} #${selectedSheepForAction.serialNumber}`, selectedSheepForAction.serialNumber, selectedSheepForAction.tagColor);
         // Locally update the selected sheep so the modal reflects the change if kept open
         setSelectedSheepForAction({
           ...selectedSheepForAction,
@@ -1189,6 +1278,12 @@ function App() {
 
 
   const renderDetailCard = (sheep: Sheep) => {
+    const getMotherInfo = () => {
+      if (!sheep.motherId) return null;
+      const mother = allSheep.find(s => s.id === sheep.motherId || s.serialNumber === sheep.motherId);
+      return mother ? { serialNumber: mother.serialNumber, tagColor: mother.tagColor } : { serialNumber: sheep.motherId, tagColor: undefined };
+    };
+
     return (
       <div className="bg-[#FCFBF4] rounded-[2.5rem] p-6 w-full max-w-sm mx-auto shadow-2xl animate-scale-in dark:bg-slate-900">
         <div className="flex items-start justify-between mb-6">
@@ -1211,6 +1306,22 @@ function App() {
                   {sheep.gender === 'male' ? 'ذكر' : 'أنثى'} • {getAnimalAgeLabel(sheep.birthDate, sheep.type, sheep.gender)}
                 </span>
                 <span className="text-xs text-blue-500 font-bold mt-0.5" dir="rtl">{calculateDetailedAge(sheep.birthDate)}</span>
+                
+                {/* Mother Tag & Number Display */}
+                {(() => {
+                  const motherInfo = getMotherInfo();
+                  if (!motherInfo) return null;
+                  return (
+                    <div className="flex items-center gap-1.5 mt-2 bg-pink-50/40 dark:bg-pink-900/10 px-2 py-1 rounded-xl border border-pink-100/30 w-fit">
+                      <span className="text-[10px] font-black text-pink-700 dark:text-pink-300">رقم الأم:</span>
+                      <div 
+                        className="w-2.5 h-2.5 rounded-full border border-black/10 dark:border-white/10 shrink-0" 
+                        style={{ backgroundColor: motherInfo.tagColor || '#D7CCC8' }}
+                      />
+                      <span className="text-[10.5px] font-extrabold text-gray-800 dark:text-gray-200">{motherInfo.serialNumber}</span>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -1268,33 +1379,43 @@ function App() {
           )}
 
           {/* Reproduction Status Button (Females Only) */}
-          {sheep.gender === 'female' && (
-            (!sheep.reproductionStatus || sheep.reproductionStatus === 'empty') ? (
-              <button
-                onClick={() => setReproductionConfirmState({ sheep, currentStatus: 'empty', nextStatus: 'pregnant', expectedDurationDays: 150 })}
-                className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-2xl shadow-sm transition"
-              >
-                غير مضارع
-                <Baby size={16} className="text-amber-500" />
-              </button>
-            ) : sheep.reproductionStatus === 'pregnant' ? (
-              <button
-                onClick={() => setReproductionConfirmState({ sheep, currentStatus: 'pregnant', nextStatus: 'mother', expectedDurationDays: 90 })}
-                className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-2xl shadow-sm transition animate-pulse"
-              >
-                مضارع
-                <Baby size={16} className="text-rose-500" />
-              </button>
-            ) : (
-              <button
-                onClick={() => setReproductionConfirmState({ sheep, currentStatus: 'mother', nextStatus: 'empty', expectedDurationDays: 0 })}
-                className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-pink-700 bg-pink-50 border border-pink-200 hover:bg-pink-100 rounded-2xl shadow-sm transition"
-              >
-                أم حضانة
-                <Baby size={16} className="text-pink-500" />
-              </button>
-            )
-          )}
+          {sheep.gender === 'female' && (() => {
+            if (!sheep.reproductionStatus || sheep.reproductionStatus === 'empty') {
+              const emptySinceDate = sheep.weaningDate || sheep.createdAt || new Date().toISOString();
+              const daysEmpty = Math.max(0, Math.floor((Date.now() - new Date(emptySinceDate).getTime()) / (1000 * 60 * 60 * 24)));
+              return (
+                <button
+                  onClick={() => setReproductionConfirmState({ sheep, currentStatus: 'empty', nextStatus: 'pregnant', expectedDurationDays: 150 })}
+                  className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-2xl shadow-sm transition"
+                >
+                  غير مضرع ({daysEmpty} يوم)
+                  <Baby size={16} className="text-amber-500" />
+                </button>
+              );
+            } else if (sheep.reproductionStatus === 'pregnant') {
+              const daysPregnant = sheep.pregnancyDate ? Math.max(0, Math.floor((Date.now() - new Date(sheep.pregnancyDate).getTime()) / (1000 * 60 * 60 * 24))) : 0;
+              return (
+                <button
+                  onClick={() => setReproductionConfirmState({ sheep, currentStatus: 'pregnant', nextStatus: 'mother', expectedDurationDays: 90 })}
+                  className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-2xl shadow-sm transition animate-pulse"
+                >
+                  مضرع ({daysPregnant} يوم)
+                  <Baby size={16} className="text-rose-500" />
+                </button>
+              );
+            } else {
+              const daysLactation = sheep.lactationStartDate ? Math.max(0, Math.floor((Date.now() - new Date(sheep.lactationStartDate).getTime()) / (1000 * 60 * 60 * 24))) : 0;
+              return (
+                <button
+                  onClick={() => setReproductionConfirmState({ sheep, currentStatus: 'mother', nextStatus: 'empty', expectedDurationDays: 0 })}
+                  className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-pink-700 bg-pink-50 border border-pink-200 hover:bg-pink-100 rounded-2xl shadow-sm transition"
+                >
+                  أم حضانة ({daysLactation} يوم)
+                  <Baby size={16} className="text-pink-500" />
+                </button>
+              );
+            }
+          })()}
         </div>
 
         {/* Warning if pregnant for > 5 months */}
@@ -1584,7 +1705,7 @@ function App() {
 
       {/* Global Header - Simplified/Restored */}
       {/* Hide Header on Dashboard AND Root Pens View (My Barns List) */}
-      {activeTab !== 'dashboard' && !(activeTab === 'pens' && !selectedGroupId) && (
+      {activeTab !== 'dashboard' && !(activeTab === 'pens' && !selectedGroupId) && !(activeTab === 'pens' && selectedGroupId && barnTab !== 'pens') && (
         <div className="bg-white/90 backdrop-blur-sm p-4 shadow-sm sticky top-0 z-30 mb-0 dark:bg-slate-900 dark:border-b dark:border-slate-800">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -1610,7 +1731,7 @@ function App() {
               {activeTab === 'pens' && selectedGroupId && (
                 <>
                   {can('canAddAnimals') && <button onClick={() => openNewSheepModal()} className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-600 rounded-xl text-[10px] font-bold border border-orange-100 dark:bg-orange-900/20 whitespace-nowrap"><Dna size={12} /> {t.head} <Plus size={10} /></button>}
-                  {can('canManagePens') && <button onClick={openAddSectionModal} className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-bold border border-blue-100 dark:bg-blue-900/20 whitespace-nowrap"><Warehouse size={12} /> قسم <Plus size={10} /></button>}
+                  {can('canAddPens') && <button onClick={openAddSectionModal} className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-bold border border-blue-100 dark:bg-blue-900/20 whitespace-nowrap"><Warehouse size={12} /> قسم <Plus size={10} /></button>}
                   <button 
                     onClick={() => setIsChatOpen(true)} 
                     className="relative flex items-center justify-center p-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 hover:bg-emerald-100 transition dark:bg-emerald-900/20 dark:border-emerald-900/50"
@@ -1641,8 +1762,8 @@ function App() {
                       <Plus size={14} /> {t.head}
                     </button>
                   )}
-                  {/* Edit Section Button */}
-                  {isOwner && can('canManagePens') && (
+                   {/* Edit Section Button */}
+                  {can('canEditPens') && (
                     <button 
                       onClick={() => { setEditingPen(selectedPen); setIsAddingGroup(false); setIsModalOpen(true); }}
                       className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-bold border border-indigo-100 hover:bg-indigo-100 transition dark:bg-indigo-900/20 dark:border-indigo-900/50 whitespace-nowrap"
@@ -1651,9 +1772,9 @@ function App() {
                       <Edit size={12} /> تعديل
                     </button>
                   )}
-                  {isOwner && can('canManagePens') && (
+                  {can('canDeletePens') && (
                     <button 
-                      onClick={() => showConfirm('تأكيد الحذف', `هل أنت متأكد من حذف ${selectedPen.name}؟`, () => { handleDeletePen(selectedPen.id, false); setSelectedPen(null); setActiveTab('pens'); })}
+                      onClick={() => showConfirm('تأكيد الحذف', `هل أنت متأكد من حذف ${selectedPen.name}؟`, () => { handleDeletePen(selectedPen.id, false); setSelectedPenId(null); setActiveTab('pens'); })}
                       className="flex items-center justify-center p-1.5 bg-red-50 text-red-600 rounded-xl border border-red-100 hover:bg-red-100 transition dark:bg-red-900/20 dark:border-red-900/50"
                       title="حذف القسم"
                     >
@@ -1698,18 +1819,64 @@ function App() {
                   <p className="text-[9px] text-gray-400 font-black mt-4 uppercase tracking-[0.2em]">من تطوير JokeR_β</p>
                 </div>
 
-                <div className="flex-1 px-4 sm:px-6 lg:px-8">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-32">
-                    {displayedPens.map(pen => (
-                      <div key={pen.id} className="hover-glow transition-all">
-                        <SwipeableBarnCard name={pen.name} onClick={() => enterGroup(pen.id)} onDelete={() => handleDeletePen(pen.id, true)} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                 {/* Section Filtering & Custom Reordering Controls (Root View) */}
+                 <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 mb-6 gap-3" dir="rtl">
+                   {/* Search/Filter Sections Input */}
+                   <div className="relative flex-1">
+                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+                     <input
+                       type="text"
+                       placeholder="بحث عن حظيرة..."
+                       value={sectionSearchQuery}
+                       onChange={(e) => setSectionSearchQuery(e.target.value)}
+                       className="w-full pr-8 pl-3 py-2 bg-white border border-gray-200 rounded-xl text-[11px] font-bold outline-none focus:border-[#795548] focus:ring-1 focus:ring-[#795548] dark:bg-slate-900 dark:border-slate-800 dark:text-white shadow-sm"
+                     />
+                     {sectionSearchQuery && (
+                       <button 
+                         onClick={() => setSectionSearchQuery('')}
+                         className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
+                       >
+                         <X size={12} />
+                       </button>
+                     )}
+                   </div>
+
+                   {/* Reorder Button */}
+                   {can('canReorderPens') && (
+                     <button
+                       onClick={() => setIsReorderPensOpen(true)}
+                       className="flex items-center gap-1 px-3 py-2 bg-[#795548]/10 text-[#795548] rounded-xl text-[10px] font-black hover:bg-[#795548] hover:text-white transition-all dark:bg-orange-500/10 dark:text-orange-400 whitespace-nowrap shadow-sm border border-[#795548]/5 dark:border-orange-500/10"
+                       title="إعادة ترتيب الأقسام"
+                     >
+                       <ArrowRightLeft size={12} className="rotate-90" />
+                       <span>ترتيب الأقسام</span>
+                     </button>
+                   )}
+                 </div>
+
+                  <div className="flex-1 px-4 sm:px-6 lg:px-8">
+                   <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 pb-32">
+                      {displayedPens
+                        .filter(pen => pen.name.toLowerCase().includes(sectionSearchQuery.toLowerCase()))
+                        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+                        .map(pen => {
+                       const sectionsCount = pens.filter(p => p.parentId === pen.id).length;
+                       return (
+                         <div key={pen.id} className="hover-glow transition-all">
+                           <SwipeableBarnCard onEdit={() => openEditModal(pen)} canEdit={can('canEditPens')} canDelete={can('canDeletePens')}
+                             name={pen.name} 
+                             sectionsCount={sectionsCount}
+                             onClick={() => enterGroup(pen.id)} 
+                             onDelete={() => handleDeletePen(pen.id, true)} 
+                           />
+                         </div>
+                       );
+                     })}
+                   </div>
+                 </div>
 
                 {/* Square FAB for Add Barn - Restricted to Owners/Permission */}
-                {(isOwner || can('canManagePens')) && (
+                {(isOwner || can('canAddPens')) && (
                   <div className="fixed bottom-32 left-6 md:left-12 z-[100] pointer-events-none">
                     <button 
                       onClick={openAddBarnModal} 
@@ -1731,8 +1898,44 @@ function App() {
                   <div className="flex-1 flex flex-col overflow-hidden">
 
                     <div className="flex-1 overflow-y-auto pb-40 pt-6">
+                      {/* Section Filtering & Custom Reordering Controls */}
+                      <div className="flex items-center justify-between px-4 md:px-8 mb-4 gap-3" dir="rtl">
+                        {/* Search/Filter Sections Input */}
+                        <div className="relative flex-1">
+                          <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
+                          <select
+                            value={sectionSearchQuery}
+                            onChange={(e) => setSectionSearchQuery(e.target.value)}
+                            className="w-full pr-8 pl-8 py-2 bg-white border border-gray-200 rounded-xl text-[11px] font-bold outline-none focus:border-[#795548] focus:ring-1 focus:ring-[#795548] dark:bg-slate-900 dark:border-slate-800 dark:text-white shadow-sm appearance-none cursor-pointer text-right"
+                          >
+                            <option value="">كل الأقسام</option>
+                            {displayedPens.map(p => (
+                              <option key={p.id} value={p.name}>{p.name}</option>
+                            ))}
+                          </select>
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none w-3 h-3 flex items-center justify-center text-[10px]">
+                            ▼
+                          </div>
+                        </div>
+
+                        {/* Reorder Button */}
+                        {can('canReorderPens') && (
+                          <button
+                            onClick={() => setIsReorderPensOpen(true)}
+                            className="flex items-center gap-1 px-3 py-2 bg-[#795548]/10 text-[#795548] rounded-xl text-[10px] font-black hover:bg-[#795548] hover:text-white transition-all dark:bg-orange-500/10 dark:text-orange-400 whitespace-nowrap shadow-sm border border-[#795548]/5 dark:border-orange-500/10"
+                            title="إعادة ترتيب الأقسام"
+                          >
+                            <ArrowRightLeft size={12} className="rotate-90" />
+                            <span>ترتيب الأقسام</span>
+                          </button>
+                        )}
+                      </div>
+
                       <div className="flex overflow-x-auto snap-x gap-4 no-scrollbar pb-6 px-4 md:px-8">
-                        {displayedPens.map(pen => (
+                        {displayedPens
+                          .filter(pen => pen.name.includes(sectionSearchQuery))
+                          .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+                          .map(pen => (
                           <div key={pen.id} onClick={() => enterSheepList(pen.id)} className="flex-none w-32 h-40 snap-center bg-white/95 backdrop-blur-sm rounded-[2rem] p-3 shadow-lg border border-gray-100 cursor-pointer dark:bg-slate-900 dark:border-slate-800 flex flex-col items-center justify-between hover:scale-[1.03] transition-all group relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-8 h-8 bg-orange-500/5 rounded-bl-3xl" />
                             <div className="w-10 h-10 rounded-2xl bg-[#795548]/5 flex items-center justify-center text-[#795548] mb-1 group-hover:bg-[#795548] group-hover:text-white transition-colors dark:bg-orange-500/10 dark:text-orange-500">
@@ -1745,17 +1948,6 @@ function App() {
                             </div>
                             <div className="flex gap-1 w-full">
                                <button onClick={(e) => { e.stopPropagation(); enterSheepList(pen.id); }} className="flex-1 bg-gray-50 text-gray-500 py-1.5 rounded-xl text-[9px] font-black dark:bg-slate-800 hover:bg-[#795548] hover:text-white transition-all border border-gray-100 dark:border-slate-700">التفاصيل</button>
-                               {isOwner && can('canManagePens') && (
-                                 <button 
-                                   onClick={(e) => { 
-                                     e.stopPropagation();
-                                     showConfirm('تأكيد الحذف', `هل أنت متأكد من حذف ${pen.name}؟`, () => handleDeletePen(pen.id, pen.isGroup || false));
-                                   }}
-                                   className="w-8 h-8 flex items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all border border-red-100 dark:bg-red-950/30 dark:border-red-900/40"
-                                 >
-                                   <Trash2 size={12} />
-                                 </button>
-                               )}
                             </div>
                           </div>
                         ))}
@@ -1824,27 +2016,105 @@ function App() {
                               {can('canViewActivity') && (
                                 <div className="mt-8 px-4 md:px-8 animate-fade-in">
                                   <div className="bg-white/95 rounded-[2rem] p-5 shadow-sm border border-gray-100 dark:bg-slate-900 dark:border-slate-800 backdrop-blur-md">
-                                    <div className="flex justify-between items-center mb-4">
-                                      <div className="flex items-center gap-2">
-                                        <div className="p-1.5 bg-pink-50 text-pink-700 rounded-lg dark:bg-pink-900/20"><Calendar size={14} /></div>
-                                        <h3 className="font-black text-sm text-gray-800 dark:text-gray-100">الأحداث الأخيرة بالحظيرة</h3>
-                                      </div>
-                                      <button onClick={() => setIsRecentsOpen(true)} className="text-[10px] font-bold text-gray-400 hover:text-[#795548] flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-lg transition dark:bg-slate-800">
+                                    <div className="flex justify-between items-center mb-6">
+                                      <button onClick={() => setIsRecentsOpen(true)} className="text-[10px] font-bold text-gray-400 hover:text-[#795548] flex items-center gap-1 bg-gray-50 px-2 py-1.5 rounded-lg transition dark:bg-slate-800">
                                         سجل كامل <ChevronLeft size={10} className="rotate-180" />
                                       </button>
+                                      
+                                      <div className="flex items-center gap-2">
+                                        <h3 className="font-black text-sm text-gray-800 dark:text-gray-100">الأحداث الأخيرة</h3>
+                                        <div className="p-1.5 bg-pink-50 text-pink-700 rounded-lg dark:bg-pink-900/20"><Calendar size={14} /></div>
+                                      </div>
                                     </div>
                                     
                                     {activityLog.length === 0 ? (
-                                      <div className="text-center py-4 text-gray-300 font-bold text-[10px]">لا توجد أحداث</div>
+                                      <div className="text-center py-6 text-gray-300 font-bold text-xs">لا توجد أحداث مسجلة بالحظيرة</div>
                                     ) : (
-                                      <div className="space-y-2">
-                                        {activityLog.slice(0, 3).map(log => (
-                                          <div key={log.id} className="flex items-center gap-2 group">
-                                            <div className="w-1 h-1 rounded-full bg-orange-400" />
-                                            <span className="text-[10px] font-bold text-gray-500 truncate flex-1">{log.action}: {log.detail}</span>
-                                            <span className="text-[8px] text-gray-300 whitespace-nowrap" dir="ltr">{new Date(log.timestamp).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</span>
-                                          </div>
-                                        ))}
+                                      <div className="relative pr-3 space-y-5 before:absolute before:right-[15px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gray-100 dark:before:bg-slate-800">
+                                        {activityLog.slice(0, 5).map(log => {
+                                          // Determine dot color based on action type
+                                          let dotColor = 'bg-slate-400 border-slate-200';
+                                          if (log.action.includes('إضافة') || log.action.includes('تسجيل')) {
+                                            dotColor = 'bg-emerald-500 border-emerald-200';
+                                          } else if (log.action.includes('نقل') || log.action.includes('تحديث') || log.action.includes('تعديل')) {
+                                            dotColor = 'bg-orange-500 border-orange-200';
+                                          } else if (log.action.includes('حذف') || log.action.includes('استبعاد') || log.action.includes('وفاة')) {
+                                            dotColor = 'bg-red-500 border-red-200';
+                                          }
+
+                                          const isExpanded = expandedActivityId === log.id;
+
+                                           return (
+                                             <div key={log.id} className="relative flex flex-col animate-scale-in">
+                                               <div className="flex items-start justify-between gap-4 pr-6">
+                                                 {/* Dot marker */}
+                                                 <div className={`absolute right-[9px] top-1.5 w-3.5 h-3.5 rounded-full border-4 border-[#FCFBF4] dark:border-slate-900 ${dotColor} shadow-sm shrink-0`} />
+                                                 
+                                                 {/* Right content: Action details */}
+                                                 <div className="flex-1 text-right min-w-0 pr-1">
+                                                   <h4 className="font-extrabold text-[12px] text-gray-800 dark:text-gray-100 leading-snug">
+                                                     {log.action}
+                                                   </h4>
+                                                   <p className="text-[10px] text-gray-400 font-bold mt-0.5 flex items-center justify-end gap-1 leading-relaxed">
+                                                     {(log.tagColor || (log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor : undefined)) && (
+                                                       <span 
+                                                         className="w-2.5 h-2.5 rounded-full inline-block border border-white dark:border-slate-900 shadow-sm shrink-0" 
+                                                         style={{ backgroundColor: log.tagColor || allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor }}
+                                                       />
+                                                     )}
+                                                     <span className="truncate">{log.detail || 'تحديث بيانات الحلال'}</span>
+                                                   </p>
+                                                 </div>
+
+                                                 {/* Left content: Date & Show details button */}
+                                                 <div className="text-left flex flex-col items-start shrink-0">
+                                                   <span className="text-[9px] font-extrabold text-gray-400 leading-none">
+                                                     {new Date(log.timestamp).toLocaleDateString('en-GB')}
+                                                   </span>
+                                                   <button
+                                                     onClick={() => setExpandedActivityId(isExpanded ? null : log.id)}
+                                                     className="text-[9px] font-black text-orange-600 hover:text-orange-800 transition-colors mt-1 cursor-pointer hover:underline bg-transparent border-0 p-0"
+                                                   >
+                                                     {isExpanded ? 'إخفاء التفاصيل' : 'عرض التفاصيل'}
+                                                   </button>
+                                                 </div>
+                                               </div>
+
+                                               {/* Accordion dropdown content */}
+                                               {isExpanded && (
+                                                 <div className="mr-6 ml-2 mt-2 p-3 bg-orange-50/50 dark:bg-slate-800/50 rounded-2xl border border-orange-100/30 dark:border-slate-800 text-[10px] font-bold text-gray-600 dark:text-gray-300 space-y-1.5 animate-slide-up text-right">
+                                                   <div><span className="text-gray-400">القائم بالعمل: </span>{log.userName}</div>
+                                                   <div><span className="text-gray-400">الإجراء: </span>{log.action}</div>
+                                                   <div><span className="text-gray-400">التفاصيل: </span>{log.detail || 'تحديث بيانات'}</div>
+                                                    {(log.tagColor || (log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor : undefined)) && (
+                                                      <div className="flex items-center justify-end gap-1.5">
+                                                        <span className="text-gray-400">لون الشارة: </span>
+                                                        <span className="inline-flex items-center gap-1.5">
+                                                          {colorNames[log.tagColor || allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor || ''] || 'ملون'}
+                                                          <span 
+                                                            className="w-2 h-2 rounded-full inline-block border border-white dark:border-slate-900 shadow-sm shrink-0" 
+                                                            style={{ backgroundColor: log.tagColor || allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor }}
+                                                          />
+                                                        </span>
+                                                      </div>
+                                                    )}
+                                                   {log.changes && log.changes.length > 0 && (
+                                                     <div className="mt-1 p-2 bg-white dark:bg-slate-800 rounded-xl border border-gray-100/50 dark:border-slate-800 space-y-0.5">
+                                                       <span className="text-[#795548] dark:text-orange-400 font-extrabold block">تفاصيل التعديل:</span>
+                                                       {log.changes.map((ch, idx) => (
+                                                         <div key={idx} className="flex items-center justify-end gap-1 text-[9px]">
+                                                           <span>{ch}</span>
+                                                           <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                                                         </div>
+                                                       ))}
+                                                     </div>
+                                                   )}
+                                                   <div><span className="text-gray-400">التاريخ: </span>{new Date(log.timestamp).toLocaleString('ar-SA')}</div>
+                                                 </div>
+                                               )}
+                                             </div>
+                                           );
+                                        })}
                                       </div>
                                     )}
                                   </div>
@@ -1859,7 +2129,7 @@ function App() {
 
                 {/* Sub-Tabs for Feed, Vaccines, Expenses */}
                 {barnTab === 'feed' && <div className="max-w-5xl mx-auto pt-4 pb-24 px-4"><FeedManager items={feedItems} onUpdate={handleUpdateFeed} penId={selectedGroupId} animalType={selectedGroup?.animalType} onAddExpense={handleSaveExpense} isOwner={isOwner} canEdit={can('canEditFeed')} currentUser={currentUser} onShowAlert={showAlert} onShowConfirm={showConfirm} /></div>}
-                {barnTab === 'vaccines' && <div className="max-w-4xl mx-auto pt-4 pb-24 px-4 flex justify-center"><VaccinationGuide sheepList={barnSheep} animalType={selectedGroup?.animalType} language={appLanguage} /></div>}
+                {barnTab === 'vaccines' && <div className="max-w-2xl mx-auto pt-4 pb-24 px-4 flex justify-center"><VaccinationGuide sheepList={barnSheep} animalType={selectedGroup?.animalType} language={appLanguage} /></div>}
                 {barnTab === 'expenses' && <div className="max-w-5xl mx-auto pt-4 pb-24 px-4"><FinanceManager penId={selectedGroupId!} expenses={expenses} sales={sales} animals={displayedSheep} animalType={selectedGroup?.animalType} onSaveExpense={handleSaveExpense} onSaveSale={handleSaveSale} onDeleteExpense={handleDeleteExpense} onDeleteSale={handleDeleteSale} isOwner={isOwner} onShowAlert={showAlert} onShowConfirm={showConfirm} /></div>}
 
                 {/* Barn Secondary Navigation */}
@@ -1961,7 +2231,7 @@ function App() {
                 ))}
               </div>
 
-              {/* Recent Worker Activities Card */}
+              {/* Recent Worker Activities Card (Timeline Style) */}
               <div className="bg-white border border-[#EFECE6] rounded-[2rem] p-5 shadow-sm space-y-4 dark:bg-slate-900 dark:border-slate-800">
                 <div className="flex items-center justify-between">
                   <button 
@@ -1981,43 +2251,99 @@ function App() {
                   </button>
                   
                   <div className="flex items-center gap-2">
-                    <h3 className="font-black text-sm text-[#3E2723] dark:text-gray-100">أنشطة العمال الأخيرة</h3>
+                    <h3 className="font-black text-sm text-[#3E2723] dark:text-gray-100">سجل العمال</h3>
                     <History size={16} className="text-[#795548]" />
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  {activityLog.length === 0 ? (
-                    <div className="text-center py-6 text-gray-300 font-bold text-xs">لا توجد أنشطة مسجلة</div>
-                  ) : (
-                    activityLog.slice(0, 5).map(log => (
-                      <div key={log.id} className="flex items-center justify-between text-xs py-1 border-b border-gray-50/50 last:border-0">
-                        {/* Left: Date */}
-                        <span className="text-[10px] font-bold text-gray-400">
-                          {new Date(log.timestamp).toLocaleDateString('en-GB')}
-                        </span>
-                        
-                        {/* Right: Icon + Text */}
-                        <div className="flex items-center gap-3">
-                          <span className="font-bold text-[#5D4037] dark:text-gray-200">
-                            {log.userName}: {log.action}
-                          </span>
-                          
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border ${
-                            log.action.includes('إضافة') ? 'bg-emerald-50 border-emerald-100 text-emerald-600' :
-                            log.action.includes('نقل') ? 'bg-orange-50 border-orange-100 text-orange-600' :
-                            'bg-slate-50 border-slate-100 text-slate-600'
-                          }`}>
-                            <div className={`w-1.5 h-1.5 rounded-full ${
-                              log.action.includes('إضافة') ? 'bg-emerald-500' :
-                              log.action.includes('نقل') ? 'bg-orange-500' :
-                              'bg-slate-500'
-                            }`} />
+                <div className="relative pr-3 space-y-5 before:absolute before:right-[15px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gray-100 dark:before:bg-slate-800">
+                  {(() => {
+                    const workerActivities = activityLog.filter(log => {
+                      if (log.userRole) return log.userRole === 'worker';
+                      const u = users.find(user => user.id === log.userId || user.name === log.userName);
+                      if (u) return u.role === 'worker';
+                      return log.userName !== 'المالك' && log.userId !== currentUser?.id;
+                    });
+
+                    if (workerActivities.length === 0) {
+                      return (
+                        <div className="text-center py-8 text-gray-300 font-bold text-xs">لا توجد أنشطة عمال مسجلة</div>
+                      );
+                    }
+
+                    return workerActivities.slice(0, 5).map(log => {
+                      // Determine dot color based on action type
+                      let dotColor = 'bg-slate-400 border-slate-200';
+                      if (log.action.includes('إضافة') || log.action.includes('تسجيل')) {
+                        dotColor = 'bg-emerald-500 border-emerald-200';
+                      } else if (log.action.includes('نقل') || log.action.includes('تحديث') || log.action.includes('تعديل')) {
+                        dotColor = 'bg-orange-500 border-orange-200';
+                      } else if (log.action.includes('حذف') || log.action.includes('استبعاد') || log.action.includes('وفاة')) {
+                        dotColor = 'bg-red-500 border-red-200';
+                      }
+
+                      const isExpanded = expandedActivityId === log.id;
+
+                      return (
+                        <div key={log.id} className="relative flex flex-col animate-scale-in">
+                          <div className="flex items-start justify-between gap-4 pr-6">
+                            {/* Dot marker */}
+                            <div className={`absolute right-[9px] top-1.5 w-3.5 h-3.5 rounded-full border-4 border-[#FCFBF4] dark:border-slate-950 ${dotColor} shadow-sm shrink-0`} />
+                            
+                            {/* Right content: Action details */}
+                            <div className="flex-1 text-right min-w-0 pr-1">
+                              <h4 className="font-extrabold text-[12px] text-gray-800 dark:text-gray-100 leading-snug">
+                                {log.userName}: {log.action}
+                              </h4>
+                              <p className="text-[10px] text-gray-400 font-bold mt-0.5 flex items-center justify-end gap-1 leading-relaxed">
+                                {(log.tagColor || (log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor : undefined)) && (
+                                  <span 
+                                    className="w-2.5 h-2.5 rounded-full inline-block border border-white dark:border-slate-900 shadow-sm shrink-0" 
+                                    style={{ backgroundColor: log.tagColor || allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor }}
+                                  />
+                                )}
+                                <span className="truncate">{log.detail || 'تحديث بيانات الحظيرة'}</span>
+                              </p>
+                            </div>
+
+                            {/* Left content: Date & Show details button */}
+                            <div className="text-left flex flex-col items-start shrink-0">
+                              <span className="text-[9px] font-extrabold text-gray-400 leading-none">
+                                {new Date(log.timestamp).toLocaleDateString('en-GB')}
+                              </span>
+                              <button
+                                onClick={() => setExpandedActivityId(isExpanded ? null : log.id)}
+                                className="text-[9px] font-black text-orange-600 hover:text-orange-800 transition-colors mt-1 cursor-pointer hover:underline bg-transparent border-0 p-0"
+                              >
+                                {isExpanded ? 'إخفاء التفاصيل' : 'عرض التفاصيل'}
+                              </button>
+                            </div>
                           </div>
+
+                          {/* Accordion dropdown content */}
+                          {isExpanded && (
+                            <div className="mr-6 ml-2 mt-2 p-3 bg-orange-50/50 dark:bg-slate-800/50 rounded-2xl border border-orange-100/30 dark:border-slate-800 text-[10px] font-bold text-gray-600 dark:text-gray-300 space-y-1.5 animate-slide-up text-right">
+                              <div><span className="text-gray-400">العامل: </span>{log.userName}</div>
+                              <div><span className="text-gray-400">الإجراء: </span>{log.action}</div>
+                              <div><span className="text-gray-400">التفاصيل: </span>{log.detail || 'تحديث بيانات'}</div>
+                              {log.changes && log.changes.length > 0 && (
+                                <div className="mt-1 p-2 bg-white dark:bg-slate-800 rounded-xl border border-gray-100/50 dark:border-slate-800 space-y-0.5">
+                                  <span className="text-[#795548] dark:text-orange-400 font-extrabold block">تفاصيل التعديل:</span>
+                                  {log.changes.map((ch, idx) => (
+                                    <div key={idx} className="flex items-center justify-end gap-1 text-[9px]">
+                                      <span>{ch}</span>
+                                      <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              <div><span className="text-gray-400">التاريخ: </span>{new Date(log.timestamp).toLocaleString('ar-SA')}</div>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))
-                  )}
+                      );
+                    });
+                  })()}
                 </div>
               </div>
 
@@ -2050,40 +2376,40 @@ function App() {
               </div>
 
               {/* Filters */}
-              <div className="space-y-3">
+              <div className="space-y-1.5">
                 {/* Custom Date Range Filter */}
-                <div className="flex items-center gap-2 mb-2 bg-gray-50 p-2 rounded-xl border border-gray-100" dir="rtl">
+                <div className="flex items-center gap-1 mb-1 bg-gray-50 p-1 rounded-lg border border-gray-100" dir="rtl">
                   <div className="flex items-center gap-1 flex-1">
-                    <span className="text-[10px] font-bold text-gray-500">{t.dateFrom}</span>
+                    <span className="text-[8px] font-black text-gray-400 shrink-0">{t.dateFrom}</span>
                     <input
                       type="date"
                       value={customDateRange.start}
                       onChange={(e) => setCustomDateRange(prev => ({ ...prev, start: e.target.value }))}
-                      className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-[#795548]"
+                      className="w-full bg-white border border-gray-200 rounded-md px-1 py-0.5 text-[9px] outline-none focus:border-[#795548] font-bold"
                     />
                   </div>
                   <div className="flex items-center gap-1 flex-1">
-                    <span className="text-[10px] font-bold text-gray-500">{t.dateTo}</span>
+                    <span className="text-[8px] font-black text-gray-400 shrink-0">{t.dateTo}</span>
                     <input
                       type="date"
                       value={customDateRange.end}
                       onChange={(e) => setCustomDateRange(prev => ({ ...prev, end: e.target.value }))}
-                      className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-[#795548]"
+                      className="w-full bg-white border border-gray-200 rounded-md px-1 py-0.5 text-[9px] outline-none focus:border-[#795548] font-bold"
                     />
                   </div>
                   {(customDateRange.start || customDateRange.end) && (
                     <button
                       onClick={() => setCustomDateRange({ start: '', end: '' })}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition shrink-0"
+                      className="p-0.5 text-red-500 hover:bg-red-50 rounded transition shrink-0"
                       title={t.clearDate}
                     >
-                      <X size={16} />
+                      <X size={10} />
                     </button>
                   )}
                 </div>
 
                 {/* Date Filter (Top Row) */}
-                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1" dir="rtl">
+                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5" dir="rtl">
                   {[
                     { id: 'today', label: 'اليوم' },
                     { id: 'week', label: 'الأسبوع' },
@@ -2094,7 +2420,7 @@ function App() {
                     <button
                       key={f.id}
                       onClick={() => setRecentsDateFilter(f.id as any)}
-                      className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${recentsDateFilter === f.id ? 'bg-[#795548] text-white shadow-md' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                      className={`px-2 py-0.5 rounded-md text-[9px] font-black whitespace-nowrap transition ${recentsDateFilter === f.id ? 'bg-[#795548] text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                     >
                       {f.label}
                     </button>
@@ -2102,9 +2428,10 @@ function App() {
                 </div>
 
                 {/* Type Filter (Second Row) */}
-                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1" dir="rtl">
+                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5" dir="rtl">
                   {[
                     { id: 'all', label: 'كافة الأحداث', icon: LayoutGrid },
+                    { id: 'edit', label: 'تعديلات', icon: Edit },
                     { id: 'birth', label: 'ولادات/إضافة', icon: Dna },
                     { id: 'death', label: 'استبعاد/وفيات', icon: Skull },
                     { id: 'medical', label: 'علاجات/تحصين', icon: Syringe },
@@ -2114,9 +2441,9 @@ function App() {
                     <button
                       key={f.id}
                       onClick={() => setRecentsTypeFilter(f.id as any)}
-                      className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition border ${recentsTypeFilter === f.id ? 'bg-[#795548]/10 text-[#795548] border-[#795548]/30' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}
+                      className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-black whitespace-nowrap transition border ${recentsTypeFilter === f.id ? 'bg-[#795548]/10 text-[#795548] border-[#795548]/30' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}
                     >
-                      {f.icon && <f.icon size={12} />}
+                      {f.icon && <f.icon size={9} />}
                       {f.label}
                     </button>
                   ))}
@@ -2153,119 +2480,130 @@ function App() {
 
                 // Isolate Data by Barn
                 const relevantSheep = selectedGroupId
-                  ? allSheep.filter(s => {
-                    const pen = pens.find(p => p.id === s.penId);
-                    // Check explicit parent link OR if it's the group itself OR system pens linked to group
-                    return pen?.parentId === selectedGroupId || pen?.id === selectedGroupId || (s.penId.startsWith('mortality:') && s.penId.includes(selectedGroupId));
-                  })
-                  : allSheep;
+                // Isolate Data by Barn
+                const relevantLogs = selectedGroupId
+                  ? activityLog.filter(log => {
+                      // 1. If it has a serialNumber, check if that sheep belongs to the current barn/group
+                      if (log.serialNumber) {
+                        const s = allSheep.find(sheep => sheep.serialNumber === log.serialNumber);
+                        if (s) {
+                          const pen = pens.find(p => p.id === s.penId);
+                          return pen?.parentId === selectedGroupId || pen?.id === selectedGroupId || s.penId.startsWith('mortality:') && s.penId.includes(selectedGroupId);
+                        }
+                      }
+                      
+                      // 2. If it's a pen-specific action or log detail contains pen name of current group
+                      const groupPens = pens.filter(p => p.parentId === selectedGroupId || p.id === selectedGroupId);
+                      const hasGroupPenName = groupPens.some(p => log.detail?.includes(p.name));
+                      if (hasGroupPenName) return true;
 
-                const relevantExpenses = selectedGroupId
-                  ? expenses.filter(e => {
-                    const pen = pens.find(p => p.id === e.penId);
-                    return e.penId === selectedGroupId || pen?.parentId === selectedGroupId;
-                  })
-                  : expenses;
+                      return false;
+                    })
+                  : activityLog;
 
-                const feedEvents = feedItems.flatMap(item => 
-                  (item.logs || []).filter(l => l.type === 'add').map(l => ({
-                    id: `f-${item.id}-${l.id}`,
-                    type: 'feed',
-                    date: l.date,
-                    title: `إضافة مخزون: ${item.name}`,
-                    subtitle: `${l.amount} ${item.unit} - بواسطة: ${l.addedBy || 'غير معروف'}`,
-                    icon: Wheat,
-                    color: 'text-orange-600 bg-orange-50',
-                    details: (
-                      <div className="space-y-1 text-[11px] font-bold text-gray-500">
-                        <p>إضافة مخزون: {item.name}</p>
-                        <p>التفاصيل: {l.amount} {item.unit} - بواسطة: {l.addedBy || 'غير معروف'}</p>
-                        <p>التاريخ: {new Date(l.date).toLocaleDateString('ar-SA')}</p>
-                      </div>
-                    )
-                  }))
-                );
+                const allEvents = relevantLogs.map(log => {
+                  let type = 'other';
+                  let icon = Calendar;
+                  let color = 'text-gray-600 bg-gray-50';
+                  
+                  if (log.action.includes('إضافة') || log.action.includes('ولادة')) {
+                    type = 'birth';
+                    icon = Dna;
+                    color = 'text-emerald-600 bg-emerald-50';
+                  } else if (log.action.includes('حذف') || log.action.includes('استبعاد') || log.action.includes('وفاة') || log.action.includes('نفوق')) {
+                    type = 'death';
+                    icon = Skull;
+                    color = 'text-red-600 bg-red-50';
+                  } else if (log.action.includes('علاج') || log.action.includes('تحصين') || log.action.includes('تلقيح') || log.action.includes('طبي')) {
+                    type = 'medical';
+                    icon = Syringe;
+                    color = 'text-purple-600 bg-purple-50';
+                  } else if (log.action.includes('مصروف') || log.action.includes('مبيعات') || log.action.includes('شراء') || log.action.includes('بيع') || log.action.includes('مالي')) {
+                    type = 'expense';
+                    icon = Wallet;
+                    color = 'text-blue-600 bg-blue-50';
+                  } else if (log.action.includes('مخزون') || log.action.includes('أعلاف') || log.action.includes('حبوب')) {
+                    type = 'feed';
+                    icon = Wheat;
+                    color = 'text-orange-600 bg-orange-50';
+                  } else if (log.action.includes('تعديل حيوان') || log.action.includes('تعديل رأس')) {
+                    type = 'edit';
+                    icon = Edit;
+                    color = 'text-amber-600 bg-amber-50';
+                  }
 
-                const allEvents = [
-                  ...relevantSheep.filter(s => s.birthDate).map(s => ({ 
-                    id: `b-${s.id}`, type: 'birth', date: s.createdAt || s.birthDate!, 
-                    title: `إضافة حيوان: ${s.type}`, 
+                  const logTagColor = log.tagColor || (log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor : undefined);
+                  const sheep = log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber || s.id === log.serialNumber) : null;
+                  const sheepType = sheep?.type;
+
+                  return {
+                    id: log.id,
+                    type,
+                    date: log.timestamp,
+                    title: log.action,
                     subtitle: (
-                       <span className="flex items-center gap-1">
-                         #{s.serialNumber} - بواسطة: {s.addedBy || 'غير معروف'}
-                         {s.tagColor && <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: s.tagColor }}></span>}
-                       </span>
-                    ), 
-                    icon: Dna, color: 'text-emerald-600 bg-emerald-50',
+                      <span className="flex items-center gap-1.5 flex-wrap mt-1">
+                        {log.serialNumber ? (
+                          <span className="bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-gray-300 px-1.5 py-0.5 rounded-md text-[10px] font-black border border-gray-200 dark:border-slate-700 shadow-sm shrink-0">
+                            #{log.serialNumber}
+                          </span>
+                        ) : null}
+                        {logTagColor && (
+                          <span className="inline-flex items-center gap-1 bg-gray-50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded-md border border-gray-100 dark:border-slate-700 shrink-0">
+                            <span 
+                              className="w-2 h-2 rounded-full inline-block border border-white dark:border-slate-800 shadow-sm" 
+                              style={{ backgroundColor: logTagColor }}
+                            />
+                            <span className="text-[9px] font-extrabold text-gray-500 dark:text-gray-400">{colorNames[logTagColor] || 'ملون'}</span>
+                          </span>
+                        )}
+                        {sheepType && (
+                          <span className="bg-orange-50 text-orange-700 dark:bg-orange-950/20 dark:text-orange-400 px-1.5 py-0.5 rounded-md text-[9px] font-black border border-orange-100/50 dark:border-orange-900/30 shrink-0">
+                            {sheepType}
+                          </span>
+                        )}
+                        <span className="text-[9px] text-gray-400">بواسطة: <span className="font-extrabold text-gray-600 dark:text-gray-300">{log.userName}</span></span>
+                      </span>
+                    ),
+                    icon,
+                    color,
                     details: (
-                      <div className="space-y-1 text-[11px] font-bold text-gray-500">
-                        <p>الرقم التسلسلي: #{s.serialNumber}</p>
-                        <p>النوع: {s.type}</p>
-                        <p>الاسم/اللقب: {s.nickname || 'لا يوجد'}</p>
-                        <p>التاريخ: {new Date(s.createdAt || s.birthDate!).toLocaleDateString('ar-SA')}</p>
-                        <p>بواسطة: {s.addedBy || 'غير معروف'}</p>
+                      <div className="space-y-1.5 text-[11px] font-bold text-gray-500 dark:text-gray-400 text-right">
+                        <div><span className="text-gray-400">القائم بالعمل: </span>{log.userName}</div>
+                        <div><span className="text-gray-400">الإجراء: </span>{log.action}</div>
+                        <div><span className="text-gray-400">التفاصيل: </span>{log.detail}</div>
+                        {logTagColor && (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <span className="text-gray-400">لون الشارة: </span>
+                            <span className="inline-flex items-center gap-1.5">
+                              {colorNames[logTagColor] || 'ملون'}
+                              <span 
+                                className="w-2 h-2 rounded-full inline-block border border-white dark:border-slate-800 shadow-sm shrink-0" 
+                                style={{ backgroundColor: logTagColor }}
+                              />
+                            </span>
+                          </div>
+                        )}
+                        {log.changes && log.changes.length > 0 && (
+                          <div className="mt-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-800 space-y-1">
+                            <span className="text-[#795548] dark:text-orange-400 font-extrabold block">تفاصيل التعديل:</span>
+                            {log.changes.map((ch, idx) => (
+                              <div key={idx} className="flex items-center justify-end gap-1.5 text-[10px] text-gray-600 dark:text-gray-300">
+                                <span>{ch}</span>
+                                <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div><span className="text-gray-400">التاريخ والوقت: </span>{new Date(log.timestamp).toLocaleString('ar-SA')}</div>
                       </div>
                     )
-                  })),
-                  ...relevantSheep.filter(s => s.penId.includes('mortality')).map(s => ({ 
-                    id: `d-${s.id}`, type: 'death', date: s.exclusionDate || new Date().toISOString(), 
-                    title: `استبعاد: ${s.type}`, 
-                    subtitle: (
-                       <span className="flex items-center gap-1">
-                         #{s.serialNumber}
-                         {s.tagColor && <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: s.tagColor }}></span>}
-                       </span>
-                    ), 
-                    icon: Skull, color: 'text-red-600 bg-red-50',
-                    details: (
-                      <div className="space-y-1 text-[11px] font-bold text-gray-500">
-                        <p>السبب: {s.notes || 'غير محدد'}</p>
-                        <p>التاريخ: {new Date(s.exclusionDate || new Date().toISOString()).toLocaleDateString('ar-SA')}</p>
-                      </div>
-                    )
-                  })),
-                  ...relevantSheep.flatMap(s => (s.medicalRecords || []).map((m, i) => ({ 
-                    id: `m-${s.id}-${i}`, type: 'medical', date: m.createdAt || m.date, 
-                    title: `علاج: ${m.name}`, 
-                    subtitle: (
-                       <span className="flex items-center gap-1">
-                         #{s.serialNumber}
-                         {s.tagColor && <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: s.tagColor }}></span>}
-                       </span>
-                    ), 
-                    icon: Syringe, color: 'text-purple-600 bg-purple-50',
-                    details: (
-                      <div className="space-y-1 text-[11px] font-bold text-gray-500">
-                        <p>النوع: {m.type === 'vaccine' ? 'تحصين' : 'علاج'}</p>
-                        <p>الاسم: {m.name}</p>
-                        <p>الجرعة: {m.notes || 'غير محددة'}</p>
-                        <p>التفاصيل: {m.notes || 'لا توجد ملاحظات'}</p>
-                        <p>التاريخ: {new Date(m.createdAt || m.date).toLocaleDateString('ar-SA')}</p>
-                        <p>بواسطة: غير معروف</p>
-                      </div>
-                    )
-                  }))),
-                  ...relevantExpenses.map(e => ({ 
-                    id: `e-${e.id}`, type: 'expense', date: e.createdAt || e.date, 
-                    title: `مصروف: ${e.title}`, 
-                    subtitle: `${e.amount} ريال`, 
-                    icon: Wallet, color: 'text-blue-600 bg-blue-50',
-                    details: (
-                      <div className="space-y-1 text-[11px] font-bold text-gray-500">
-                        <p>البند: {e.title}</p>
-                        <p>المبلغ: {e.amount} ريال</p>
-                        <p>التاريخ: {new Date(e.createdAt || e.date).toLocaleDateString('ar-SA')}</p>
-                        <p>القسم/الحظيرة: {pens.find(p=>p.id===e.penId)?.name || 'غير معروف'}</p>
-                        <p>بواسطة: غير معروف</p>
-                      </div>
-                    )
-                  })),
-                  ...feedEvents
-                ]
-                  .filter(e => checkDate(e.date))
-                  .filter(e => recentsTypeFilter === 'all' || e.type === recentsTypeFilter)
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                  .slice(0, 100);
+                  };
+                })
+                .filter(e => checkDate(e.date))
+                .filter(e => recentsTypeFilter === 'all' || e.type === recentsTypeFilter)
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .slice(0, 100);
 
                 if (allEvents.length === 0) return (
                   <div className="text-center py-20 flex flex-col items-center justify-center opacity-50">
@@ -2375,7 +2713,7 @@ function App() {
           }
         }}
         allSheep={selectedGroupId ? barnSheep : allSheep}
-        feedItems={selectedGroupId ? feedItems.filter(f => f.penId === selectedGroupId || pens.find(p => p.id === f.penId)?.parentId === selectedGroupId) : feedItems}
+        feedItems={selectedGroupId ? feedItems.filter(f => !f.penId || f.penId === selectedGroupId || pens.find(p => p.id === f.penId)?.parentId === selectedGroupId) : feedItems}
         expenses={selectedGroupId ? expenses.filter(e => e.penId === selectedGroupId || pens.find(p => p.id === e.penId)?.parentId === selectedGroupId) : expenses}
         sales={selectedGroupId ? sales.filter(s => s.penId === selectedGroupId || pens.find(p => p.id === s.penId)?.parentId === selectedGroupId) : sales}
         pens={selectedGroupId ? pens.filter(p => p.parentId === selectedGroupId || p.id === selectedGroupId) : pens}
@@ -2387,6 +2725,7 @@ function App() {
         initialReport={reportsInitialTab}
       />
       <PenModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSavePen} initialData={editingPen} isGroupMode={isAddingGroup} />
+      <ReorderPensModal isOpen={isReorderPensOpen} onClose={() => setIsReorderPensOpen(false)} pens={pens} selectedGroupId={selectedGroupId} onSave={handleReorderPens} />
       <SheepModal 
         isOpen={isSheepModalOpen} 
         onClose={() => setIsSheepModalOpen(false)} 
@@ -2489,9 +2828,9 @@ function App() {
               </div>
               <h3 className="text-xl font-black text-gray-800 mb-2 dark:text-white">تأكيد حالة الإنجاب</h3>
               <p className="text-sm font-bold text-gray-500 mb-6 dark:text-gray-400 leading-relaxed">
-                {reproductionConfirmState.currentStatus === 'empty' ? 'سيتم تغيير الحالة إلى (مضارع) لمدة 5 أشهر تقريباً.' : 
+                {reproductionConfirmState.currentStatus === 'empty' ? 'سيتم تغيير الحالة إلى (مضرع) لمدة 5 أشهر تقريباً.' : 
                  reproductionConfirmState.currentStatus === 'pregnant' ? 'سيتم تغيير الحالة إلى (أم) لبدء فترة حضانة الرضيع (3 أشهر).' : 
-                 'سيتم إعادة الحيوان إلى حالة (غير مضارع).'}
+                 'سيتم إعادة الحيوان إلى حالة (غير مضرع).'}
               </p>
               
               <div className="flex flex-col gap-3">
@@ -2510,6 +2849,7 @@ function App() {
                         updates.lactationStartDate = null;
                         updates.pregnancyDate = null;
                         updates.expectedBirthDate = null;
+                        updates.weaningDate = new Date().toISOString();
                       }
                       
                       await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), updates);
@@ -2527,37 +2867,26 @@ function App() {
                     onClick={async () => {
                       const { sheep } = reproductionConfirmState;
                       try {
-                        const miscarriageRecord: MedicalRecord = {
-                          id: crypto.randomUUID(),
-                          date: new Date().toISOString(),
-                          type: 'treatment',
-                          name: 'سقط الحمل (إجهاض)',
-                          notes: 'تم إنهاء حالة الحمل وإجهاض الجنين.'
-                        };
-                        const updatedRecords = [miscarriageRecord, ...(sheep.medicalRecords || [])].slice(0, 50);
-                        
                         await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), {
                           reproductionStatus: 'empty',
                           pregnancyDate: null,
-                          expectedBirthDate: null,
-                          medicalRecords: updatedRecords
+                          expectedBirthDate: null
                         });
                         
                         setViewingSheep(prev => prev ? { 
                           ...prev, 
                           reproductionStatus: 'empty', 
                           pregnancyDate: undefined, 
-                          expectedBirthDate: undefined,
-                          medicalRecords: updatedRecords 
+                          expectedBirthDate: undefined
                         } : undefined);
                         
                         setReproductionConfirmState(null);
-                        showAlert('success', 'تم الإلغاء', 'تم تسجيل الإجهاض في سجل العمليات بنجاح.');
+                        showAlert('success', 'تم الإلغاء', 'تم إلغاء الحمل (إجهاض / حمل كاذب) بنجاح.');
                       } catch (e) { console.error(e); }
                     }}
                     className="w-full py-4 rounded-2xl bg-red-50 text-red-700 border border-red-200 font-black text-sm hover:bg-red-100 transition dark:bg-red-900/20 dark:border-red-900 dark:text-red-400"
                   >
-                    إلغاء الحمل (إجهاض)
+                    إلغاء الحمل (إجهاض / حمل كاذب)
                   </button>
                 )}
                 

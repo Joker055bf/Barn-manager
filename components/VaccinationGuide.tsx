@@ -22,11 +22,14 @@ export const VaccinationGuide: React.FC<VaccinationGuideProps> = ({ sheepList = 
   const medicalHistory = useMemo(() => {
     return sheepList.flatMap(s =>
       (s.medicalRecords || [])
+        // Exclude miscarriage/abortion/false pregnancy records from logs
+        .filter(r => r.name !== 'سقط الحمل (إجهاض)' && !r.name.includes('إجهاض') && !r.name.includes('حمل كاذب') && !r.name.includes('سقط'))
         .map(r => ({
           recordId: r.id,
           sheepId: s.id,
           serialNumber: s.serialNumber,
           sheepType: s.type,
+          tagColor: s.tagColor, // Map the tag color
           type: r.type, // vaccine, treatment, checkup
           name: r.name,
           date: r.date,
@@ -41,7 +44,7 @@ export const VaccinationGuide: React.FC<VaccinationGuideProps> = ({ sheepList = 
   );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-2 animate-fade-in pb-4">
+    <div className="max-w-2xl mx-auto space-y-2 animate-fade-in pb-4 text-xs">
       {/* Tab Switcher */}
       <div className="flex bg-white rounded-xl shadow-sm border border-gray-100 p-1 dark:bg-slate-900 dark:border-slate-800">
         <button
@@ -156,33 +159,36 @@ export const VaccinationGuide: React.FC<VaccinationGuideProps> = ({ sheepList = 
                       <th className="p-2 font-black text-[9px] uppercase tracking-widest">ملاحظات</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+                  <tbody className="divide-y divide-gray-100 dark:divide-slate-800 text-[10px]">
                     {filteredHistory.length > 0 ? (
                       filteredHistory.map((record) => (
                         <tr key={record.recordId} className="hover:bg-gray-50/50 transition dark:hover:bg-slate-800/20">
-                          <td className="p-2.5">
+                          <td className="p-1.5">
                              <div className="flex items-center gap-1.5">
-                               <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
-                               <span className="font-black text-gray-900 dark:text-gray-100 text-[11px]">{record.serialNumber}</span>
+                               <div 
+                                 className="w-2.5 h-2.5 rounded-full border border-black/10 dark:border-white/10 shrink-0" 
+                                 style={{ backgroundColor: record.tagColor || '#795548' }}
+                               />
+                               <span className="font-black text-gray-900 dark:text-gray-100 text-[11.5px]">{record.serialNumber}</span>
                              </div>
                           </td>
-                          <td className="p-2.5">
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter ${record.type === 'vaccine' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30' :
+                          <td className="p-1.5">
+                            <span className={`px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-tighter ${record.type === 'vaccine' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30' :
                               record.type === 'treatment' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30'
                               }`}>
                               {record.type === 'vaccine' ? (language === 'en' ? 'Vaccine' : 'تحصين') : (record.type === 'treatment' ? (language === 'en' ? 'Treatment' : 'علاج') : (language === 'en' ? 'Checkup' : 'فحص'))}
                             </span>
                           </td>
-                          <td className="p-2.5 font-black text-[11px] text-gray-800 dark:text-gray-200">
+                          <td className="p-1.5 font-black text-[11px] text-gray-800 dark:text-gray-200">
                             {record.name}
                           </td>
-                          <td className="p-2.5 text-gray-500 text-[10px] font-bold whitespace-nowrap">
+                          <td className="p-1.5 text-gray-500 text-[9.5px] font-bold whitespace-nowrap">
                             <div className="flex items-center gap-1">
                                <Calendar size={10} />
-                               {record.date}
+                               {record.date ? (record.date.includes('T') ? record.date.split('T')[0] : record.date) : ''}
                             </div>
                           </td>
-                          <td className="p-2.5 text-gray-400 text-[10px] font-medium max-w-[150px] truncate">
+                          <td className="p-1.5 text-gray-400 text-[9.5px] font-medium max-w-[150px] truncate">
                             {record.notes || '-'}
                           </td>
                         </tr>

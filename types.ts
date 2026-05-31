@@ -15,6 +15,7 @@ export interface Pen {
   animalType?: string;
   isExclusion?: boolean;
   ownerName?: string;
+  sortOrder?: number;
 }
 
 export interface MedicalRecord {
@@ -119,6 +120,7 @@ export interface Sheep {
   status?: 'healthy' | 'sick';
   healthStatus?: 'healthy' | 'sick';
   addedBy?: string;
+  source?: 'born' | 'purchase';
   reproductionStatus?: 'empty' | 'pregnant' | 'mother';
   lastBirthDate?: string;
   weaningDate?: string;
@@ -189,6 +191,12 @@ export interface WorkerPermissions {
   canMoveAnimals: boolean;
   canViewActivity: boolean;
   canViewProduction: boolean;
+  canAddPens: boolean;
+  canEditPens: boolean;
+  canDeletePens: boolean;
+  canReorderPens: boolean;
+  canDeleteAnimals: boolean;
+  canDeleteExpenses: boolean;
 }
 
 export interface ActivityEntry {
@@ -199,6 +207,9 @@ export interface ActivityEntry {
   action: string;
   detail: string;
   timestamp: string;
+  tagColor?: string;
+  serialNumber?: string;
+  changes?: string[];
 }
 
 export interface User {
@@ -228,4 +239,10 @@ export const DEFAULT_WORKER_PERMISSIONS: WorkerPermissions = {
   canMoveAnimals: true,
   canViewActivity: false,
   canViewProduction: false,
+  canAddPens: false,
+  canEditPens: false,
+  canDeletePens: false,
+  canReorderPens: false,
+  canDeleteAnimals: false,
+  canDeleteExpenses: false,
 };

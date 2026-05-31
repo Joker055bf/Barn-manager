@@ -242,7 +242,10 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                                             <div>
                                                 <h4 className="font-bold text-gray-800 dark:text-gray-100 text-sm">{item.title}</h4>
                                                 <div className="flex items-center gap-3 text-[10px] text-gray-400 mt-1">
-                                                    <span className="flex items-center gap-1"><Calendar size={10} /> {item.date}</span>
+                                                    <span className="flex items-center gap-1">
+                                                        <Calendar size={10} /> 
+                                                        {item.date ? (item.date.includes('T') ? item.date.split('T')[0] : item.date) : ''}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>

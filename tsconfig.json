@@ -33,6 +33,7 @@
     "components_unused",
     "**/*.cjs",
     "**/*.js",
-    "build.bat"
+    "build.bat",
+    "capacitor.config.ts"
   ]
 }

@@ -123,10 +123,12 @@ export const SheepModal: React.FC<SheepModalProps> = ({
       }
 
       // Initialize Source
-      if (initialData.motherId || initialData.fatherId) {
+      if (initialData.source) {
+        setSource(initialData.source);
+      } else if (initialData.motherId || initialData.fatherId) {
         setSource('born');
       } else {
-        setSource('purchase');
+        setSource('born');
       }
 
     } else {
@@ -310,7 +312,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
           if (diffMonths < 3) {
             const availableDate = new Date(exclusionDate);
             availableDate.setMonth(availableDate.getMonth() + 3);
-            const msg = `هذا الرقم محجوز لحيوان مستبعد (${duplicateSheep.serialNumber} - ${colorNames[duplicateSheep.tagColor || ''] || 'بدون لون'}). سيكون متاحاً بعد: ${availableDate.toLocaleDateString('ar-SA')}`;
+            const msg = `هذا الرقم محجوز لحيوان مستبعد (${duplicateSheep.serialNumber} - ${colorNames[duplicateSheep.tagColor || ''] || 'بدون لون'}). سيكون متاحاً بعد: ${availableDate.toLocaleDateString('en-GB')}`;
             if (onShowAlert) onShowAlert('error', 'تنبيه', msg);
             return;
           }
@@ -362,7 +364,8 @@ export const SheepModal: React.FC<SheepModalProps> = ({
       notes,
       medicalRecords: initialData?.medicalRecords || [],
       tagColor,
-      nickname
+      nickname,
+      source: isSheep ? source : undefined
     };
 
 

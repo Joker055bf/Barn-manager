@@ -107,6 +107,7 @@ export const PenModal: React.FC<PenModalProps> = ({ isOpen, onClose, onSave, ini
                 />
               </div>
 
+              {!initialData && (
                 <CustomSelect
                   label="تصنيف الحيوانات"
                   value={animalType}
@@ -121,6 +122,7 @@ export const PenModal: React.FC<PenModalProps> = ({ isOpen, onClose, onSave, ini
                     { value: 'other', label: 'أخرى (قريباً)', disabled: true }
                   ]}
                 />
+              )}
             </>
           )}
 
