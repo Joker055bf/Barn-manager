@@ -2,7 +2,6 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAnalytics } from "firebase/analytics";
-import { getMessaging, isSupported } from "firebase/messaging";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -33,6 +32,7 @@ export const analytics = analyticsInstance;
 export const getFirebaseMessaging = async () => {
   if (typeof window !== 'undefined') {
     try {
+      const { isSupported, getMessaging } = await import("firebase/messaging");
       const supported = await isSupported();
       if (supported) {
         return getMessaging(app);
