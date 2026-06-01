@@ -6,6 +6,7 @@ import { Share } from '@capacitor/share';
 import { User as UserType, Pen, Sheep, FeedItem, Expense } from '../types';
 import { db } from '../firebase';
 import { doc, setDoc, collection } from 'firebase/firestore';
+import { safeStorage } from '../utils/storage';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -114,7 +115,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         const data: Record<string, any> = {};
         const keys = ['rai_pens', 'rai_sheep', 'rai_feed', 'rai_expenses', 'rai_owner', 'rai_lang', 'rai_theme'];
         keys.forEach(key => {
-            const val = localStorage.getItem(key);
+            const val = safeStorage.getItem(key);
             if (val) {
                 try { data[key] = JSON.parse(val); }
                 catch { data[key] = val; }
@@ -230,7 +231,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 // 5. Update local storage for non-synced keys (theme, etc)
                 Object.entries(data).forEach(([key, value]) => {
                     if (key.startsWith('rai_') && !['rai_pens', 'rai_sheep', 'rai_feed', 'rai_expenses'].includes(key)) {
-                        localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+                        safeStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
                     }
                 });
 

@@ -39,6 +39,7 @@ import { translations } from './constants/translations';
 import { shareFile } from './utils/shareUtils';
 import { db, getFirebaseMessaging } from './firebase';
 import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, query, where, getDocs, addDoc, orderBy, limit } from 'firebase/firestore';
+import { safeStorage } from './utils/storage';
 
 // ────────────────────────
 
@@ -47,10 +48,10 @@ function App() {
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
-      const saved = localStorage.getItem('rai_session');
+      const saved = safeStorage.getItem('rai_session');
       return saved ? JSON.parse(saved) : null;
     } catch (e) {
-      console.error("Failed to parse rai_session from localStorage:", e);
+      console.error("Failed to parse rai_session from safeStorage:", e);
       return null;
     }
   });
@@ -168,7 +169,8 @@ function App() {
       if (currentUser && currentUser.id === userId) {
         const updatedUser = { ...currentUser, ...cleanUpdates };
         setCurrentUser(updatedUser);
-        localStorage.setItem('rai_session', JSON.stringify(updatedUser));
+        localStorage.setItem('rai_session', JSON.stringify(updatedUser)); // backup fallback if available
+        safeStorage.setItem('rai_session', JSON.stringify(updatedUser));
       }
     } catch (e) {
       console.error('Error updating user:', e);
@@ -193,14 +195,14 @@ function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('rai_session');
+    safeStorage.removeItem('rai_session');
     setCurrentUser(null);
     window.location.reload();
   };
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
-    localStorage.setItem('rai_session', JSON.stringify(user));
+    safeStorage.setItem('rai_session', JSON.stringify(user));
   };
 
   const handleRegisterOwner = async (username: string, password: string, name: string) => {
@@ -306,18 +308,18 @@ function App() {
 
   // Settings State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [appLanguage, setAppLanguage] = useState<'ar' | 'en'>(() => (localStorage.getItem('rai_lang') as 'ar' | 'en') || 'ar');
-  const [appTheme, setAppTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('rai_theme') as 'light' | 'dark') || 'light');
+  const [appLanguage, setAppLanguage] = useState<'ar' | 'en'>(() => (safeStorage.getItem('rai_lang') as 'ar' | 'en') || 'ar');
+  const [appTheme, setAppTheme] = useState<'light' | 'dark'>(() => (safeStorage.getItem('rai_theme') as 'light' | 'dark') || 'light');
 
   // Apply Settings Effects
   useEffect(() => {
-    localStorage.setItem('rai_lang', appLanguage);
+    safeStorage.setItem('rai_lang', appLanguage);
     document.dir = appLanguage === 'ar' ? 'rtl' : 'ltr';
     document.documentElement.lang = appLanguage;
   }, [appLanguage]);
 
   useEffect(() => {
-    localStorage.setItem('rai_theme', appTheme);
+    safeStorage.setItem('rai_theme', appTheme);
     if (appTheme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
@@ -619,6 +621,10 @@ function App() {
         const messaging = await getFirebaseMessaging();
         if (!messaging) return;
 
+        if (typeof Notification === 'undefined') {
+          console.warn("Push Notifications are not supported by this browser.");
+          return;
+        }
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
           import('firebase/messaging').then(({ getToken, onMessage }) => {
@@ -627,11 +633,11 @@ function App() {
                 if (currentToken && currentUser.fcmToken !== currentToken) {
                   await updateDoc(doc(db, 'users', currentUser.id), { fcmToken: currentToken });
                   setCurrentUser(prev => prev ? { ...prev, fcmToken: currentToken } : null);
-                  const saved = localStorage.getItem('rai_session');
+                  const saved = safeStorage.getItem('rai_session');
                   if (saved) {
                     const session = JSON.parse(saved);
                     session.fcmToken = currentToken;
-                    localStorage.setItem('rai_session', JSON.stringify(session));
+                    safeStorage.setItem('rai_session', JSON.stringify(session));
                   }
                 }
               })
@@ -730,9 +736,9 @@ function App() {
     return () => unsubscribes.forEach(unsub => unsub());
   }, [ownerId, isOwner]);
 
-  // Personal Settings Persistence (LocalStorage)
-  useEffect(() => { localStorage.setItem('rai_lang', appLanguage); }, [appLanguage]);
-  useEffect(() => { localStorage.setItem('rai_theme', appTheme); }, [appTheme]);
+  // Personal Settings Persistence (safeStorage)
+  useEffect(() => { safeStorage.setItem('rai_lang', appLanguage); }, [appLanguage]);
+  useEffect(() => { safeStorage.setItem('rai_theme', appTheme); }, [appTheme]);
 
   // Click outside for custom section & barn filter dropdowns
   useEffect(() => {

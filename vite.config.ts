@@ -12,6 +12,10 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
       },
       plugins: [react()],
+      build: {
+        target: ['es2015', 'edge88', 'firefox78', 'chrome87', 'safari13'],
+        chunkSizeWarningLimit: 2000
+      },
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)

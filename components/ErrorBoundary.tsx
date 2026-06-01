@@ -44,7 +44,13 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
-      const isArabic = !localStorage.getItem('rai_lang') || localStorage.getItem('rai_lang') === 'ar';
+      let isArabic = true;
+      try {
+        const lang = localStorage.getItem('rai_lang');
+        isArabic = !lang || lang === 'ar';
+      } catch (e) {
+        console.warn("localStorage.getItem failed inside ErrorBoundary:", e);
+      }
       
       return (
         <div 
