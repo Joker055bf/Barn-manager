@@ -2,14 +2,29 @@ import { getApps, initializeApp, cert } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+const parsePrivateKey = (key: string | undefined): string | undefined => {
+  if (!key) return undefined;
+  let formatted = key.trim();
+  // Remove surrounding quotes (both double and single) if the user accidentally copied them
+  if (formatted.startsWith('"') && formatted.endsWith('"')) {
+    formatted = formatted.slice(1, -1);
+  }
+  if (formatted.startsWith("'") && formatted.endsWith("'")) {
+    formatted = formatted.slice(1, -1);
+  }
+  // Replace escaped newlines (\n or \\n) with actual newlines
+  formatted = formatted.replace(/\\n/g, '\n');
+  return formatted;
+};
+
 if (!getApps().length) {
   try {
+    const privateKey = parsePrivateKey(process.env.FIREBASE_PRIVATE_KEY);
     initializeApp({
       credential: cert({
         projectId: process.env.FIREBASE_PROJECT_ID,
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        // Replace escaped newlines from Vercel env variables
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        privateKey: privateKey,
       }),
     });
   } catch (error: any) {
