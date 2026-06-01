@@ -18,6 +18,7 @@ interface SettingsModalProps {
     currentUser: UserType | null;
     onUpdateProfile: (name: string, username?: string, password?: string) => Promise<void>;
     onShowAlert?: (type: 'success' | 'error' | 'warning' | 'info', title: string, message: string) => void;
+    onTestNotifications?: () => Promise<void>;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -29,12 +30,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setTheme,
     currentUser,
     onUpdateProfile,
-    onShowAlert
+    onShowAlert,
+    onTestNotifications
 }) => {
     const [showDataSection, setShowDataSection] = useState(false);
     const [versionTapCount, setVersionTapCount] = useState(0);
     const [importStatus, setImportStatus] = useState<string | null>(null);
     const [isSavingProfile, setIsSavingProfile] = useState(false);
+    const [isTestingNotifications, setIsTestingNotifications] = useState(false);
     
     // Profile Edit State
     const [editName, setEditName] = useState(currentUser?.name || '');
@@ -461,6 +464,69 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 <Moon size={28} className={theme === 'dark' ? 'text-indigo-400' : 'text-gray-300 dark:text-slate-700'} />
                                 <span className="text-xs uppercase tracking-widest">الليل</span>
                             </button>
+                        </div>
+                    </div>
+
+                    {/* Notifications Section */}
+                    <div className="space-y-5">
+                        <h3 className="font-black text-gray-900 flex items-center gap-3 dark:text-gray-100 tracking-tight">
+                            <Info size={22} className="text-[#795548] dark:text-orange-500" />
+                            {language === 'en' ? 'Push Notifications' : 'إشعارات الهاتف الفورية'}
+                        </h3>
+                        
+                        <div className="p-5 bg-orange-50/40 rounded-[1.5rem] border border-orange-100 dark:bg-slate-800 dark:border-slate-700 space-y-4">
+                            <div className="flex justify-between items-center text-xs font-bold text-gray-600 dark:text-gray-300">
+                                <span>{language === 'en' ? 'Browser Permission:' : 'حالة صلاحية المتصفح:'}</span>
+                                <span className={`px-3 py-1 rounded-full font-black ${
+                                    typeof Notification !== 'undefined'
+                                        ? Notification.permission === 'granted'
+                                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                            : Notification.permission === 'denied'
+                                                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                                : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                        : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
+                                }`}>
+                                    {typeof Notification !== 'undefined'
+                                        ? Notification.permission === 'granted'
+                                            ? (language === 'en' ? 'Active ✅' : 'مفعّلة ✅')
+                                            : Notification.permission === 'denied'
+                                                ? (language === 'en' ? 'Blocked ❌' : 'مرفوضة ❌')
+                                                : (language === 'en' ? 'Pending 🔔' : 'بانتظار الموافقة 🔔')
+                                        : (language === 'en' ? 'Not Supported ⚠️' : 'غير مدعوم ⚠️')}
+                                </span>
+                            </div>
+
+                            <p className="text-[10px] text-gray-500 leading-relaxed dark:text-slate-400 font-bold">
+                                {language === 'en'
+                                    ? 'To receive instant push notifications for new chat messages, activate notifications and trigger a test to confirm.'
+                                    : 'لتلقي إشعارات فورية عند وصول رسائل جديدة، تأكد من الضغط على زر التفعيل واختبار وصول التنبيهات مباشرة لهاتفك.'}
+                            </p>
+
+                            {onTestNotifications && (
+                                <button
+                                    type="button"
+                                    disabled={isTestingNotifications}
+                                    onClick={async () => {
+                                        if (isTestingNotifications) return;
+                                        setIsTestingNotifications(true);
+                                        try {
+                                            await onTestNotifications();
+                                        } catch (e) {
+                                            console.error(e);
+                                        } finally {
+                                            setIsTestingNotifications(false);
+                                        }
+                                    }}
+                                    className={`w-full flex items-center justify-center gap-3 py-3.5 bg-gradient-to-br from-[#795548] to-[#3E2723] text-white rounded-2xl font-black text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-lg dark:from-slate-700 dark:to-slate-800 cursor-pointer ${
+                                        isTestingNotifications ? 'opacity-60 cursor-not-allowed' : ''
+                                    }`}
+                                >
+                                    <span>{isTestingNotifications 
+                                        ? (language === 'en' ? '⏳ Activating...' : '⏳ جاري التفعيل والاختبار...') 
+                                        : (language === 'en' ? '🔔 Activate & Test Now' : '🔔 تفعيل واختبار الإشعارات الآن')
+                                    }</span>
+                                </button>
+                            )}
                         </div>
                     </div>
 

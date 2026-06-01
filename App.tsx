@@ -157,6 +157,88 @@ function App() {
     setOwnerName(name || ownerName);
   };
 
+  const handleTestNotifications = async () => {
+    try {
+      if (typeof Notification === 'undefined') {
+        showAlert('error', 'غير مدعوم', 'هذا المتصفح أو بيئة التشغيل لا تدعم الإشعارات الفورية.');
+        return;
+      }
+      
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        showAlert('warning', 'الصلاحية مطلوبة', 'يرجى منح صلاحية الإشعارات من إعدادات المتصفح أو الهاتف لتشغيل الخدمة.');
+        return;
+      }
+
+      showAlert('warning', 'جاري التفعيل', 'جاري تسجيل الخدمة وجلب رمز التنبيهات الآمن...');
+
+      const messaging = await getFirebaseMessaging();
+      if (!messaging) {
+        showAlert('error', 'خطأ في الخدمة', 'فشل تهيئة نظام التنبيهات Firebase Cloud Messaging.');
+        return;
+      }
+
+      if (!('serviceWorker' in navigator)) {
+        showAlert('error', 'غير مدعوم', 'متصفحك لا يدعم تقنية Service Worker لتشغيل الإشعارات الخلفية.');
+        return;
+      }
+
+      // Explicitly register /firebase-messaging-sw.js with explicit scope to be 100% reliable
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+        scope: '/'
+      });
+      console.log('FCM Service Worker registered successfully:', registration);
+
+      const { getToken } = await import('firebase/messaging');
+      
+      const currentToken = await getToken(messaging, {
+        vapidKey: 'BGMIAO07gwGiD4klhaaOlQzjBTF4qJg702MXtB5Or4rm2wjdrLkZ562L7AY6uWD9kE1zjm5bxpLM9643wBKWp1E',
+        serviceWorkerRegistration: registration
+      });
+
+      if (!currentToken) {
+        showAlert('error', 'فشل جلب الرمز', 'لم نتمكن من الحصول على رمز التنبيهات من خوادم Google Cloud.');
+        return;
+      }
+
+      // Save token to Firestore
+      if (currentUser) {
+        await updateDoc(doc(db, 'users', currentUser.id), { fcmToken: currentToken });
+        setCurrentUser(prev => prev ? { ...prev, fcmToken: currentToken } : null);
+        const saved = safeStorage.getItem('rai_session');
+        if (saved) {
+          const session = JSON.parse(saved);
+          session.fcmToken = currentToken;
+          safeStorage.setItem('rai_session', JSON.stringify(session));
+        }
+      }
+
+      showAlert('warning', 'جاري إرسال التنبيه', 'تم جلب الرمز وتوثيقه بنجاح! جاري طلب إرسال تنبيه تجريبي لهاتفك...');
+
+      // Call sendPush endpoint directly with user's own token
+      const res = await fetch('/api/sendPush', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: currentToken,
+          title: 'تطبيق راعي 🐑',
+          body: 'رائع جداً! تم تنشيط واختبار نظام إشعارات البث الهاتفي بنجاح 100%!'
+        })
+      });
+
+      if (res.ok) {
+        showAlert('success', 'تم التفعيل بنجاح', 'تهانينا! تم تفعيل إشعارات الهاتف بنجاح، وستصلك رسالة تنبيه تجريبية خلال ثوانٍ!');
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        showAlert('error', 'فشل الإرسال', `تم تسجيل الرمز بنجاح ولكن فشل السيرفر في الإرسال: ${errData.details || errData.error || 'خطأ غير معروف'}`);
+      }
+
+    } catch (e: any) {
+      console.error('Test notifications failed:', e);
+      showAlert('error', 'عطل غير متوقع', e.message || 'تعذر استكمال اختبار التنبيهات.');
+    }
+  };
+
   const handleUpdateUser = async (userId: string, updates: { name?: string, username?: string, password?: string }) => {
     try {
       const cleanUpdates: any = {};
@@ -647,7 +729,16 @@ function App() {
 
             onMessage(messaging, (payload) => {
               console.log('Foreground Message received. ', payload);
-              // We could trigger a local toast notification here if we want
+              if (Notification.permission === 'granted') {
+                try {
+                  new Notification(payload.notification?.title || 'رسالة جديدة', {
+                    body: payload.notification?.body || 'لديك رسالة جديدة في مدير الحظائر',
+                    icon: '/assets/logo.jpg',
+                  });
+                } catch (e) {
+                  console.error('Failed to show foreground notification:', e);
+                }
+              }
             });
           });
         }
@@ -3227,6 +3318,7 @@ function App() {
         currentUser={currentUser}
         onUpdateProfile={handleUpdateProfile}
         onShowAlert={showAlert}
+        onTestNotifications={handleTestNotifications}
       />
 
       <WorkerManageModal
