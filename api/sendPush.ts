@@ -4,31 +4,91 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const parsePrivateKey = (key: string | undefined): string | undefined => {
   if (!key) return undefined;
+  
   let formatted = key.trim();
-  // Remove surrounding quotes (both double and single) if the user accidentally copied them
-  if (formatted.startsWith('"') && formatted.endsWith('"')) {
-    formatted = formatted.slice(1, -1);
+
+  // 1. Check if the user pasted the entire Service Account JSON by mistake
+  if (formatted.startsWith('{') && formatted.endsWith('}')) {
+    try {
+      const obj = JSON.parse(formatted);
+      if (obj.private_key) {
+        return parsePrivateKey(obj.private_key);
+      }
+      if (obj.privateKey) {
+        return parsePrivateKey(obj.privateKey);
+      }
+    } catch (e) {
+      // Ignore JSON parse error and fall through
+    }
   }
-  if (formatted.startsWith("'") && formatted.endsWith("'")) {
-    formatted = formatted.slice(1, -1);
+
+  // 2. Remove surrounding quotes (both double, single, and backticks) recursively
+  let changed = true;
+  while (changed) {
+    changed = false;
+    formatted = formatted.trim();
+    if (
+      (formatted.startsWith('"') && formatted.endsWith('"')) ||
+      (formatted.startsWith("'") && formatted.endsWith("'")) ||
+      (formatted.startsWith("`") && formatted.endsWith("`"))
+    ) {
+      formatted = formatted.slice(1, -1);
+      changed = true;
+    }
   }
-  // Replace escaped newlines (\n or \\n) with actual newlines
+  
+  formatted = formatted.trim();
+
+  // 3. Replace escaped newlines with actual newlines
   formatted = formatted.replace(/\\n/g, '\n');
+  formatted = formatted.replace(/\\r/g, '\r');
+  
+  // 4. Ensure it has the correct PEM header and footer
+  if (formatted && !formatted.includes('-----BEGIN PRIVATE KEY-----')) {
+    formatted = '-----BEGIN PRIVATE KEY-----\n' + formatted;
+  }
+  if (formatted && !formatted.includes('-----END PRIVATE KEY-----')) {
+    formatted = formatted + '\n-----END PRIVATE KEY-----';
+  }
+
   return formatted;
 };
 
 if (!getApps().length) {
   try {
-    const privateKey = parsePrivateKey(process.env.FIREBASE_PRIVATE_KEY);
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+    console.log('Firebase env check:', {
+      hasProjectId: !!projectId,
+      projectIdPrefix: projectId ? `${projectId.substring(0, 6)}...` : 'undefined',
+      hasClientEmail: !!clientEmail,
+      clientEmailPrefix: clientEmail ? `${clientEmail.substring(0, 6)}...` : 'undefined',
+      hasPrivateKey: !!rawPrivateKey,
+      rawPrivateKeyLength: rawPrivateKey ? rawPrivateKey.length : 0,
+      rawPrivateKeyPrefix: rawPrivateKey ? `${rawPrivateKey.trim().substring(0, 25)}...` : 'undefined',
+    });
+
+    const privateKey = parsePrivateKey(rawPrivateKey);
+
+    console.log('Parsed private key check:', {
+      hasPrivateKey: !!privateKey,
+      privateKeyLength: privateKey ? privateKey.length : 0,
+      startsWithHeader: privateKey ? privateKey.startsWith('-----BEGIN PRIVATE KEY-----') : false,
+      endsWithFooter: privateKey ? privateKey.endsWith('-----END PRIVATE KEY-----') : false,
+    });
+
     initializeApp({
       credential: cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        projectId: projectId,
+        clientEmail: clientEmail,
         privateKey: privateKey,
       }),
     });
+    console.log('Firebase Admin SDK initialized successfully!');
   } catch (error: any) {
-    console.error('Firebase admin initialization error', error.stack);
+    console.error('Firebase admin initialization error:', error.stack || error.message || error);
   }
 }
 
