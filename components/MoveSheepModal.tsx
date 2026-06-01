@@ -1,27 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, ArrowRightLeft } from 'lucide-react';
 import { Pen } from '../types';
 
 interface MoveSheepModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onMove: (targetPenId: string) => void;
+  onMove: (targetPenId: string, reason?: string) => void;
   currentPenId: string;
   availablePens: Pen[]; // Pens in the same group
 }
 
 export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose, onMove, currentPenId, availablePens }) => {
   const [targetPenId, setTargetPenId] = useState('');
+  const [reason, setReason] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Filter out the current pen
   const validTargets = availablePens.filter(p => p.id !== currentPenId);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (targetPenId) {
-      onMove(targetPenId);
+      onMove(targetPenId, targetPenId.includes('mortality') ? reason : undefined);
       onClose();
       setTargetPenId('');
+      setReason('');
     }
   };
 
@@ -47,21 +65,60 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
                لا توجد أقسام أخرى في هذه الحظيرة للنقل إليها.
              </div>
           ) : (
-            <div>
+            <div className="relative" ref={dropdownRef}>
               <label className="block text-sm font-medium text-gray-700 mb-2">اختر القسم المستهدف</label>
-              <select
-                required
-                value={targetPenId}
-                onChange={(e) => setTargetPenId(e.target.value)}
-                className="w-full px-4 py-3 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+              <button
+                type="button"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="w-full px-4 py-3 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none flex items-center justify-between"
               >
-                <option value="">-- اختر القسم --</option>
-                {validTargets.map(pen => (
-                  <option key={pen.id} value={pen.id}>
-                    {pen.name} (السعة: {pen.currentCount || 0}/{pen.capacity || 0})
-                  </option>
-                ))}
-              </select>
+                <span className="font-bold">
+                  {targetPenId 
+                    ? (() => {
+                        const p = validTargets.find(t => t.id === targetPenId);
+                        return p ? (p.id.includes('mortality') ? p.name : `${p.name} (السعة: ${p.currentCount || 0}/${p.capacity || 0})`) : '-- اختر القسم --';
+                      })()
+                    : '-- اختر القسم --'}
+                </span>
+                <div className="text-gray-400 text-[10px]">▼</div>
+              </button>
+
+              {isDropdownOpen && (
+                <div className="absolute top-full right-0 left-0 mt-1.5 bg-white border border-gray-100 rounded-2xl shadow-2xl z-50 max-h-48 overflow-y-auto custom-scrollbar animate-scale-in">
+                  <div className="p-2 space-y-1">
+                    {validTargets.map(pen => (
+                      <button
+                        key={pen.id}
+                        type="button"
+                        onClick={() => {
+                          setTargetPenId(pen.id);
+                          setIsDropdownOpen(false);
+                        }}
+                        className={`w-full text-right px-4 py-2.5 rounded-xl text-[12px] font-black transition-all ${
+                          targetPenId === pen.id
+                            ? 'bg-orange-600 text-white shadow-md'
+                            : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        {pen.id.includes('mortality') ? pen.name : `${pen.name} (السعة: ${pen.currentCount || 0}/${pen.capacity || 0})`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {targetPenId.includes('mortality') && (
+            <div className="animate-fade-in">
+              <label className="block text-sm font-medium text-gray-700 mb-2">سبب الاستبعاد (إجباري)</label>
+              <textarea
+                required
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="اكتب سبب استبعاد الحيوان هنا..."
+                className="w-full px-4 py-3 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none resize-none h-24"
+              />
             </div>
           )}
 
@@ -72,7 +129,7 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
               className="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-4 rounded-xl transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ArrowRightLeft size={20} />
-              <span>تأكيد النقل</span>
+              <span>{targetPenId.includes('mortality') ? 'تأكيد الاستبعاد' : 'تأكيد النقل'}</span>
             </button>
           </div>
         </form>

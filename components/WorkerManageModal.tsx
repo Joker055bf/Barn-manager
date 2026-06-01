@@ -5,6 +5,8 @@ import {
   Dna, ShieldCheck, Wallet, Wheat, FileText, Warehouse, Skull, ArrowRightLeft, Edit3, Check, Shield, History, Activity, Lock, Camera, Users
 } from 'lucide-react';
 
+const isValidAvatar = (av?: string) => !!av && (av.startsWith('data:') || av.startsWith('http') || av.startsWith('/'));
+
 interface WorkerManageModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -71,7 +73,8 @@ const PERMISSION_LABELS: { key: keyof WorkerPermissions; label: string; icon: an
   { key: 'canAddExpenses',   label: 'إضافة مصروفات',      icon: Wallet,         color: 'text-pink-600 bg-pink-50' },
   { key: 'canDeleteExpenses', label: 'حذف مصروفات',       icon: Trash2,         color: 'text-red-500 bg-red-50' },
   { key: 'canViewReports',   label: 'عرض إدارة الأعلاف والتقارير', icon: FileText, color: 'text-teal-600 bg-teal-50' },
-  { key: 'canViewDeaths',    label: 'عرض المستبعدة والاستبعاد', icon: Skull,      color: 'text-rose-600 bg-rose-50' },
+  { key: 'canViewDeaths',    label: 'عرض المستبعدة',      icon: Skull,          color: 'text-rose-600 bg-rose-50' },
+  { key: 'canAddDeath',      label: 'القيام بالاستبعاد',  icon: Skull,          color: 'text-rose-700 bg-rose-100' },
   { key: 'canViewProduction', label: 'عرض سجل الإنتاج',   icon: Activity,       color: 'text-purple-600 bg-purple-50' },
   { key: 'canViewActivity',  label: 'عرض سجل العمال',     icon: Users,          color: 'text-blue-500 bg-blue-50' },
   { key: 'canViewEvents',    label: 'عرض سجل الأحداث',     icon: History,        color: 'text-pink-500 bg-pink-50' },
@@ -170,18 +173,46 @@ export const WorkerManageModal: React.FC<WorkerManageModalProps> = ({
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>, workerId?: string) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        if (workerId) {
-          setEditAvatars(prev => ({ ...prev, [workerId]: base64 }));
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 300;
+        const MAX_HEIGHT = 300;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
         } else {
-          setNewAvatar(base64);
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+        if (workerId) {
+          setEditAvatars(prev => ({ ...prev, [workerId]: dataUrl }));
+        } else {
+          setNewAvatar(dataUrl);
         }
       };
-      reader.readAsDataURL(file);
-    }
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleAddWorker = (e: React.FormEvent) => {
@@ -469,47 +500,38 @@ export const WorkerManageModal: React.FC<WorkerManageModalProps> = ({
                 </div>
 
                 {/* Barn Configuration tab switcher */}
-                <div className="space-y-1 my-3 bg-gray-100/50 dark:bg-slate-800/30 p-2.5 rounded-2xl">
-                  <span className="text-[9px] font-black text-gray-400 block mb-1">اختر الحظيرة لتخصيص صلاحيات مستقلة:</span>
-                  <div className="flex gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedConfigBarnId('global')}
-                      className={`px-3 py-1.5 rounded-xl text-[9px] font-black transition-all whitespace-nowrap shrink-0 border cursor-pointer ${
-                        selectedConfigBarnId === 'global'
-                          ? 'bg-[#795548] border-[#795548] text-white shadow-sm'
-                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-slate-900 dark:border-slate-800 dark:text-gray-300'
-                      }`}
-                    >
-                      الصلاحيات العامة (الافتراضية)
-                    </button>
-                    {pens.filter(p => !p.parentId && p.isGroup && newAccessiblePens.includes(p.id)).map(p => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => setSelectedConfigBarnId(p.id)}
-                        className={`px-3 py-1.5 rounded-xl text-[9px] font-black transition-all whitespace-nowrap shrink-0 border cursor-pointer ${
-                          selectedConfigBarnId === p.id
-                            ? 'bg-orange-600 border-orange-600 text-white shadow-sm'
-                            : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-slate-900 dark:border-slate-800 dark:text-gray-300'
-                        }`}
-                      >
-                        حظيرة: {p.name}
-                      </button>
-                    ))}
+                {newAccessiblePens.length > 1 && (
+                  <div className="space-y-1 my-3 bg-gray-100/50 dark:bg-slate-800/30 p-2.5 rounded-2xl">
+                    <span className="text-[9px] font-black text-gray-400 block mb-1">اختر الحظيرة لتخصيص صلاحيات مستقلة:</span>
+                    <div className="flex gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
+                      {pens.filter(p => !p.parentId && p.isGroup && newAccessiblePens.includes(p.id)).map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setSelectedConfigBarnId(p.id)}
+                          className={`px-3 py-1.5 rounded-xl text-[9px] font-black transition-all whitespace-nowrap shrink-0 border cursor-pointer ${
+                            (selectedConfigBarnId === p.id || (selectedConfigBarnId === 'global' && newAccessiblePens[0] === p.id))
+                              ? 'bg-orange-600 border-orange-600 text-white shadow-sm'
+                              : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-slate-900 dark:border-slate-800 dark:text-gray-300'
+                          }`}
+                        >
+                          حظيرة: {p.name}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="max-h-48 overflow-y-auto custom-scrollbar px-1">
-                  {selectedConfigBarnId === 'global' ? (
+                  {newAccessiblePens.length <= 1 ? (
                     <PermissionToggle
                       permissions={newPerms}
                       onChange={(key, val) => setNewPerms(prev => ({ ...prev, [key]: val }))}
                     />
                   ) : (
                     <PermissionToggle
-                      permissions={getNewPermsPerBarn(selectedConfigBarnId)}
-                      onChange={(key, val) => handleNewPermPerBarnChange(selectedConfigBarnId, key, val)}
+                      permissions={getNewPermsPerBarn(selectedConfigBarnId === 'global' ? newAccessiblePens[0] : selectedConfigBarnId)}
+                      onChange={(key, val) => handleNewPermPerBarnChange(selectedConfigBarnId === 'global' ? newAccessiblePens[0] : selectedConfigBarnId, key, val)}
                     />
                   )}
                 </div>
@@ -558,7 +580,7 @@ export const WorkerManageModal: React.FC<WorkerManageModalProps> = ({
                   {/* Worker Header */}
                   <div className={`p-4 flex items-center justify-between transition-colors ${isExpanded ? 'bg-orange-50/30 dark:bg-slate-700/30' : ''}`}>
                     <div className="flex items-center gap-3">
-                      {workerAvatar ? (
+                      {isValidAvatar(workerAvatar) ? (
                         <img 
                           src={workerAvatar} 
                           className="w-10 h-10 rounded-2xl object-cover shadow-lg border border-white dark:border-slate-800 ring-2 ring-white/50" 
@@ -614,7 +636,7 @@ export const WorkerManageModal: React.FC<WorkerManageModalProps> = ({
                           className="w-16 h-16 rounded-full border-2 border-dashed border-gray-300 hover:border-[#795548] dark:hover:border-orange-500 bg-[#fcfbf4] dark:bg-slate-900 flex flex-col items-center justify-center cursor-pointer transition relative overflow-hidden group shadow-inner"
                           title="تعديل صورة العامل"
                         >
-                          {workerAvatar ? (
+                          {isValidAvatar(workerAvatar) ? (
                             <img src={workerAvatar} className="w-full h-full object-cover" alt={worker.name} />
                           ) : (
                             <div className="flex flex-col items-center">
@@ -669,47 +691,38 @@ export const WorkerManageModal: React.FC<WorkerManageModalProps> = ({
                         </div>
 
                         {/* Active Barn Tab Switcher for editing */}
-                        <div className="space-y-1 my-3 bg-gray-100/50 dark:bg-slate-800/30 p-2.5 rounded-2xl">
-                          <span className="text-[9px] font-black text-gray-400 block mb-1">اختر الحظيرة لتخصيص صلاحيات مستقلة:</span>
-                          <div className="flex gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
-                            <button
-                              type="button"
-                              onClick={() => setWorkerActiveConfigBarnId(prev => ({ ...prev, [worker.id]: 'global' }))}
-                              className={`px-3 py-1.5 rounded-xl text-[9px] font-black transition-all whitespace-nowrap shrink-0 border cursor-pointer ${
-                                workerActiveBarnId === 'global'
-                                  ? 'bg-[#795548] border-[#795548] text-white shadow-sm'
-                                  : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-slate-900 dark:border-slate-800 dark:text-gray-300'
-                              }`}
-                            >
-                              الصلاحيات العامة (الافتراضية)
-                            </button>
-                            {pens.filter(p => !p.parentId && p.isGroup && workerAccess.includes(p.id)).map(p => (
-                              <button
-                                key={p.id}
-                                type="button"
-                                onClick={() => setWorkerActiveConfigBarnId(prev => ({ ...prev, [worker.id]: p.id }))}
-                                className={`px-3 py-1.5 rounded-xl text-[9px] font-black transition-all whitespace-nowrap shrink-0 border cursor-pointer ${
-                                  workerActiveBarnId === p.id
-                                    ? 'bg-orange-600 border-orange-600 text-white shadow-sm'
-                                    : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-slate-900 dark:border-slate-800 dark:text-gray-300'
-                                }`}
-                              >
-                                حظيرة: {p.name}
-                              </button>
-                            ))}
+                        {workerAccess.length > 1 && (
+                          <div className="space-y-1 my-3 bg-gray-100/50 dark:bg-slate-800/30 p-2.5 rounded-2xl">
+                            <span className="text-[9px] font-black text-gray-400 block mb-1">اختر الحظيرة لتخصيص صلاحيات مستقلة:</span>
+                            <div className="flex gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
+                              {pens.filter(p => !p.parentId && p.isGroup && workerAccess.includes(p.id)).map(p => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => setWorkerActiveConfigBarnId(prev => ({ ...prev, [worker.id]: p.id }))}
+                                  className={`px-3 py-1.5 rounded-xl text-[9px] font-black transition-all whitespace-nowrap shrink-0 border cursor-pointer ${
+                                    (workerActiveBarnId === p.id || (workerActiveBarnId === 'global' && workerAccess[0] === p.id))
+                                      ? 'bg-orange-600 border-orange-600 text-white shadow-sm'
+                                      : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-slate-900 dark:border-slate-800 dark:text-gray-300'
+                                  }`}
+                                >
+                                  حظيرة: {p.name}
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                        </div>
+                        )}
 
                         <div className="max-h-60 overflow-y-auto custom-scrollbar px-1">
-                          {workerActiveBarnId === 'global' ? (
+                          {workerAccess.length <= 1 ? (
                             <PermissionToggle
                               permissions={currentPerms}
                               onChange={(key, val) => handlePermChange(worker.id, key, val)}
                             />
                           ) : (
                             <PermissionToggle
-                              permissions={getWorkerEditPermsPerBarn(worker, workerActiveBarnId)}
-                              onChange={(key, val) => handlePermPerBarnChange(worker.id, workerActiveBarnId, key, val)}
+                              permissions={getWorkerEditPermsPerBarn(worker, workerActiveBarnId === 'global' ? workerAccess[0] : workerActiveBarnId)}
+                              onChange={(key, val) => handlePermPerBarnChange(worker.id, workerActiveBarnId === 'global' ? workerAccess[0] : workerActiveBarnId, key, val)}
                             />
                           )}
                         </div>

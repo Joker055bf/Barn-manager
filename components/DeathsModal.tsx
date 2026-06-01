@@ -11,10 +11,11 @@ interface DeathsModalProps {
     pens: Pen[];
     onDelete: (id: string) => void;
     barnName?: string;
+    isOwner: boolean;
 }
 
 export const DeathsModal: React.FC<DeathsModalProps> = ({ 
-    isOpen, onClose, onBack, deaths, allSheep, pens, onDelete, barnName = 'المزرعة' 
+    isOpen, onClose, onBack, deaths, allSheep, pens, onDelete, barnName = 'المزرعة', isOwner
 }) => {
     if (!isOpen) return null;
 
@@ -34,6 +35,12 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
         const parent = allSheep.find(s => s.id === id || s.serialNumber === id);
         return parent ? parent.serialNumber : id;
     };
+
+    const sortedDeaths = [...deaths].sort((a, b) => {
+        const dateA = a.exclusionDate ? new Date(a.exclusionDate).getTime() : 0;
+        const dateB = b.exclusionDate ? new Date(b.exclusionDate).getTime() : 0;
+        return dateB - dateA;
+    });
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" dir="rtl">
@@ -72,8 +79,8 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
-                    {deaths.length > 0 ? (
-                        deaths.map((sheep) => (
+                    {sortedDeaths.length > 0 ? (
+                        sortedDeaths.map((sheep) => (
                             <div key={sheep.id} className="bg-white border border-gray-100 rounded-2xl p-4 transition-all hover:shadow-xl dark:bg-slate-800 dark:border-slate-700">
                                 <div className="flex items-center justify-between mb-3">
                                     <div className="flex items-center gap-3">
@@ -99,12 +106,14 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
                                             </div>
                                         </div>
                                     </div>
-                                    <button 
-                                        onClick={() => onDelete(sheep.id)}
-                                        className="p-2 bg-gray-50 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all dark:bg-slate-900 dark:text-slate-600 dark:hover:bg-red-900/20"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
+                                    {isOwner && (
+                                        <button 
+                                            onClick={() => onDelete(sheep.id)}
+                                            className="p-2 bg-gray-50 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all dark:bg-slate-900 dark:text-slate-600 dark:hover:bg-red-900/20"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    )}
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-3">

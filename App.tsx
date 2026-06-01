@@ -37,7 +37,7 @@ const colorNames: { [key: string]: string } = {
 };
 import { translations } from './constants/translations';
 import { shareFile } from './utils/shareUtils';
-import { db } from './firebase';
+import { db, getFirebaseMessaging } from './firebase';
 import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, query, where, getDocs, addDoc, orderBy, limit } from 'firebase/firestore';
 
 // ────────────────────────
@@ -417,6 +417,7 @@ function App() {
   const [recentsDateFilter, setRecentsDateFilter] = useState<'all' | 'today' | 'week' | 'month' | 'year'>('all');
   const [recentsTypeFilter, setRecentsTypeFilter] = useState<'all' | 'birth' | 'death' | 'medical' | 'expense'>('all');
   const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [unreadChatPerUser, setUnreadChatPerUser] = useState<Record<string, number>>({});
   const [isActionMenuOpen, setIsActionMenu] = useState(false);
   const [isEditingOwner, setIsEditingOwner] = useState(false);
   const [customDateRange, setCustomDateRange] = useState<{ start: string, end: string }>({ start: '', end: '' });
@@ -587,9 +588,69 @@ function App() {
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setUnreadChatCount(snapshot.docs.length);
+      const perUser: Record<string, number> = {};
+      snapshot.docs.forEach(doc => {
+        const senderId = doc.data().senderId;
+        if (senderId) {
+          perUser[senderId] = (perUser[senderId] || 0) + 1;
+        }
+      });
+      setUnreadChatPerUser(perUser);
     });
     return () => unsubscribe();
   }, [currentUser]);
+
+  // Sync unread messages with PWA App Badge (Home Screen notification dot)
+  useEffect(() => {
+    if ('setAppBadge' in navigator) {
+      if (unreadChatCount > 0) {
+        (navigator as any).setAppBadge(unreadChatCount).catch(console.error);
+      } else if ('clearAppBadge' in navigator) {
+        (navigator as any).clearAppBadge().catch(console.error);
+      }
+    }
+  }, [unreadChatCount]);
+
+  // Request Push Notification Permission & Save Token
+  useEffect(() => {
+    if (!currentUser) return;
+    const setupPushNotifications = async () => {
+      try {
+        const messaging = await getFirebaseMessaging();
+        if (!messaging) return;
+
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          import('firebase/messaging').then(({ getToken, onMessage }) => {
+            getToken(messaging, { vapidKey: 'BGMIAO07gwGiD4klhaaOlQzjBTF4qJg702MXtB5Or4rm2wjdrLkZ562L7AY6uWD9kE1zjm5bxpLM9643wBKWp1E' })
+              .then(async (currentToken) => {
+                if (currentToken && currentUser.fcmToken !== currentToken) {
+                  await updateDoc(doc(db, 'users', currentUser.id), { fcmToken: currentToken });
+                  setCurrentUser(prev => prev ? { ...prev, fcmToken: currentToken } : null);
+                  const saved = localStorage.getItem('rai_session');
+                  if (saved) {
+                    const session = JSON.parse(saved);
+                    session.fcmToken = currentToken;
+                    localStorage.setItem('rai_session', JSON.stringify(session));
+                  }
+                }
+              })
+              .catch((err) => {
+                console.log('An error occurred while retrieving token. ', err);
+              });
+
+            onMessage(messaging, (payload) => {
+              console.log('Foreground Message received. ', payload);
+              // We could trigger a local toast notification here if we want
+            });
+          });
+        }
+      } catch (e) {
+        console.error('Push setup failed:', e);
+      }
+    };
+    setupPushNotifications();
+  }, [currentUser?.id]);
 
   useEffect(() => {
     // If we're already logged in as a worker, we only need to sync our own owner's users
@@ -1065,6 +1126,19 @@ function App() {
   const handleMoveSheep = async (targetPenId: string, quantity?: number, gender?: 'male' | 'female', reason?: string) => {
     if (!targetPenId || !ownerId) return;
 
+    const isTargetExcl = targetPenId.includes('mortality') || pens.find(p => p.id === targetPenId)?.isExclusion;
+
+    if (isTargetExcl && !can('canAddDeath')) {
+      showAlert('error', 'صلاحية غير متوفرة', 'ليس لديك صلاحية للقيام بالاستبعاد.');
+      return;
+    }
+
+    let finalReason = reason;
+    if (isTargetExcl && !finalReason) {
+      // Reason should come from MoveSheepModal directly
+      finalReason = 'غير محدد';
+    }
+
     try {
       if (batchAction && batchAction.action === 'move') {
         const typeToMove = batchAction.type;
@@ -1094,12 +1168,16 @@ function App() {
 
           await updateDoc(doc(db, 'farms', ownerId, 'sheep', s.id), {
             penId: targetPenId,
-            notes: reason && isTargetExclusion ? reason : s.notes,
+            notes: finalReason && isTargetExclusion ? finalReason : s.notes,
             exclusionDate: isTargetExclusion ? new Date().toISOString() : (s.exclusionDate || null),
             movementHistory: updatedHistory
           });
         }
-        logActivity('نقل جماعي', `تم نقل ${toMove.length} رأس من [${sourceName}] إلى [${targetPenName}]`);
+        if (targetPenId.includes('mortality')) {
+          logActivity('استبعاد حيوان', `تم استبعاد ${toMove.length} رأس. السبب: ${finalReason || 'غير محدد'}`);
+        } else {
+          logActivity('نقل جماعي', `تم نقل ${toMove.length} رأس من [${sourceName}] إلى [${targetPenName}]`);
+        }
         setBatchAction(null);
       } else if (selectedSheepForAction) {
         const sourcePen = pens.find(p => p.id === (selectedPenId || selectedSheepForAction.penId));
@@ -1119,11 +1197,15 @@ function App() {
 
         await updateDoc(doc(db, 'farms', ownerId, 'sheep', selectedSheepForAction.id), {
           penId: targetPenId,
-          notes: reason && targetPenId.includes('mortality') ? reason : selectedSheepForAction.notes,
+          notes: finalReason && targetPenId.includes('mortality') ? finalReason : selectedSheepForAction.notes,
           exclusionDate: isExcl ? new Date().toISOString() : (selectedSheepForAction.exclusionDate || null),
           movementHistory: updatedHistory
         });
-        logActivity('نقل حيوان', `تم نقل #${selectedSheepForAction.serialNumber} من [${sourceName}] إلى [${targetPenName}]`, selectedSheepForAction.serialNumber, selectedSheepForAction.tagColor);
+        if (isExcl) {
+          logActivity('استبعاد حيوان', `تم استبعاد #${selectedSheepForAction.serialNumber}. السبب: ${finalReason || 'غير محدد'}`, selectedSheepForAction.serialNumber, selectedSheepForAction.tagColor);
+        } else {
+          logActivity('نقل حيوان', `تم نقل #${selectedSheepForAction.serialNumber} من [${sourceName}] إلى [${targetPenName}]`, selectedSheepForAction.serialNumber, selectedSheepForAction.tagColor);
+        }
         setSelectedSheepForAction(undefined);
       }
     } catch (e) { console.error(e); }
@@ -1497,10 +1579,13 @@ function App() {
               return (
                 <button
                   onClick={() => setReproductionConfirmState({ sheep, currentStatus: 'pregnant', nextStatus: 'mother', expectedDurationDays: 90 })}
-                  className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-2xl shadow-sm transition animate-pulse"
+                  className="flex-1 flex flex-col items-center justify-center gap-1 py-2 px-2 font-black text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-2xl shadow-sm transition animate-pulse"
                 >
-                  مضرع (باقي {remainingDays} يوم)
-                  <Baby size={16} className="text-rose-500" />
+                  <div className="flex items-center gap-1.5 text-[11px]">
+                    <span>مضرع</span>
+                    <Baby size={16} className="text-rose-500" />
+                  </div>
+                  <span className="text-[9px] opacity-80">(باقي {remainingDays} يوم)</span>
                 </button>
               );
             } else {
@@ -1509,10 +1594,13 @@ function App() {
               return (
                 <button
                   onClick={() => setReproductionConfirmState({ sheep, currentStatus: 'mother', nextStatus: 'empty', expectedDurationDays: 0 })}
-                  className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-pink-700 bg-pink-50 border border-pink-200 hover:bg-pink-100 rounded-2xl shadow-sm transition"
+                  className="flex-1 flex flex-col items-center justify-center gap-1 py-2 px-2 font-black text-pink-700 bg-pink-50 border border-pink-200 hover:bg-pink-100 rounded-2xl shadow-sm transition"
                 >
-                  أم حضانة (باقي {remainingLactation} يوم)
-                  <Baby size={16} className="text-pink-500" />
+                  <div className="flex items-center gap-1.5 text-[11px]">
+                    <span>أم حضانة</span>
+                    <Baby size={16} className="text-pink-500" />
+                  </div>
+                  <span className="text-[9px] opacity-80">(باقي {remainingLactation} يوم)</span>
                 </button>
               );
             }
@@ -2971,7 +3059,7 @@ function App() {
       <MoveSheepModal
         isOpen={isMoveModalOpen}
         onClose={() => setIsMoveModalOpen(false)}
-        onMove={handleMoveSheep}
+        onMove={(targetPenId, reason) => handleMoveSheep(targetPenId, undefined, undefined, reason)}
         currentPenId={selectedPenId || ''}
         availablePens={availablePensForMove}
         breakdown={batchAction && batchAction.action === 'move' ? {

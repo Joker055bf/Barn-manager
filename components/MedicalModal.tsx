@@ -18,10 +18,10 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({ isOpen, onClose, she
       const records = sheep.medicalRecords || [];
       const metadata = getAnimalMetadata(sheep.type);
       const vaccines = metadata?.vaccines || [];
-      const hasTaken = vaccines.some(v => 
-        records.some(rec => rec.type === 'vaccine' && rec.name.toLowerCase().includes(v.name.toLowerCase()))
+      const hasUntaken = vaccines.some(v => 
+        !records.some(rec => rec.type === 'vaccine' && rec.name.toLowerCase().includes(v.name.toLowerCase()))
       );
-      setActiveTab(hasTaken ? 'guide' : 'history');
+      setActiveTab(hasUntaken ? 'guide' : 'history');
     }
   }, [isOpen, sheep]);
   
@@ -211,6 +211,33 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({ isOpen, onClose, she
                 </p>
               </div>
 
+              {/* Recommended vaccines NOT taken (Untaken) listed in Guide as per user request */}
+              {untakenVaccines.length > 0 && (
+                <div className="space-y-3 bg-amber-50/50 p-4 rounded-[1.5rem] border border-amber-100">
+                  <div className="flex items-center gap-2 mb-1">
+                    <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+                    <h4 className="text-[11px] font-black text-amber-800">تطعيمات متبقية/مطلوبة (لم يتم أخذها):</h4>
+                  </div>
+                  <div className="space-y-2">
+                    {untakenVaccines.map((v, idx) => (
+                      <div key={idx} className="bg-white rounded-xl p-3 border border-amber-100 flex items-center justify-between gap-3 shadow-sm">
+                        <div className="space-y-0.5">
+                          <h5 className="font-extrabold text-gray-800 text-xs">{v.name}</h5>
+                          <p className="text-[9px] text-gray-400">العمر المستهدف: {v.age} • التكرار: {v.frequency || 'مرة واحدة'}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleQuickRegister(v.name)}
+                          className="px-2.5 py-1.5 text-[9px] font-black bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all shadow-sm active:scale-95 whitespace-nowrap cursor-pointer"
+                        >
+                          + تسجيل سريع
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2.5">
                 {takenVaccines.length === 0 ? (
                   <div className="text-center py-10 bg-gray-50/50 rounded-2xl border border-gray-100 text-gray-400">
@@ -244,33 +271,6 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({ isOpen, onClose, she
             </div>
           ) : (
             <div className="space-y-5">
-              {/* Recommended vaccines NOT taken (Untaken) listed in History as per user request */}
-              {untakenVaccines.length > 0 && (
-                <div className="space-y-3 bg-amber-50/50 p-4 rounded-[1.5rem] border border-amber-100">
-                  <div className="flex items-center gap-2 mb-1">
-                    <AlertTriangle size={16} className="text-amber-600 shrink-0" />
-                    <h4 className="text-[11px] font-black text-amber-800">تطعيمات متبقية/مطلوبة (لم يتم أخذها):</h4>
-                  </div>
-                  <div className="space-y-2">
-                    {untakenVaccines.map((v, idx) => (
-                      <div key={idx} className="bg-white rounded-xl p-3 border border-amber-100 flex items-center justify-between gap-3 shadow-sm">
-                        <div className="space-y-0.5">
-                          <h5 className="font-extrabold text-gray-800 text-xs">{v.name}</h5>
-                          <p className="text-[9px] text-gray-400">العمر المستهدف: {v.age} • التكرار: {v.frequency || 'مرة واحدة'}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleQuickRegister(v.name)}
-                          className="px-2.5 py-1.5 text-[9px] font-black bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all shadow-sm active:scale-95 whitespace-nowrap cursor-pointer"
-                        >
-                          + تسجيل سريع
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* General Records History */}
               <div className="space-y-3">
                 <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">سجل التطعيمات والعلاجات السابقة:</h4>

@@ -173,6 +173,7 @@ export interface UserMessage {
   receiverId: string;
   type: 'text' | 'audio';
   content: string;
+  peaks?: number[];
   timestamp: string;
   read: boolean;
 }
@@ -188,6 +189,7 @@ export interface WorkerPermissions {
   canViewReports: boolean;
   canManagePens: boolean;
   canViewDeaths: boolean;
+  canAddDeath: boolean;
   canMoveAnimals: boolean;
   canViewActivity: boolean;
   canViewProduction: boolean;
@@ -229,6 +231,7 @@ export interface User {
   avatar?: string;
   settingsPin?: string;
   accessiblePens?: string[];
+  fcmToken?: string;
 }
 
 export const DEFAULT_WORKER_PERMISSIONS: WorkerPermissions = {
@@ -242,6 +245,7 @@ export const DEFAULT_WORKER_PERMISSIONS: WorkerPermissions = {
   canViewReports: false,
   canManagePens: false,
   canViewDeaths: true,
+  canAddDeath: false,
   canMoveAnimals: true,
   canViewActivity: false,
   canViewProduction: false,

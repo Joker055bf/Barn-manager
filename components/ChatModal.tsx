@@ -21,7 +21,21 @@ const DoubleCheck = ({ read, isMe }: { read: boolean; isMe: boolean }) => {
   );
 };
 
-const AudioPlayer = ({ url, isMe }: { url: string; isMe: boolean }) => {
+const get20Peaks = (recordedPeaks?: number[]) => {
+  const defaultPeaks = [6, 12, 8, 14, 20, 10, 16, 22, 14, 8, 12, 18, 10, 14, 20, 14, 10, 16, 12, 6];
+  if (!recordedPeaks || recordedPeaks.length === 0) {
+    return defaultPeaks;
+  }
+  const targetCount = 20;
+  const result: number[] = [];
+  for (let i = 0; i < targetCount; i++) {
+    const index = Math.floor((i / targetCount) * recordedPeaks.length);
+    result.push(recordedPeaks[index] || 4);
+  }
+  return result;
+};
+
+const AudioPlayer = ({ url, isMe, peaks }: { url: string; isMe: boolean; peaks?: number[] }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState<number>(0);
@@ -86,7 +100,7 @@ const AudioPlayer = ({ url, isMe }: { url: string; isMe: boolean }) => {
     }
   };
 
-  const PEAKS = [10, 16, 8, 14, 20, 10, 16, 24, 14, 8, 16, 22, 12, 10, 16, 24, 14, 8, 16, 20, 12, 16, 22, 10, 8, 14, 18, 12];
+  const displayPeaks = get20Peaks(peaks);
 
   const formatDuration = (secs: number) => {
     if (isNaN(secs) || !isFinite(secs)) return '0:00';
@@ -96,22 +110,20 @@ const AudioPlayer = ({ url, isMe }: { url: string; isMe: boolean }) => {
   };
 
   return (
-    <div className="flex flex-col gap-1 min-w-[210px] select-none" dir="rtl">
-      <div className="flex items-center gap-3">
-        {/* Play/Pause Button */}
+    <div className="flex flex-col gap-0.5 w-[140px] select-none" dir="rtl">
+      <div className="flex items-center gap-1.5">
         <button 
           onClick={togglePlay}
-          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 hover:scale-105 active:scale-95 transition-all shadow cursor-pointer ${
+          className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 hover:scale-105 active:scale-95 transition-all shadow cursor-pointer ${
             isMe ? 'bg-white text-[#795548]' : 'bg-[#795548] text-white'
           }`}
         >
-          {isPlaying ? <Pause size={13} fill="currentColor" stroke="none" /> : <Play size={13} className="mr-0.5" fill="currentColor" stroke="none" />}
+          {isPlaying ? <Pause size={10} fill="currentColor" stroke="none" /> : <Play size={10} className="mr-0.5" fill="currentColor" stroke="none" />}
         </button>
 
-        {/* Waveform representation */}
-        <div className="flex-1 flex items-center gap-[3px] h-7 px-1 relative">
-          {PEAKS.map((peakHeight, i) => {
-            const isPlayed = i < Math.floor((progress / 100) * PEAKS.length);
+        <div className="flex-1 flex items-center gap-[2px] h-6 px-1 relative justify-center shrink-0">
+          {displayPeaks.map((peakHeight, i) => {
+            const isPlayed = i < Math.floor((progress / 100) * displayPeaks.length);
             
             let barColor = 'bg-gray-300 dark:bg-slate-700';
             if (isMe) {
@@ -123,15 +135,15 @@ const AudioPlayer = ({ url, isMe }: { url: string; isMe: boolean }) => {
             return (
               <div 
                 key={i} 
-                className={`w-[3px] rounded-full transition-all duration-150 ${barColor}`} 
-                style={{ height: `${peakHeight}px` }}
+                className={`w-[2px] rounded-full transition-all duration-150 ${barColor}`} 
+                style={{ height: `${Math.max(4, peakHeight * 0.8)}px` }}
               />
             );
           })}
         </div>
       </div>
 
-      <div className="flex justify-between items-center px-1 text-[9px] font-bold opacity-75">
+      <div className="flex justify-between items-center px-1 text-[8px] font-bold opacity-75">
         <span className={isMe ? 'text-white' : 'text-gray-500'}>
           {formatDuration(isPlaying ? currentTime : duration)}
         </span>
@@ -140,7 +152,9 @@ const AudioPlayer = ({ url, isMe }: { url: string; isMe: boolean }) => {
   );
 };
 
-export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUser, users }) => {
+const isValidAvatar = (av?: string) => !!av && (av.startsWith('data:') || av.startsWith('http') || av.startsWith('/'));
+
+export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUser, users, unreadCounts = {} }) => {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [messages, setMessages] = useState<UserMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -154,6 +168,9 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recordedPeaksRef = useRef<number[]>([]);
+  const recordingIntervalRef = useRef<any>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   const isOwner = currentUser?.role === 'owner';
   
@@ -225,6 +242,21 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
 
   if (!isOpen || !currentUser) return null;
 
+  const notifyUser = (receiverId: string, text: string) => {
+    const receiver = users?.find(u => u.id === receiverId);
+    if (receiver?.fcmToken) {
+      fetch('/api/sendPush', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: receiver.fcmToken,
+          title: `رسالة جديدة من ${currentUser.name}`,
+          body: text
+        })
+      }).catch(err => console.error('Failed to trigger push:', err));
+    }
+  };
+
   const handleSendText = async () => {
     if (!inputText.trim() || !chatId || !selectedUserId) return;
     
@@ -240,6 +272,8 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
       timestamp: new Date().toISOString(),
       read: false
     });
+
+    notifyUser(selectedUserId, text);
   };
 
   const startRecording = async () => {
@@ -278,6 +312,38 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
+      // Set up Audio Analyser to capture real-time pitch/volume levels
+      try {
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        audioContextRef.current = audioContext;
+        const source = audioContext.createMediaStreamSource(stream);
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        recordedPeaksRef.current = [];
+
+        const intervalId = setInterval(() => {
+          analyser.getByteFrequencyData(dataArray);
+          let sum = 0;
+          let activeBins = 0;
+          for (let i = 0; i < dataArray.length; i++) {
+            if (dataArray[i] > 0) {
+              sum += dataArray[i];
+              activeBins++;
+            }
+          }
+          const average = activeBins > 0 ? sum / activeBins : 0;
+          // Map average volume (0-255) to a nice visual height (4px to 24px)
+          const mappedHeight = Math.max(4, Math.min(24, Math.round((average / 128) * 20) + 4));
+          recordedPeaksRef.current.push(mappedHeight);
+        }, 120);
+        recordingIntervalRef.current = intervalId;
+      } catch (analyserError) {
+        console.error("Error setting up audio analyser:", analyserError);
+      }
+
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
@@ -287,7 +353,7 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         stream.getTracks().forEach(track => track.stop());
-        await uploadAudioBase64(audioBlob);
+        await uploadAudioBase64(audioBlob, [...recordedPeaksRef.current]);
       };
 
       mediaRecorder.start();
@@ -302,12 +368,21 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close().catch(() => {});
+        audioContextRef.current = null;
+      }
     }
   };
 
   // Convert Blob directly to base64 Data URL and save to Firestore
   // Bypasses Firebase Storage entirely to fix CORS/Storage rules issues
-  const uploadAudioBase64 = async (blob: Blob) => {
+  const uploadAudioBase64 = async (blob: Blob, peaks: number[]) => {
     if (!chatId || !selectedUserId) return;
     
     setIsUploading(true);
@@ -323,9 +398,11 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
             receiverId: selectedUserId,
             type: 'audio',
             content: base64data,
+            peaks: peaks,
             timestamp: new Date().toISOString(),
             read: false
           });
+          notifyUser(selectedUserId, 'رسالة صوتية 🎤');
         } catch (dbError) {
           console.error("Error saving audio base64 to firestore:", dbError);
           alert("فشل في حفظ المقطع الصوتي في قاعدة البيانات.");
@@ -372,7 +449,7 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
                     onClick={() => setSelectedUserId(worker.id)}
                     className="w-full flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all dark:bg-slate-900 dark:border-slate-800 text-right cursor-pointer"
                   >
-                    {worker.avatar ? (
+                    {isValidAvatar(worker.avatar) ? (
                       <img 
                         src={worker.avatar} 
                         className="w-11 h-11 rounded-full object-cover shadow border border-white dark:border-slate-800 shrink-0" 
@@ -387,6 +464,11 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
                       <h4 className="font-extrabold text-gray-800 dark:text-gray-100 text-sm truncate">{worker.name}</h4>
                       <p className="text-[10px] text-gray-400 mt-1">اضغط لفتح المحادثة والدردشة</p>
                     </div>
+                    {unreadCounts[worker.id] > 0 && (
+                      <div className="bg-red-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full shrink-0 animate-pulse">
+                        {unreadCounts[worker.id]}
+                      </div>
+                    )}
                   </button>
                 ))}
               </div>
@@ -406,13 +488,13 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
         {/* Header */}
         <div className="p-4 border-b border-gray-100 bg-white dark:bg-slate-900 flex justify-between items-center shrink-0 shadow-sm z-10">
           <div className="flex items-center gap-3">
-            {isOwner && selectedUser?.avatar ? (
+            {isOwner && isValidAvatar(selectedUser?.avatar) ? (
               <img 
-                src={selectedUser.avatar} 
+                src={selectedUser?.avatar} 
                 className="w-9 h-9 rounded-full object-cover shadow border border-white dark:border-slate-800 shrink-0" 
-                alt={selectedUser.name} 
+                alt={selectedUser?.name} 
               />
-            ) : !isOwner && users.find(u => u.role === 'owner')?.avatar ? (
+            ) : !isOwner && isValidAvatar(users.find(u => u.role === 'owner')?.avatar) ? (
               <img 
                 src={users.find(u => u.role === 'owner')?.avatar} 
                 className="w-9 h-9 rounded-full object-cover shadow border border-white dark:border-slate-800 shrink-0" 
@@ -440,8 +522,8 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
             const isMe = msg.senderId === currentUser.id;
             return (
               <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                <div className={`rounded-[1.25rem] p-3 shadow-sm ${
-                  msg.type === 'audio' ? 'w-[250px] max-w-full' : 'max-w-[80%]'
+                <div className={`rounded-[1.25rem] p-2.5 shadow-sm ${
+                  msg.type === 'audio' ? 'w-[150px] max-w-full' : 'max-w-[80%]'
                 } ${
                   isMe 
                     ? 'bg-gradient-to-br from-[#795548] to-[#5D4037] text-white rounded-tr-sm shadow-premium-sm' 
@@ -450,7 +532,7 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
                   {msg.type === 'text' ? (
                     <p className="text-xs font-semibold leading-relaxed break-words whitespace-pre-wrap">{msg.content}</p>
                   ) : (
-                    <AudioPlayer url={msg.content} isMe={isMe} />
+                    <AudioPlayer url={msg.content} isMe={isMe} peaks={msg.peaks} />
                   )}
                   <div className={`flex items-center justify-end gap-1 mt-1.5 ${isMe ? 'text-white/60' : 'text-gray-400'}`}>
                     <span className="text-[8px] font-bold">

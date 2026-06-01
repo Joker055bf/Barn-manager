@@ -32,8 +32,8 @@ if (existsSync(cacheDir)) {
 
 // Build the repo URL
 const repoUrl = ghToken
-  ? `https://${ghToken}:x-oauth-basic@github.com/Joker055bf/Joker055bf.github.io.git`
-  : `https://github.com/Joker055bf/Joker055bf.github.io.git`;
+  ? `https://${ghToken}@github.com/Joker055bf/Barn-manager.git`
+  : `https://github.com/Joker055bf/Barn-manager.git`;
 
 console.log('\n🚀 Deploying to GitHub Pages...\n');
 
