@@ -12,6 +12,88 @@
         background-color: #f3f4f6;
       }
     </style>
+    <script>
+      (function() {
+        var errors = [];
+        function showErrorOverlay(msg) {
+          errors.push(msg);
+          var overlay = document.getElementById('error-overlay');
+          if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'error-overlay';
+            overlay.style.position = 'fixed';
+            overlay.style.top = '0';
+            overlay.style.left = '0';
+            overlay.style.width = '100%';
+            overlay.style.height = '100%';
+            overlay.style.backgroundColor = 'rgba(255, 255, 255, 0.98)';
+            overlay.style.color = '#3e2723';
+            overlay.style.padding = '20px';
+            overlay.style.boxSizing = 'border-box';
+            overlay.style.overflow = 'auto';
+            overlay.style.zIndex = '999999';
+            overlay.style.fontFamily = 'monospace';
+            overlay.style.whiteSpace = 'pre-wrap';
+            overlay.style.fontSize = '12px';
+            overlay.style.lineHeight = '1.5';
+            overlay.style.border = '5px solid #ef4444';
+            
+            var title = document.createElement('h1');
+            title.innerText = 'تشخيص خطأ تشغيل التطبيق (عطل فني)';
+            title.style.color = '#ef4444';
+            title.style.fontSize = '18px';
+            title.style.margin = '0 0 10px 0';
+            title.style.fontFamily = 'sans-serif';
+            overlay.appendChild(title);
+
+            var p = document.createElement('p');
+            p.innerText = 'الرجاء تصوير هذه الشاشة وإرسالها للمطور لحل المشكلة فوراً:';
+            p.style.fontWeight = 'bold';
+            p.style.margin = '0 0 15px 0';
+            p.style.fontFamily = 'sans-serif';
+            overlay.appendChild(p);
+
+            var code = document.createElement('pre');
+            code.id = 'error-overlay-code';
+            code.style.backgroundColor = '#f9fafb';
+            code.style.border = '1px solid #e5e7eb';
+            code.style.padding = '15px';
+            code.style.borderRadius = '10px';
+            code.style.overflowX = 'auto';
+            overlay.appendChild(code);
+            
+            // Wait for body to be available if not yet loaded
+            if (document.body) {
+              document.body.appendChild(overlay);
+            } else {
+              window.addEventListener('DOMContentLoaded', function() {
+                document.body.appendChild(overlay);
+              });
+            }
+          }
+          var codeEl = document.getElementById('error-overlay-code');
+          if (codeEl) {
+            codeEl.innerText = errors.join('\n\n');
+          }
+        }
+
+        window.addEventListener('error', function(event) {
+          var msg = "Error: " + event.message + "\nFile: " + event.filename + "\nLine: " + event.lineno + ":" + event.colno;
+          if (event.error && event.error.stack) {
+            msg += "\nStack: " + event.error.stack;
+          }
+          showErrorOverlay(msg);
+        });
+
+        window.addEventListener('unhandledrejection', function(event) {
+          var msg = "Unhandled Rejection: " + event.reason;
+          if (event.reason && event.reason.stack) {
+            msg += "\nStack: " + event.reason.stack;
+          }
+          showErrorOverlay(msg);
+        });
+      })();
+    </script>
 
 <link rel="stylesheet" href="/index.css">
 </head>
