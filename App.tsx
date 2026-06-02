@@ -227,7 +227,12 @@ function App() {
       }
 
       // Explicitly register /firebase-messaging-sw.js with explicit scope to be 100% reliable
-      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+      const customApiKeyVal = safeStorage.getItem('rai_firebase_api_key') || '';
+      const swUrl = customApiKeyVal 
+        ? `/firebase-messaging-sw.js?apiKey=${encodeURIComponent(customApiKeyVal)}`
+        : '/firebase-messaging-sw.js';
+
+      const registration = await navigator.serviceWorker.register(swUrl, {
         scope: '/'
       });
       console.log('FCM Service Worker registered successfully:', registration);

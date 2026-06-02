@@ -1,8 +1,27 @@
 importScripts('https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.8.1/firebase-messaging-compat.js');
 
+// Parse query parameters from self.location.search
+const getParams = () => {
+  const params = {};
+  const search = self.location.search;
+  if (search) {
+    const parts = search.substring(1).split('&');
+    for (var i = 0; i < parts.length; i++) {
+      const pair = parts[i].split('=');
+      if (pair.length === 2) {
+        params[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1]);
+      }
+    }
+  }
+  return params;
+};
+
+const params = getParams();
+const customApiKey = params.apiKey;
+
 const firebaseConfig = {
-  apiKey: "AIzaSyDN_EfGYKfKC7UKFnNkSN1X5Wy9CljQtpA",
+  apiKey: (customApiKey && customApiKey.trim()) ? customApiKey.trim() : "AIzaSyDN_EfGYKfKC7UKFnNkSN1X5Wy9CljQtpA",
   authDomain: "barn-manager-c311f.firebaseapp.com",
   projectId: "barn-manager-c311f",
   storageBucket: "barn-manager-c311f.firebasestorage.app",
