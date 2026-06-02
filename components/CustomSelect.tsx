@@ -60,7 +60,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                 </button>
 
                 {isOpen && (
-                    <div className="absolute top-full right-0 left-0 mt-2 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl shadow-2xl z-[9999] max-h-64 overflow-y-auto custom-scrollbar animate-scale-in">
+                    <div className="absolute top-full right-0 left-0 mt-2 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl shadow-2xl z-[9999] max-h-48 overflow-y-auto custom-scrollbar animate-scale-in">
                         <div className="p-2 space-y-1">
                             {options.map((option) => {
                                 const isSelected = option.value === value;

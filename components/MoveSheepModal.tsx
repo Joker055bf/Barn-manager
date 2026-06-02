@@ -47,8 +47,8 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden">
-        <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-orange-50">
+      <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl">
+        <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-orange-50 rounded-t-2xl">
           <h2 className="text-xl font-bold text-orange-800 flex items-center gap-2">
             <ArrowRightLeft size={20} />
             نقل إلى قسم آخر
