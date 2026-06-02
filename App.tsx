@@ -56,23 +56,50 @@ function App() {
     }
   });
 
-  // Sync custom Firebase API Key between database and local browser storage
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+
+  // Sync custom Firebase API Key & VAPID Key between database and local browser storage (for owner and workers)
   useEffect(() => {
     if (!currentUser) return;
+    
+    // Find the owner user to read the configuration from
+    const ownerUser = currentUser.role === 'owner' 
+      ? currentUser 
+      : users.find(u => u.role === 'owner');
+      
+    if (!ownerUser) return;
+    
     const localApiKey = safeStorage.getItem('rai_firebase_api_key') || '';
-    const remoteApiKey = currentUser.firebaseApiKey || '';
+    const remoteApiKey = ownerUser.firebaseApiKey || '';
+    
+    const localVapidKey = safeStorage.getItem('rai_vapid_key') || '';
+    const remoteVapidKey = ownerUser.vapidKey || '';
+    
+    let needsReload = false;
+    
     if (remoteApiKey !== localApiKey) {
       if (remoteApiKey) {
         safeStorage.setItem('rai_firebase_api_key', remoteApiKey);
       } else {
         safeStorage.removeItem('rai_firebase_api_key');
       }
-      console.log('Firebase API Key updated from Firestore, reloading page to apply...');
+      needsReload = true;
+    }
+    
+    if (remoteVapidKey !== localVapidKey) {
+      if (remoteVapidKey) {
+        safeStorage.setItem('rai_vapid_key', remoteVapidKey);
+      } else {
+        safeStorage.removeItem('rai_vapid_key');
+      }
+    }
+    
+    if (needsReload) {
+      console.log('Firebase API Key updated from owner Firestore record, reloading page to apply...');
       window.location.reload();
     }
-  }, [currentUser]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  }, [currentUser, users]);
 
   const isOwner = currentUser?.role === 'owner';
   const ownerId = isOwner ? currentUser?.id : currentUser?.ownerId;
