@@ -244,18 +244,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             
                             {activeAction === null && (
                                 <div className="space-y-4 animate-fade-in">
-                                    <div className="bg-white/50 border border-gray-100/80 rounded-[2rem] p-5 dark:bg-slate-800/40 dark:border-slate-700/30 space-y-3">
+                                    <div className="bg-white/50 border border-gray-100/80 rounded-[2rem] p-5 dark:bg-slate-800/40 dark:border-slate-700/30">
                                         <div className="flex justify-between items-center text-sm">
                                             <span className="text-gray-400 font-bold">اسم المالك:</span>
                                             <span className="text-gray-800 font-black dark:text-gray-200">{currentUser?.name}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-gray-400 font-bold">اسم المستخدم:</span>
-                                            <span className="text-gray-800 font-black dark:text-gray-200">{currentUser?.username}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-gray-400 font-bold">البريد الإلكتروني:</span>
-                                            <span className="text-gray-800 font-black dark:text-gray-200">{currentUser?.email || 'غير مسجل'}</span>
                                         </div>
                                     </div>
 
