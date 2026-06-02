@@ -11,6 +11,9 @@ export default defineConfig(({ mode }) => {
         port: 3000,
         host: '0.0.0.0',
       },
+      optimizeDeps: {
+        entries: ['./index.html']
+      },
       plugins: [react()],
       build: {
         target: ['es2015', 'edge88', 'firefox78', 'chrome87', 'safari13'],

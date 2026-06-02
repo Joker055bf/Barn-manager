@@ -232,6 +232,7 @@ export interface User {
   settingsPin?: string;
   accessiblePens?: string[];
   fcmToken?: string;
+  email?: string;
 }
 
 export const DEFAULT_WORKER_PERMISSIONS: WorkerPermissions = {

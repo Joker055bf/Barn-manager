@@ -151,10 +151,10 @@ function App() {
       }
     });
   };
-  const handleUpdateProfile = async (name: string, username?: string, password?: string) => {
+  const handleUpdateProfile = async (name: string, username?: string, password?: string, email?: string) => {
     if (!currentUser) return;
-    await handleUpdateUser(currentUser.id, { name, username, password });
-    setOwnerName(name || ownerName);
+    await handleUpdateUser(currentUser.id, { name, username, password, email });
+    if (name) setOwnerName(name);
   };
 
   const handleTestNotifications = async () => {
@@ -239,12 +239,13 @@ function App() {
     }
   };
 
-  const handleUpdateUser = async (userId: string, updates: { name?: string, username?: string, password?: string }) => {
+  const handleUpdateUser = async (userId: string, updates: { name?: string, username?: string, password?: string, email?: string }) => {
     try {
       const cleanUpdates: any = {};
-      if (updates.name) cleanUpdates.name = updates.name;
-      if (updates.username) cleanUpdates.username = updates.username;
-      if (updates.password) cleanUpdates.password = updates.password;
+      if (updates.name !== undefined) cleanUpdates.name = updates.name;
+      if (updates.username !== undefined) cleanUpdates.username = updates.username;
+      if (updates.password !== undefined) cleanUpdates.password = updates.password;
+      if (updates.email !== undefined) cleanUpdates.email = updates.email;
 
       await updateDoc(doc(db, 'users', userId), cleanUpdates);
       
@@ -287,7 +288,7 @@ function App() {
     safeStorage.setItem('rai_session', JSON.stringify(user));
   };
 
-  const handleRegisterOwner = async (username: string, password: string, name: string) => {
+  const handleRegisterOwner = async (username: string, password: string, name: string, email?: string) => {
     const userId = generateId();
     const newUser: User = {
       id: userId,
@@ -297,7 +298,8 @@ function App() {
       password,
       role: 'owner',
       createdAt: new Date().toISOString(),
-      permissions: DEFAULT_WORKER_PERMISSIONS
+      permissions: DEFAULT_WORKER_PERMISSIONS,
+      email
     };
     await setDoc(doc(db, 'users', newUser.id), newUser);
     handleLogin(newUser);

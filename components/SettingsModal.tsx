@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Globe, Moon, Sun, Check, Monitor, Download, Upload, Database, User, Lock, Eye, EyeOff, Save, Share2, Settings, Info } from 'lucide-react';
+import { X, Globe, Moon, Sun, Check, Monitor, Download, Upload, Database, User, Lock, Eye, EyeOff, Save, Share2, Settings, Info, Mail, Key, Edit } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -16,7 +16,7 @@ interface SettingsModalProps {
     theme: 'light' | 'dark';
     setTheme: (theme: 'light' | 'dark') => void;
     currentUser: UserType | null;
-    onUpdateProfile: (name: string, username?: string, password?: string) => Promise<void>;
+    onUpdateProfile: (name: string, username?: string, password?: string, email?: string) => Promise<void>;
     onShowAlert?: (type: 'success' | 'error' | 'warning' | 'info', title: string, message: string) => void;
     onTestNotifications?: () => Promise<void>;
 }
@@ -39,78 +39,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const [isSavingProfile, setIsSavingProfile] = useState(false);
     const [isTestingNotifications, setIsTestingNotifications] = useState(false);
     
-    // Profile Edit State
-    const [editName, setEditName] = useState(currentUser?.name || '');
-    const [editUsername, setEditUsername] = useState(currentUser?.username || '');
-    const [editPassword, setEditPassword] = useState('');
-    const [showPass, setShowPass] = useState(false);
-    
-    // Auth Toggles
-    const [showUserEdit, setShowUserEdit] = useState(false);
-    const [showPassEdit, setShowPassEdit] = useState(false);
-    
-    // Forgot Password Security Question
-    const [isForgotMode, setIsForgotMode] = useState(false);
-    const [securityAnswer, setSecurityAnswer] = useState('');
-    const [isUnlocked, setIsUnlocked] = useState(false);
+    // Profile Secure Actions State
+    const [activeAction, setActiveAction] = useState<'editName' | 'editUsername' | 'editPassword' | 'editEmail' | null>(null);
+    const [step, setStep] = useState<'askPassword' | 'askEmail' | 'editField' | 'changePasswordDirect' | null>(null);
+    const [inputPassword, setInputPassword] = useState('');
+    const [inputEmail, setInputEmail] = useState('');
+    const [newValue, setNewValue] = useState('');
+    const [showInputPass, setShowInputPass] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Sync with currentUser
-    React.useEffect(() => {
-        if (currentUser) {
-            setEditName(currentUser.name);
-            setEditUsername(currentUser.username);
-        }
-    }, [currentUser]);
+    const resetProfileFlow = () => {
+        setActiveAction(null);
+        setStep(null);
+        setInputPassword('');
+        setInputEmail('');
+        setNewValue('');
+        setShowInputPass(false);
+    };
 
     const handleClose = () => {
         setShowDataSection(false);
         setImportStatus(null);
-        setShowUserEdit(false);
-        setShowPassEdit(false);
-        setSecurityAnswer('');
-        setIsUnlocked(false);
+        resetProfileFlow();
         setVersionTapCount(0);
-        setShowDataSection(false);
         onClose();
-    };
-
-    const handleCheckSecurity = () => {
-        if (securityAnswer.trim().toLowerCase() === 'basil') {
-            setIsUnlocked(true);
-            setIsForgotMode(false);
-            setShowUserEdit(true);
-            setShowPassEdit(true);
-        } else {
-            if (onShowAlert) onShowAlert('error', 'خطأ', 'الإجابة غير صحيحة');
-        }
-    };
-
-    const handleSaveProfile = async () => {
-        if (currentUser?.role === 'worker') return;
-        if (!editName.trim()) {
-            const msg = language === 'en' ? 'Please enter farm owner name' : 'يرجى إدخال اسم مالك المزرعة';
-            if (onShowAlert) onShowAlert('warning', 'تنبيه', msg);
-            return;
-        }
-        setIsSavingProfile(true);
-        try {
-            await onUpdateProfile(
-                editName.trim(),
-                (isUnlocked || showUserEdit) ? editUsername.trim() : undefined,
-                (isUnlocked || showPassEdit) && editPassword.trim() ? editPassword.trim() : undefined
-            );
-            if (onShowAlert) onShowAlert('success', 'تم التحديث', 'تم تحديث بيانات الملف الشخصي بنجاح');
-            setIsUnlocked(false);
-            setShowUserEdit(false);
-            setShowPassEdit(false);
-            setEditPassword('');
-        } catch (e) {
-            if (onShowAlert) onShowAlert('error', 'فشل التحديث', 'حدث خطأ في التحديث: ' + e);
-        } finally {
-            setIsSavingProfile(false);
-        }
     };
 
     // --- Export: Download all app data as JSON ---
@@ -282,123 +235,341 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="p-6 space-y-10 overflow-y-auto custom-scrollbar flex-1">
 
                     {/* Farm Profile Section */}
-                    {isForgotMode ? (
-                        <div className="space-y-4 p-6 bg-orange-50/50 rounded-[2rem] border border-orange-100 dark:bg-slate-800 dark:border-slate-700 animate-fade-in">
-                            <div className="flex items-center gap-3 text-orange-800 dark:text-orange-400 mb-2">
-                                <Lock size={24} />
-                                <h3 className="font-black text-lg">استعادة البيانات</h3>
-                            </div>
-                            <p className="text-xs text-orange-600 dark:text-orange-300 font-bold">سؤال الأمان: ما هو اسم المطور الأول؟</p>
-                            <input
-                                type="text"
-                                value={securityAnswer}
-                                onChange={e => setSecurityAnswer(e.target.value)}
-                                placeholder="اكتب الإجابة..."
-                                className="w-full border border-orange-200 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 bg-white dark:bg-slate-900 dark:border-slate-600 dark:text-white transition-all"
-                            />
-                            <div className="flex gap-3 pt-2">
-                                <button
-                                    onClick={handleCheckSecurity}
-                                    className="flex-1 py-3.5 bg-orange-500 text-white rounded-2xl font-black text-xs hover:bg-orange-600 transition shadow-lg premium-shadow"
-                                >
-                                    تحقق
-                                </button>
-                                <button
-                                    onClick={() => setIsForgotMode(false)}
-                                    className="flex-1 py-3.5 bg-gray-200 text-gray-500 rounded-2xl font-black text-xs hover:bg-gray-300 transition"
-                                >
-                                    إلغاء
-                                </button>
-                            </div>
+                    {currentUser?.role === 'owner' ? (
+                        <div className="space-y-5">
+                            <h3 className="font-black text-gray-900 flex items-center gap-3 dark:text-gray-100 tracking-tight">
+                                <User size={22} className="text-[#795548] dark:text-orange-500" />
+                                الملف الشخصي
+                            </h3>
+                            
+                            {activeAction === null && (
+                                <div className="space-y-4 animate-fade-in">
+                                    <div className="bg-white/50 border border-gray-100/80 rounded-[2rem] p-5 dark:bg-slate-800/40 dark:border-slate-700/30 space-y-3">
+                                        <div className="flex justify-between items-center text-sm">
+                                            <span className="text-gray-400 font-bold">اسم المالك:</span>
+                                            <span className="text-gray-800 font-black dark:text-gray-200">{currentUser?.name}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-sm">
+                                            <span className="text-gray-400 font-bold">اسم المستخدم:</span>
+                                            <span className="text-gray-800 font-black dark:text-gray-200">{currentUser?.username}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-sm">
+                                            <span className="text-gray-400 font-bold">البريد الإلكتروني:</span>
+                                            <span className="text-gray-800 font-black dark:text-gray-200">{currentUser?.email || 'غير مسجل'}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            onClick={() => { setActiveAction('editName'); setStep('askPassword'); }}
+                                            className="flex flex-col items-center justify-center p-4 bg-white border border-gray-100 rounded-2xl text-xs font-black text-gray-700 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200 transition-all gap-2 cursor-pointer shadow-sm"
+                                        >
+                                            <User size={18} className="text-[#795548] dark:text-orange-500" />
+                                            <span>تغيير اسم المالك</span>
+                                        </button>
+
+                                        <button
+                                            onClick={() => { setActiveAction('editUsername'); setStep('askPassword'); }}
+                                            className="flex flex-col items-center justify-center p-4 bg-white border border-gray-100 rounded-2xl text-xs font-black text-gray-700 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200 transition-all gap-2 cursor-pointer shadow-sm"
+                                        >
+                                            <Edit size={18} className="text-[#795548] dark:text-orange-500" />
+                                            <span>تغيير اسم المستخدم</span>
+                                        </button>
+
+                                        <button
+                                            onClick={() => { setActiveAction('editPassword'); setStep('askEmail'); }}
+                                            className="flex flex-col items-center justify-center p-4 bg-white border border-gray-100 rounded-2xl text-xs font-black text-gray-700 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200 transition-all gap-2 cursor-pointer shadow-sm"
+                                        >
+                                            <Lock size={18} className="text-[#795548] dark:text-orange-500" />
+                                            <span>تغيير كلمة المرور</span>
+                                        </button>
+
+                                        <button
+                                            onClick={() => { setActiveAction('editEmail'); setStep('askPassword'); }}
+                                            className="flex flex-col items-center justify-center p-4 bg-white border border-gray-100 rounded-2xl text-xs font-black text-gray-700 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200 transition-all gap-2 cursor-pointer shadow-sm"
+                                        >
+                                            <Mail size={18} className="text-[#795548] dark:text-orange-500" />
+                                            <span>تغيير البريد الإلكتروني</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeAction !== null && step === 'askPassword' && (
+                                <div className="space-y-4 p-5 bg-orange-50/40 rounded-[2rem] border border-orange-100 dark:bg-slate-800/40 dark:border-slate-700/50 animate-scale-in">
+                                    <div className="flex items-center gap-3 text-[#795548] dark:text-orange-400 mb-1">
+                                        <Lock size={20} />
+                                        <h4 className="font-black text-sm">
+                                            {activeAction === 'editName' && 'تأكيد كلمة المرور لتغيير اسم المالك'}
+                                            {activeAction === 'editUsername' && 'تأكيد كلمة المرور لتغيير اسم المستخدم'}
+                                            {activeAction === 'editEmail' && 'تأكيد كلمة المرور لتغيير البريد الإلكتروني'}
+                                        </h4>
+                                    </div>
+                                    <div className="relative group">
+                                        <input
+                                            type={showInputPass ? 'text' : 'password'}
+                                            value={inputPassword}
+                                            onChange={e => setInputPassword(e.target.value)}
+                                            placeholder="أدخل كلمة المرور الحالية..."
+                                            className="w-full border border-gray-100 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:ring-4 focus:ring-[#795548]/10 focus:border-[#795548] bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-white pr-12 transition-all text-right"
+                                        />
+                                        <button
+                                            onClick={() => setShowInputPass(!showInputPass)}
+                                            className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#795548] transition p-1 cursor-pointer"
+                                        >
+                                            {showInputPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </button>
+                                    </div>
+
+                                    <div className="flex flex-col gap-2 pt-2">
+                                        <button
+                                            onClick={() => {
+                                                if (inputPassword === currentUser?.password) {
+                                                    setStep('editField');
+                                                    if (activeAction === 'editName') setNewValue(currentUser?.name || '');
+                                                    if (activeAction === 'editUsername') setNewValue(currentUser?.username || '');
+                                                    if (activeAction === 'editEmail') setNewValue(currentUser?.email || '');
+                                                } else {
+                                                    if (onShowAlert) onShowAlert('error', 'خطأ', 'كلمة المرور غير صحيحة');
+                                                }
+                                            }}
+                                            className="w-full py-3.5 bg-[#795548] text-white rounded-2xl font-black text-xs hover:bg-[#5D4037] transition shadow-lg cursor-pointer"
+                                        >
+                                            تحقق
+                                        </button>
+
+                                        <button
+                                            onClick={() => {
+                                                setStep('askEmail');
+                                                setInputPassword('');
+                                            }}
+                                            className="text-xs text-orange-600 hover:text-orange-700 font-bold py-2 transition cursor-pointer text-center"
+                                        >
+                                            هل نسيت كلمة المرور؟
+                                        </button>
+
+                                        <button
+                                            onClick={resetProfileFlow}
+                                            className="w-full py-3.5 bg-gray-100 text-gray-500 rounded-2xl font-black text-xs hover:bg-gray-200 transition dark:bg-slate-800 dark:text-gray-400 cursor-pointer"
+                                        >
+                                            تراجع
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeAction !== null && step === 'askEmail' && (
+                                <div className="space-y-4 p-5 bg-orange-50/40 rounded-[2rem] border border-orange-100 dark:bg-slate-800/40 dark:border-slate-700/50 animate-scale-in">
+                                    <div className="flex items-center gap-3 text-[#795548] dark:text-orange-400 mb-1">
+                                        <Mail size={20} />
+                                        <h4 className="font-black text-sm">
+                                            {activeAction === 'editPassword' 
+                                                ? 'تغيير كلمة المرور - البريد الإلكتروني المتوفر' 
+                                                : 'استعادة كلمة المرور - البريد الإلكتروني المسجل'}
+                                        </h4>
+                                    </div>
+                                    <input
+                                        type="email"
+                                        value={inputEmail}
+                                        onChange={e => setInputEmail(e.target.value)}
+                                        placeholder="أدخل البريد الإلكتروني..."
+                                        className="w-full border border-gray-100 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:ring-4 focus:ring-[#795548]/10 focus:border-[#795548] bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-white transition-all text-right"
+                                    />
+
+                                    <div className="flex gap-3 pt-2">
+                                        <button
+                                            onClick={() => {
+                                                if (!currentUser?.email) {
+                                                    if (onShowAlert) onShowAlert('warning', 'تنبيه', 'لا يوجد بريد إلكتروني مسجل لهذا الحساب. يرجى إضافة بريد إلكتروني أولاً.');
+                                                    return;
+                                                }
+                                                if (inputEmail.trim().toLowerCase() === currentUser.email.toLowerCase()) {
+                                                    setStep('changePasswordDirect');
+                                                    setNewValue('');
+                                                } else {
+                                                    if (onShowAlert) onShowAlert('error', 'خطأ', 'البريد الإلكتروني غير متطابق أو غير مسجل');
+                                                }
+                                            }}
+                                            className="flex-1 py-3.5 bg-[#795548] text-white rounded-2xl font-black text-xs hover:bg-[#5D4037] transition shadow-lg cursor-pointer"
+                                        >
+                                            تحقق
+                                        </button>
+
+                                        <button
+                                            onClick={() => {
+                                                if (activeAction === 'editPassword') {
+                                                    resetProfileFlow();
+                                                } else {
+                                                    setStep('askPassword');
+                                                }
+                                            }}
+                                            className="flex-1 py-3.5 bg-gray-100 text-gray-500 rounded-2xl font-black text-xs hover:bg-gray-200 transition dark:bg-slate-800 dark:text-gray-400 cursor-pointer"
+                                        >
+                                            تراجع
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeAction !== null && step === 'changePasswordDirect' && (
+                                <div className="space-y-4 p-5 bg-orange-50/40 rounded-[2rem] border border-orange-100 dark:bg-slate-800/40 dark:border-slate-700/50 animate-scale-in">
+                                    <div className="flex items-center gap-3 text-[#795548] dark:text-orange-400 mb-1">
+                                        <Lock size={20} />
+                                        <h4 className="font-black text-sm">تغيير كلمة المرور</h4>
+                                    </div>
+                                    
+                                    <div className="relative group">
+                                        <input
+                                            type={showInputPass ? 'text' : 'password'}
+                                            value={newValue}
+                                            onChange={e => setNewValue(e.target.value)}
+                                            placeholder="أدخل كلمة المرور الجديدة..."
+                                            className="w-full border border-gray-100 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:ring-4 focus:ring-[#795548]/10 focus:border-[#795548] bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-white pr-12 transition-all text-right"
+                                        />
+                                        <button
+                                            onClick={() => setShowInputPass(!showInputPass)}
+                                            className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#795548] transition p-1 cursor-pointer"
+                                        >
+                                            {showInputPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </button>
+                                    </div>
+
+                                    <div className="flex gap-3 pt-2">
+                                        <button
+                                            onClick={async () => {
+                                                if (!newValue.trim()) {
+                                                    if (onShowAlert) onShowAlert('warning', 'تنبيه', 'يرجى إدخال كلمة المرور الجديدة');
+                                                    return;
+                                                }
+                                                setIsSavingProfile(true);
+                                                try {
+                                                    await onUpdateProfile(currentUser?.name || '', undefined, newValue.trim(), undefined);
+                                                    if (onShowAlert) onShowAlert('success', 'تم التحديث', 'تم تغيير كلمة المرور بنجاح');
+                                                    resetProfileFlow();
+                                                } catch (e) {
+                                                    if (onShowAlert) onShowAlert('error', 'فشل التحديث', 'حدث خطأ أثناء حفظ كلمة المرور');
+                                                } finally {
+                                                    setIsSavingProfile(false);
+                                                }
+                                            }}
+                                            disabled={isSavingProfile}
+                                            className="flex-1 py-3.5 bg-[#795548] text-white rounded-2xl font-black text-xs hover:bg-[#5D4037] transition shadow-lg disabled:opacity-50 cursor-pointer"
+                                        >
+                                            {isSavingProfile ? 'جاري الحفظ...' : 'حفظ كلمة المرور'}
+                                        </button>
+
+                                        <button
+                                            onClick={() => setStep('askEmail')}
+                                            className="flex-1 py-3.5 bg-gray-100 text-gray-500 rounded-2xl font-black text-xs hover:bg-gray-200 transition dark:bg-slate-800 dark:text-gray-400 cursor-pointer"
+                                        >
+                                            تراجع
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeAction !== null && step === 'editField' && (
+                                <div className="space-y-4 p-5 bg-orange-50/40 rounded-[2rem] border border-orange-100 dark:bg-slate-800/40 dark:border-slate-700/50 animate-scale-in">
+                                    <div className="flex items-center gap-3 text-[#795548] dark:text-orange-400 mb-1">
+                                        {activeAction === 'editName' && <User size={20} />}
+                                        {activeAction === 'editUsername' && <User size={20} />}
+                                        {activeAction === 'editEmail' && <Mail size={20} />}
+                                        {activeAction === 'editPassword' && <Lock size={20} />}
+                                        
+                                        <h4 className="font-black text-sm">
+                                            {activeAction === 'editName' && 'تعديل اسم المالك'}
+                                            {activeAction === 'editUsername' && 'تعديل اسم المستخدم'}
+                                            {activeAction === 'editEmail' && 'تعديل البريد الإلكتروني'}
+                                            {activeAction === 'editPassword' && 'تعديل كلمة المرور'}
+                                        </h4>
+                                    </div>
+
+                                    {activeAction === 'editPassword' ? (
+                                        <div className="relative group">
+                                            <input
+                                                type={showInputPass ? 'text' : 'password'}
+                                                value={newValue}
+                                                onChange={e => setNewValue(e.target.value)}
+                                                placeholder="أدخل كلمة المرور الجديدة..."
+                                                className="w-full border border-gray-100 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:ring-4 focus:ring-[#795548]/10 focus:border-[#795548] bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-white pr-12 transition-all text-right"
+                                            />
+                                            <button
+                                                onClick={() => setShowInputPass(!showInputPass)}
+                                                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#795548] transition p-1 cursor-pointer"
+                                            >
+                                                {showInputPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <input
+                                            type={activeAction === 'editEmail' ? 'email' : 'text'}
+                                            value={newValue}
+                                            onChange={e => setNewValue(e.target.value)}
+                                            placeholder={
+                                                activeAction === 'editName' ? 'أدخل الاسم الجديد...' :
+                                                activeAction === 'editUsername' ? 'أدخل اسم المستخدم الجديد...' :
+                                                'أدخل البريد الإلكتروني الجديد...'
+                                            }
+                                            className="w-full border border-gray-100 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:ring-4 focus:ring-[#795548]/10 focus:border-[#795548] bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-white transition-all text-right"
+                                        />
+                                    )}
+
+                                    <div className="flex gap-3 pt-2">
+                                        <button
+                                            onClick={async () => {
+                                                if (!newValue.trim()) {
+                                                    if (onShowAlert) onShowAlert('warning', 'تنبيه', 'الرجاء إدخال القيمة الجديدة');
+                                                    return;
+                                                }
+                                                setIsSavingProfile(true);
+                                                try {
+                                                    if (activeAction === 'editName') {
+                                                        await onUpdateProfile(newValue.trim(), undefined, undefined, undefined);
+                                                    } else if (activeAction === 'editUsername') {
+                                                        await onUpdateProfile(currentUser?.name || '', newValue.trim(), undefined, undefined);
+                                                    } else if (activeAction === 'editEmail') {
+                                                        await onUpdateProfile(currentUser?.name || '', undefined, undefined, newValue.trim());
+                                                    } else if (activeAction === 'editPassword') {
+                                                        await onUpdateProfile(currentUser?.name || '', undefined, newValue.trim(), undefined);
+                                                    }
+                                                    if (onShowAlert) onShowAlert('success', 'تم التحديث', 'تم حفظ التغييرات بنجاح');
+                                                    resetProfileFlow();
+                                                } catch (e) {
+                                                    if (onShowAlert) onShowAlert('error', 'فشل التحديث', 'حدث خطأ أثناء حفظ التغييرات');
+                                                } finally {
+                                                    setIsSavingProfile(false);
+                                                }
+                                            }}
+                                            disabled={isSavingProfile}
+                                            className="flex-1 py-3.5 bg-[#795548] text-white rounded-2xl font-black text-xs hover:bg-[#5D4037] transition shadow-lg disabled:opacity-50 cursor-pointer"
+                                        >
+                                            {isSavingProfile ? 'جاري الحفظ...' : 'حفظ'}
+                                        </button>
+
+                                        <button
+                                            onClick={() => {
+                                                if (activeAction === 'editPassword') {
+                                                    setStep('askEmail');
+                                                } else {
+                                                    setStep('askPassword');
+                                                }
+                                            }}
+                                            className="flex-1 py-3.5 bg-gray-100 text-gray-500 rounded-2xl font-black text-xs hover:bg-gray-200 transition dark:bg-slate-800 dark:text-gray-400 cursor-pointer"
+                                        >
+                                            تراجع
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     ) : (
-                        currentUser?.role === 'owner' ? (
-                            <div className="space-y-5">
-                                <h3 className="font-black text-gray-900 flex items-center gap-3 dark:text-gray-100 tracking-tight">
-                                    <User size={22} className="text-[#795548] dark:text-orange-500" />
-                                    الملف الشخصي
-                                </h3>
-                                <div className="space-y-4">
-                                    <div className="group">
-                                        <label className="text-[10px] font-black text-gray-400 block mb-2 px-1 uppercase tracking-widest">
-                                            {language === 'en' ? 'Farm Owner Name' : 'اسم مالك المزرعة'}
-                                        </label>
-                                        <input
-                                            type="text" value={editName} onChange={e => setEditName(e.target.value)}
-                                            placeholder="أدخل الاسم..."
-                                            className="w-full border border-gray-100 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:ring-4 focus:ring-[#795548]/10 focus:border-[#795548] bg-gray-50/50 dark:bg-slate-800 dark:border-slate-700 dark:text-white transition-all"
-                                        />
-                                    </div>
-
-                                    {showUserEdit && (
-                                        <div className="animate-fade-in-down group">
-                                            <label className="text-[10px] font-black text-[#795548] block mb-2 px-1 uppercase tracking-widest dark:text-orange-400">اسم المستخدم الجديد</label>
-                                            <input
-                                                type="text" value={editUsername} onChange={e => setEditUsername(e.target.value)}
-                                                placeholder="اسم المستخدم الجديد"
-                                                className="w-full border border-[#795548]/20 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:ring-4 focus:ring-[#795548]/10 focus:border-[#795548] bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-white transition-all"
-                                            />
-                                        </div>
-                                    )}
-
-                                    {showPassEdit && (
-                                        <div className="animate-fade-in-down relative group">
-                                            <label className="text-[10px] font-black text-[#795548] block mb-2 px-1 uppercase tracking-widest dark:text-orange-400">كلمة المرور الجديدة</label>
-                                            <div className="relative">
-                                                <input
-                                                    type={showPass ? 'text' : 'password'} value={editPassword}
-                                                    onChange={e => setEditPassword(e.target.value)}
-                                                    placeholder="أدخل كلمة المرور..."
-                                                    className="w-full border border-[#795548]/20 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:ring-4 focus:ring-[#795548]/10 focus:border-[#795548] bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-white pr-12 transition-all"
-                                                />
-                                                <button onClick={() => setShowPass(!showPass)} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#795548] transition p-1">
-                                                    {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="grid grid-cols-2 gap-3 pt-2">
-                                        <button
-                                            onClick={() => setShowUserEdit(!showUserEdit)}
-                                            className={`flex items-center justify-center gap-2 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-tighter transition-all ${showUserEdit ? 'bg-[#795548] text-white border-[#795548] shadow-lg' : 'bg-white text-gray-500 border-gray-100 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-400'}`}
-                                        >
-                                            تغيير المعرف
-                                        </button>
-                                        <button
-                                            onClick={() => setShowPassEdit(!showPassEdit)}
-                                            className={`flex items-center justify-center gap-2 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-tighter transition-all ${showPassEdit ? 'bg-[#795548] text-white border-[#795548] shadow-lg' : 'bg-white text-gray-500 border-gray-100 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-400'}`}
-                                        >
-                                            تغيير السر
-                                        </button>
-                                    </div>
-
-                                    <button
-                                        onClick={handleSaveProfile}
-                                        disabled={isSavingProfile}
-                                        className="w-full flex items-center justify-center gap-3 py-4 bg-[#795548] text-white rounded-[1.5rem] font-black text-sm hover:bg-[#5D4037] transition-all disabled:opacity-50 shadow-xl premium-shadow mt-4"
-                                    >
-                                        <Save size={20} />
-                                        {isSavingProfile ? 'جاري الحفظ...' : 'حفظ التغييرات'}
-                                    </button>
-
-                                    <button
-                                        onClick={() => setIsForgotMode(true)}
-                                        className="w-full text-center text-[10px] font-bold text-gray-400 hover:text-orange-600 transition-colors pt-3 underline underline-offset-8 decoration-gray-200 decoration-2"
-                                    >
-                                        هل فقدت الوصول؟ استعادة البيانات
-                                    </button>
-                                </div>
+                        <div className="p-8 bg-gray-50/50 rounded-[2.5rem] border border-gray-100 dark:bg-slate-800 dark:border-slate-700 text-center animate-fade-in">
+                            <div className="w-16 h-16 bg-white rounded-2xl shadow-sm mx-auto mb-4 flex items-center justify-center text-gray-300 dark:bg-slate-700 dark:text-slate-500">
+                                <User size={32} />
                             </div>
-                        ) : (
-                            <div className="p-8 bg-gray-50/50 rounded-[2.5rem] border border-gray-100 dark:bg-slate-800 dark:border-slate-700 text-center animate-fade-in">
-                                <div className="w-16 h-16 bg-white rounded-2xl shadow-sm mx-auto mb-4 flex items-center justify-center text-gray-300 dark:bg-slate-700 dark:text-slate-500">
-                                    <User size={32} />
-                                </div>
-                                <p className="text-xl font-black text-gray-800 dark:text-gray-100">مرحباً {currentUser?.name}</p>
-                                <p className="text-xs text-gray-400 mt-2 font-bold uppercase tracking-widest">نمط التشغيل: عامل</p>
-                            </div>
-                        )
+                            <p className="text-xl font-black text-gray-800 dark:text-gray-100">مرحباً {currentUser?.name}</p>
+                            <p className="text-xs text-gray-400 mt-2 font-bold uppercase tracking-widest">نمط التشغيل: عامل</p>
+                        </div>
                     )}
 
                     {/* Language Section */}
