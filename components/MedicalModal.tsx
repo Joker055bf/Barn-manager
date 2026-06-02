@@ -11,17 +11,11 @@ interface MedicalModalProps {
 }
 
 export const MedicalModal: React.FC<MedicalModalProps> = ({ isOpen, onClose, sheep, onAddRecord }) => {
-  const [activeTab, setActiveTab] = useState<'add' | 'history' | 'guide'>('history');
+  const [activeTab, setActiveTab] = useState<'add' | 'history' | 'guide'>('add');
 
   useEffect(() => {
     if (isOpen && sheep) {
-      const records = sheep.medicalRecords || [];
-      const metadata = getAnimalMetadata(sheep.type);
-      const vaccines = metadata?.vaccines || [];
-      const hasUntaken = vaccines.some(v => 
-        !records.some(rec => rec.type === 'vaccine' && rec.name.toLowerCase().includes(v.name.toLowerCase()))
-      );
-      setActiveTab(hasUntaken ? 'guide' : 'history');
+      setActiveTab('add');
     }
   }, [isOpen, sheep]);
   
@@ -149,27 +143,7 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({ isOpen, onClose, she
                   className="w-full h-[40px] px-3 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-purple-500 focus:bg-white outline-none transition-all font-medium shadow-sm text-sm"
                 />
 
-                {recordType === 'vaccine' && vaccines.length > 0 && (
-                  <div className="mt-2.5 space-y-1">
-                    <span className="text-[10px] font-black text-gray-400 block">لقاحات مقترحة (اختر للتعبئة السريعة):</span>
-                    <div className="flex flex-wrap gap-1.5 pt-0.5">
-                      {vaccines.map((v, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setName(v.name)}
-                          className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold border transition-all cursor-pointer ${
-                            name === v.name
-                              ? 'bg-purple-600 border-purple-600 text-white shadow-sm'
-                              : 'bg-purple-50/50 hover:bg-purple-100 border-purple-100 text-purple-700'
-                          }`}
-                        >
-                          {v.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+
               </div>
 
               <div>
