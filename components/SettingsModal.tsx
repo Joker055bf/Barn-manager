@@ -16,8 +16,8 @@ interface SettingsModalProps {
     theme: 'light' | 'dark';
     setTheme: (theme: 'light' | 'dark') => void;
     currentUser: UserType | null;
-    onUpdateProfile: (name: string, username?: string, password?: string, email?: string, vapidKey?: string) => Promise<void>;
-    onShowAlert?: (type: 'success' | 'error' | 'warning' | 'info', title: string, message: string) => void;
+    onUpdateProfile: (name: string, username?: string, password?: string, email?: string, vapidKey?: string, firebaseApiKey?: string) => Promise<void>;
+    onShowAlert?: (type: 'success' | 'error' | 'warning' | 'info', title: string, message: string | React.ReactNode) => void;
     onTestNotifications?: () => Promise<void>;
 }
 
@@ -42,11 +42,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     // FCM Advanced Settings States
     const [showAdvancedFcm, setShowAdvancedFcm] = useState(false);
     const [customVapidKey, setCustomVapidKey] = useState('');
+    const [customApiKey, setCustomApiKey] = useState('');
     const [isSavingFcm, setIsSavingFcm] = useState(false);
 
     useEffect(() => {
         if (isOpen && currentUser) {
             setCustomVapidKey(currentUser.vapidKey || safeStorage.getItem('rai_vapid_key') || '');
+            setCustomApiKey(currentUser.firebaseApiKey || safeStorage.getItem('rai_firebase_api_key') || '');
         }
     }, [isOpen, currentUser]);
 
@@ -54,16 +56,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         if (!currentUser) return;
         setIsSavingFcm(true);
         try {
+            const previousApiKey = safeStorage.getItem('rai_firebase_api_key') || '';
+            const newApiKey = customApiKey.trim();
+
+            if (newApiKey) {
+                safeStorage.setItem('rai_firebase_api_key', newApiKey);
+            } else {
+                safeStorage.removeItem('rai_firebase_api_key');
+            }
+
             if (customVapidKey.trim()) {
                 safeStorage.setItem('rai_vapid_key', customVapidKey.trim());
             } else {
                 safeStorage.removeItem('rai_vapid_key');
             }
 
-            await onUpdateProfile(currentUser.name, undefined, undefined, undefined, customVapidKey.trim() || '');
+            await onUpdateProfile(currentUser.name, undefined, undefined, undefined, customVapidKey.trim() || '', newApiKey || '');
             
-            if (onShowAlert) {
-                onShowAlert('success', 'تم الحفظ', 'تم تحديث إعدادات مفتاح VAPID بنجاح.');
+            if (previousApiKey !== newApiKey) {
+                if (onShowAlert) {
+                    onShowAlert('success', 'تم الحفظ وتحديث الاتصال', 'تم حفظ الإعدادات بنجاح. سيتم إعادة تحميل الصفحة الآن لتطبيق الاتصال الجديد.');
+                }
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                if (onShowAlert) {
+                    onShowAlert('success', 'تم الحفظ', 'تم تحديث إعدادات الإشعارات المتقدمة بنجاح.');
+                }
             }
         } catch (e: any) {
             console.error('Failed to save FCM settings:', e);
@@ -742,6 +762,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                         <div className="mt-3 space-y-3 animate-fade-in text-right" dir="rtl">
                                             <div className="space-y-1">
                                                 <label className="text-[10px] font-black text-gray-500 dark:text-slate-400 block text-right">
+                                                    {language === 'en' ? 'Firebase API Key (unrestricted if custom):' : 'مفتاح API الخاص بـ Firebase (غير مقيد):'}
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={customApiKey}
+                                                    onChange={(e) => setCustomApiKey(e.target.value)}
+                                                    placeholder="أدخل مفتاح API غير مقيد (من منصة Google Cloud)"
+                                                    className="w-full text-right px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[10px] font-bold text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#795548]"
+                                                />
+                                                <p className="text-[9px] text-gray-400 leading-normal text-right font-medium">
+                                                    {language === 'en'
+                                                        ? 'Leave empty to use the default API key. If the default key is restricted in GCP, create a new API key in GCP Console -> APIs & Services -> Credentials -> Create API Key, and paste it here.'
+                                                        : 'اتركه فارغاً للاعتماد على المفتاح الافتراضي للمشروع. إذا كان الافتراضي مقيداً في GCP، قم بإنشاء مفتاح جديد في Google Cloud Console -> APIs & Services -> Credentials -> Create API Key، وضعه هنا.'}
+                                                </p>
+                                            </div>
+
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black text-gray-500 dark:text-slate-400 block text-right">
                                                     {language === 'en' ? 'FCM VAPID Public Key (Web Push):' : 'مفتاح VAPID العام (لإشعارات الويب):'}
                                                 </label>
                                                 <input
@@ -767,8 +805,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                                 }`}
                                             >
                                                 {isSavingFcm
-                                                    ? (language === 'en' ? 'Saving...' : 'جاري الحفظ...')
-                                                    : (language === 'en' ? 'Save Settings' : 'حفظ إعدادات VAPID')}
+                                                     ? (language === 'en' ? 'Saving...' : 'جاري الحفظ...')
+                                                     : (language === 'en' ? 'Save Settings' : 'حفظ الإعدادات المتقدمة')}
                                             </button>
                                         </div>
                                     )}

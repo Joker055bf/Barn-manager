@@ -55,6 +55,22 @@ function App() {
       return null;
     }
   });
+
+  // Sync custom Firebase API Key between database and local browser storage
+  useEffect(() => {
+    if (!currentUser) return;
+    const localApiKey = safeStorage.getItem('rai_firebase_api_key') || '';
+    const remoteApiKey = currentUser.firebaseApiKey || '';
+    if (remoteApiKey !== localApiKey) {
+      if (remoteApiKey) {
+        safeStorage.setItem('rai_firebase_api_key', remoteApiKey);
+      } else {
+        safeStorage.removeItem('rai_firebase_api_key');
+      }
+      console.log('Firebase API Key updated from Firestore, reloading page to apply...');
+      window.location.reload();
+    }
+  }, [currentUser]);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
 
@@ -151,9 +167,9 @@ function App() {
       }
     });
   };
-  const handleUpdateProfile = async (name: string, username?: string, password?: string, email?: string, vapidKey?: string) => {
+  const handleUpdateProfile = async (name: string, username?: string, password?: string, email?: string, vapidKey?: string, firebaseApiKey?: string) => {
     if (!currentUser) return;
-    await handleUpdateUser(currentUser.id, { name, username, password, email, vapidKey });
+    await handleUpdateUser(currentUser.id, { name, username, password, email, vapidKey, firebaseApiKey });
     if (name) setOwnerName(name);
   };
 
@@ -290,7 +306,7 @@ function App() {
     }
   };
 
-  const handleUpdateUser = async (userId: string, updates: { name?: string, username?: string, password?: string, email?: string, vapidKey?: string }) => {
+  const handleUpdateUser = async (userId: string, updates: { name?: string, username?: string, password?: string, email?: string, vapidKey?: string, firebaseApiKey?: string }) => {
     try {
       const cleanUpdates: any = {};
       if (updates.name !== undefined) cleanUpdates.name = updates.name;
@@ -298,6 +314,7 @@ function App() {
       if (updates.password !== undefined) cleanUpdates.password = updates.password;
       if (updates.email !== undefined) cleanUpdates.email = updates.email;
       if (updates.vapidKey !== undefined) cleanUpdates.vapidKey = updates.vapidKey;
+      if (updates.firebaseApiKey !== undefined) cleanUpdates.firebaseApiKey = updates.firebaseApiKey;
 
       await updateDoc(doc(db, 'users', userId), cleanUpdates);
       

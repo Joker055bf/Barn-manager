@@ -234,6 +234,7 @@ export interface User {
   fcmToken?: string;
   email?: string;
   vapidKey?: string;
+  firebaseApiKey?: string;
 }
 
 export const DEFAULT_WORKER_PERMISSIONS: WorkerPermissions = {
