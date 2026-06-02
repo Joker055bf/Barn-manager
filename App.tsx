@@ -1963,7 +1963,7 @@ function App() {
   }
   
   return (
-    <div className="min-h-screen flex flex-col md:flex-row font-sans text-gray-800 bg-[#fcfbf4] transition-colors duration-300 dark:bg-slate-950 dark:text-gray-100" dir={appLanguage === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="min-h-screen flex flex-col font-sans text-gray-800 bg-[#fcfbf4] transition-colors duration-300 dark:bg-slate-950 dark:text-gray-100" dir={appLanguage === 'ar' ? 'rtl' : 'ltr'}>
       {/* Persistent Logout & Settings Buttons */}
       {(activeTab === 'dashboard' || (activeTab === 'pens' && !selectedGroupId)) && (
         <div className="fixed top-6 left-6 right-6 z-[100] pointer-events-none flex justify-between items-center" dir="rtl">
@@ -2189,17 +2189,15 @@ function App() {
                  </div>
 
                   <div className="flex-1 px-4 sm:px-6 lg:px-8">
-                   <div className="grid grid-cols-2 gap-3 pb-32">
+                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 pb-32">
                      {(() => {
                        const filteredBarns = displayedPens
                          .filter(pen => pen.name.toLowerCase().includes(barnSearchQuery.toLowerCase()))
                          .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-                       const totalBarnsCount = filteredBarns.length;
-                       return filteredBarns.map((pen, idx) => {
+                       return filteredBarns.map((pen) => {
                          const sectionsCount = pens.filter(p => p.parentId === pen.id).length;
-                         const isOddLast = totalBarnsCount % 2 !== 0 && idx === totalBarnsCount - 1;
                          return (
-                           <div key={pen.id} className={isOddLast ? "col-span-2 justify-self-center w-full max-w-[calc(50%-6px)] hover-glow transition-all" : "hover-glow transition-all"}>
+                           <div key={pen.id} className="hover-glow transition-all">
                              <SwipeableBarnCard onEdit={() => openEditModal(pen)} canEdit={isOwner || can('canEditBarns')} canDelete={isOwner || can('canDeleteBarns')}
                                name={pen.name} 
                                sectionsCount={sectionsCount}
