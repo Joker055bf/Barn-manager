@@ -8,6 +8,9 @@ interface MedicalModalProps {
   onClose: () => void;
   sheep?: Sheep;
   onAddRecord: (record: MedicalRecord) => void;
+  onUpdateStatus?: (status: 'healthy' | 'sick') => void;
+  defaultStatusOnSave?: 'healthy' | 'sick';
+  allowNoName?: boolean;
 }
 
 const getAnimalAgeInDays = (birthDateStr: string | undefined): number => {
@@ -36,7 +39,15 @@ const parseVaccineAgeToDays = (ageStr: string): number => {
   return 0;
 };
 
-export const MedicalModal: React.FC<MedicalModalProps> = ({ isOpen, onClose, sheep, onAddRecord }) => {
+export const MedicalModal: React.FC<MedicalModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  sheep, 
+  onAddRecord,
+  onUpdateStatus,
+  defaultStatusOnSave,
+  allowNoName
+}) => {
   const [activeTab, setActiveTab] = useState<'add' | 'history' | 'guide'>('add');
 
   useEffect(() => {
@@ -78,7 +89,7 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({ isOpen, onClose, she
     const newRecord: MedicalRecord = {
       id: crypto.randomUUID(),
       type: recordType,
-      name,
+      name: name.trim() || (recordType === 'vaccine' ? 'تطعيم' : (recordType === 'treatment' ? 'علاج' : 'فحص')),
       date,
       notes
     };
@@ -168,7 +179,7 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({ isOpen, onClose, she
                     {recordType === 'vaccine' ? 'اسم اللقاح' : (recordType === 'treatment' ? 'اسم الدواء' : 'نتيجة الفحص')}
                 </label>
                 <input
-                  required
+                  required={!allowNoName}
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}

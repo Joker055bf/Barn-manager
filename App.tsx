@@ -1333,19 +1333,23 @@ function App() {
         logActivity('تلقيح جماعي', `تم تلقيح ${toVaccinate.length} رأس - ${record.name}`);
         setBatchAction(null);
       } else if (selectedSheepForAction) {
-        await updateDoc(doc(db, 'farms', ownerId, 'sheep', selectedSheepForAction.id), {
+        const updateData: any = {
           medicalRecords: [...(selectedSheepForAction.medicalRecords || []), newRecord]
-        });
+        };
+        if (medicalModalOptions.defaultStatusOnSave) {
+          updateData.status = medicalModalOptions.defaultStatusOnSave;
+        }
+        await updateDoc(doc(db, 'farms', ownerId, 'sheep', selectedSheepForAction.id), updateData);
         logActivity('سجل طبي', `${record.type === 'vaccine' ? 'تلقيح' : 'علاج'} #${selectedSheepForAction.serialNumber}`, selectedSheepForAction.serialNumber, selectedSheepForAction.tagColor);
-        // Locally update the selected sheep so the modal reflects the change if kept open
+        // Locally update the selected sheep so the modal reflects the change
         setSelectedSheepForAction({
           ...selectedSheepForAction,
-          medicalRecords: [...(selectedSheepForAction.medicalRecords || []), newRecord]
+          ...updateData
         });
       }
     } catch (e) { console.error(e); }
     
-    if (batchAction) setIsMedicalModalOpen(false);
+    setIsMedicalModalOpen(false);
   };
 
   // --- Helpers ---
@@ -2405,7 +2409,9 @@ function App() {
                                         {activityLog.slice(0, 5).map(log => {
                                           // Determine dot color based on action type
                                           let dotColor = 'bg-slate-400 border-slate-200';
-                                          if (log.action.includes('إضافة') || log.action.includes('تسجيل')) {
+                                          if (log.action.includes('سجل طبي') || log.action.includes('تلقيح') || log.action.includes('تحصين') || log.action.includes('علاج') || log.action.includes('شفاء') || log.action.includes('صحة')) {
+                                            dotColor = 'bg-purple-500 border-purple-200';
+                                          } else if (log.action.includes('إضافة') || log.action.includes('تسجيل')) {
                                             dotColor = 'bg-emerald-500 border-emerald-200';
                                           } else if (log.action.includes('نقل') || log.action.includes('تحديث') || log.action.includes('تعديل')) {
                                             dotColor = 'bg-orange-500 border-orange-200';
@@ -2426,7 +2432,7 @@ function App() {
                                                    <h4 className="font-extrabold text-[12px] text-gray-800 dark:text-gray-100 leading-snug">
                                                      {log.action}
                                                    </h4>
-                                                   <p className="text-[10px] text-gray-400 font-bold mt-0.5 flex items-center justify-end gap-1 leading-relaxed">
+                                                   <p className="text-[10px] text-gray-400 font-bold mt-0.5 flex items-center justify-start gap-1 leading-relaxed">
                                                      {(log.tagColor || (log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor : undefined)) && (
                                                        <span 
                                                          className="w-2.5 h-2.5 rounded-full inline-block border border-white dark:border-slate-900 shadow-sm shrink-0" 
@@ -2458,7 +2464,7 @@ function App() {
                                                    <div><span className="text-gray-400">الإجراء: </span>{log.action}</div>
                                                    <div><span className="text-gray-400">التفاصيل: </span>{log.detail || 'تحديث بيانات'}</div>
                                                     {(log.tagColor || (log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor : undefined)) && (
-                                                      <div className="flex items-center justify-end gap-1.5">
+                                                      <div className="flex items-center justify-start gap-1.5">
                                                         <span className="text-gray-400">لون الشارة: </span>
                                                         <span className="inline-flex items-center gap-1.5">
                                                           <span 
@@ -2635,7 +2641,9 @@ function App() {
                     return workerActivities.slice(0, 5).map(log => {
                       // Determine dot color based on action type
                       let dotColor = 'bg-slate-400 border-slate-200';
-                      if (log.action.includes('إضافة') || log.action.includes('تسجيل')) {
+                      if (log.action.includes('سجل طبي') || log.action.includes('تلقيح') || log.action.includes('تحصين') || log.action.includes('علاج') || log.action.includes('شفاء') || log.action.includes('صحة')) {
+                        dotColor = 'bg-purple-500 border-purple-200';
+                      } else if (log.action.includes('إضافة') || log.action.includes('تسجيل')) {
                         dotColor = 'bg-emerald-500 border-emerald-200';
                       } else if (log.action.includes('نقل') || log.action.includes('تحديث') || log.action.includes('تعديل')) {
                         dotColor = 'bg-orange-500 border-orange-200';
@@ -2656,7 +2664,7 @@ function App() {
                               <h4 className="font-extrabold text-[12px] text-gray-800 dark:text-gray-100 leading-snug">
                                 {log.userName}: {log.action}
                               </h4>
-                              <p className="text-[10px] text-gray-400 font-bold mt-0.5 flex items-center justify-end gap-1 leading-relaxed">
+                              <p className="text-[10px] text-gray-400 font-bold mt-0.5 flex items-center justify-start gap-1 leading-relaxed">
                                 {(log.tagColor || (log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor : undefined)) && (
                                   <span 
                                     className="w-2.5 h-2.5 rounded-full inline-block border border-white dark:border-slate-900 shadow-sm shrink-0" 
@@ -2938,7 +2946,7 @@ function App() {
                         <div><span className="text-gray-400">الإجراء: </span>{log.action}</div>
                         <div><span className="text-gray-400">التفاصيل: </span>{log.detail}</div>
                         {logTagColor && (
-                          <div className="flex items-center justify-end gap-1.5">
+                          <div className="flex items-center justify-start gap-1.5">
                             <span className="text-gray-400">لون الشارة: </span>
                             <span className="inline-flex items-center gap-1.5">
                               <span 
