@@ -10,6 +10,32 @@ interface MedicalModalProps {
   onAddRecord: (record: MedicalRecord) => void;
 }
 
+const getAnimalAgeInDays = (birthDateStr: string | undefined): number => {
+  if (!birthDateStr) return 0;
+  const birth = new Date(birthDateStr);
+  const now = new Date();
+  const diffTime = Math.max(0, now.getTime() - birth.getTime());
+  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+};
+
+const parseVaccineAgeToDays = (ageStr: string): number => {
+  const normalized = ageStr.toLowerCase().trim();
+  const num = parseInt(normalized.replace(/[^0-9]/g, '')) || 0;
+  if (normalized.includes('يوم') || normalized.includes('day')) {
+    return num;
+  }
+  if (normalized.includes('أسبوع') || normalized.includes('اسبوع') || normalized.includes('week')) {
+    return num * 7;
+  }
+  if (normalized.includes('شهر') || normalized.includes('month')) {
+    return num * 30;
+  }
+  if (normalized.includes('سنة') || normalized.includes('year')) {
+    return num * 365;
+  }
+  return 0;
+};
+
 export const MedicalModal: React.FC<MedicalModalProps> = ({ isOpen, onClose, sheep, onAddRecord }) => {
   const [activeTab, setActiveTab] = useState<'add' | 'history' | 'guide'>('add');
 
@@ -36,9 +62,16 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({ isOpen, onClose, she
     records.some(rec => rec.type === 'vaccine' && rec.name.toLowerCase().includes(v.name.toLowerCase()))
   );
 
-  const untakenVaccines = vaccines.filter(v => 
-    !records.some(rec => rec.type === 'vaccine' && rec.name.toLowerCase().includes(v.name.toLowerCase()))
-  );
+  const animalAgeInDays = getAnimalAgeInDays(sheep.birthDate);
+
+  const untakenVaccines = vaccines.filter(v => {
+    const isUntaken = !records.some(rec => rec.type === 'vaccine' && rec.name.toLowerCase().includes(v.name.toLowerCase()));
+    if (!isUntaken) return false;
+
+    // Filter by target age
+    const targetAgeDays = parseVaccineAgeToDays(v.age);
+    return animalAgeInDays >= targetAgeDays;
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
