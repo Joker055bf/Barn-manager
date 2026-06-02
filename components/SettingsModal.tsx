@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Globe, Moon, Sun, Check, Monitor, Download, Upload, Database, User, Lock, Eye, EyeOff, Save, Share2, Settings, Info, Mail, Key, Edit } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
@@ -16,7 +16,7 @@ interface SettingsModalProps {
     theme: 'light' | 'dark';
     setTheme: (theme: 'light' | 'dark') => void;
     currentUser: UserType | null;
-    onUpdateProfile: (name: string, username?: string, password?: string, email?: string) => Promise<void>;
+    onUpdateProfile: (name: string, username?: string, password?: string, email?: string, vapidKey?: string) => Promise<void>;
     onShowAlert?: (type: 'success' | 'error' | 'warning' | 'info', title: string, message: string) => void;
     onTestNotifications?: () => Promise<void>;
 }
@@ -39,6 +39,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const [isSavingProfile, setIsSavingProfile] = useState(false);
     const [isTestingNotifications, setIsTestingNotifications] = useState(false);
     
+    // FCM Advanced Settings States
+    const [showAdvancedFcm, setShowAdvancedFcm] = useState(false);
+    const [customVapidKey, setCustomVapidKey] = useState('');
+    const [isSavingFcm, setIsSavingFcm] = useState(false);
+
+    useEffect(() => {
+        if (isOpen && currentUser) {
+            setCustomVapidKey(currentUser.vapidKey || safeStorage.getItem('rai_vapid_key') || '');
+        }
+    }, [isOpen, currentUser]);
+
+    const handleSaveFcmSettings = async () => {
+        if (!currentUser) return;
+        setIsSavingFcm(true);
+        try {
+            if (customVapidKey.trim()) {
+                safeStorage.setItem('rai_vapid_key', customVapidKey.trim());
+            } else {
+                safeStorage.removeItem('rai_vapid_key');
+            }
+
+            await onUpdateProfile(currentUser.name, undefined, undefined, undefined, customVapidKey.trim() || '');
+            
+            if (onShowAlert) {
+                onShowAlert('success', 'تم الحفظ', 'تم تحديث إعدادات مفتاح VAPID بنجاح.');
+            }
+        } catch (e: any) {
+            console.error('Failed to save FCM settings:', e);
+            if (onShowAlert) {
+                onShowAlert('error', 'فشل الحفظ', e.message || 'تعذر حفظ إعدادات الإشعارات المتقدمة.');
+            }
+        } finally {
+            setIsSavingFcm(false);
+        }
+    };
+
     // Profile Secure Actions State
     const [activeAction, setActiveAction] = useState<'editName' | 'editUsername' | 'editPassword' | 'editEmail' | null>(null);
     const [step, setStep] = useState<'askPassword' | 'askEmail' | 'editField' | 'changePasswordDirect' | null>(null);
@@ -689,6 +725,54 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                         : (language === 'en' ? '🔔 Activate & Test Now' : '🔔 تفعيل واختبار الإشعارات الآن')
                                     }</span>
                                 </button>
+                            )}
+
+                            {currentUser?.role === 'owner' && (
+                                <div className="mt-4 pt-4 border-t border-orange-100/50 dark:border-slate-700/50">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAdvancedFcm(!showAdvancedFcm)}
+                                        className="flex items-center justify-between w-full text-xs font-black text-[#795548] dark:text-orange-400 hover:opacity-80 transition-all cursor-pointer"
+                                    >
+                                        <span>{language === 'en' ? '🛠️ Advanced Notification Settings' : '🛠️ إعدادات الإشعارات المتقدمة'}</span>
+                                        <span className="text-[10px]">{showAdvancedFcm ? '▲' : '▼'}</span>
+                                    </button>
+
+                                    {showAdvancedFcm && (
+                                        <div className="mt-3 space-y-3 animate-fade-in text-right" dir="rtl">
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black text-gray-500 dark:text-slate-400 block text-right">
+                                                    {language === 'en' ? 'FCM VAPID Public Key (Web Push):' : 'مفتاح VAPID العام (لإشعارات الويب):'}
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={customVapidKey}
+                                                    onChange={(e) => setCustomVapidKey(e.target.value)}
+                                                    placeholder="أدخل مفتاح VAPID العام (المولد في كونسول Firebase)"
+                                                    className="w-full text-right px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[10px] font-bold text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#795548]"
+                                                />
+                                                <p className="text-[9px] text-gray-400 leading-normal text-right font-medium">
+                                                    {language === 'en'
+                                                        ? 'Leave empty to use the project’s default key. Generate this key in Firebase Console -> Project Settings -> Cloud Messaging -> Web Push certificates.'
+                                                        : 'اتركه فارغاً للاعتماد على المفتاح الافتراضي للمشروع. يمكنك توليد هذا المفتاح من إعدادات مشروع Firebase -> إعدادات المشروع -> السحابة -> شهادات الويب.'}
+                                                </p>
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                disabled={isSavingFcm}
+                                                onClick={handleSaveFcmSettings}
+                                                className={`w-full py-2.5 bg-[#795548] dark:bg-slate-700 hover:bg-[#5D4037] dark:hover:bg-slate-600 text-white rounded-xl font-black text-xs transition-all active:scale-[0.98] cursor-pointer ${
+                                                    isSavingFcm ? 'opacity-60 cursor-not-allowed' : ''
+                                                }`}
+                                            >
+                                                {isSavingFcm
+                                                    ? (language === 'en' ? 'Saving...' : 'جاري الحفظ...')
+                                                    : (language === 'en' ? 'Save Settings' : 'حفظ إعدادات VAPID')}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             )}
                         </div>
                     </div>

@@ -233,6 +233,7 @@ export interface User {
   accessiblePens?: string[];
   fcmToken?: string;
   email?: string;
+  vapidKey?: string;
 }
 
 export const DEFAULT_WORKER_PERMISSIONS: WorkerPermissions = {

@@ -7,7 +7,7 @@ interface CustomAlertProps {
   isOpen: boolean;
   type: AlertType;
   title: string;
-  message: string;
+  message: string | React.ReactNode;
   onConfirm: () => void;
   onCancel?: () => void;
   confirmLabel?: string;
@@ -62,9 +62,9 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
             {title}
           </h3>
           
-          <p className="text-gray-500 dark:text-slate-400 font-bold leading-relaxed mb-8">
+          <div className="text-gray-500 dark:text-slate-400 font-bold leading-relaxed mb-8 w-full">
             {message}
-          </p>
+          </div>
           
           <div className="flex gap-3 w-full">
             {type === 'confirm' && onCancel && (

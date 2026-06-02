@@ -107,7 +107,7 @@ function App() {
     isOpen: boolean;
     type: AlertType;
     title: string;
-    message: string;
+    message: string | React.ReactNode;
     onConfirm: () => void;
     onCancel?: () => void;
     confirmLabel?: string;
@@ -120,7 +120,7 @@ function App() {
     onConfirm: () => { }
   });
 
-  const showAlert = (type: AlertType, title: string, message: string, onConfirm?: () => void) => {
+  const showAlert = (type: AlertType, title: string, message: string | React.ReactNode, onConfirm?: () => void) => {
     setAlertConfig({
       isOpen: true,
       type,
@@ -133,7 +133,7 @@ function App() {
     });
   };
 
-  const showConfirm = (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => {
+  const showConfirm = (title: string, message: string | React.ReactNode, onConfirm: () => void, onCancel?: () => void) => {
     setAlertConfig({
       isOpen: true,
       type: 'confirm',
@@ -151,9 +151,9 @@ function App() {
       }
     });
   };
-  const handleUpdateProfile = async (name: string, username?: string, password?: string, email?: string) => {
+  const handleUpdateProfile = async (name: string, username?: string, password?: string, email?: string, vapidKey?: string) => {
     if (!currentUser) return;
-    await handleUpdateUser(currentUser.id, { name, username, password, email });
+    await handleUpdateUser(currentUser.id, { name, username, password, email, vapidKey });
     if (name) setOwnerName(name);
   };
 
@@ -191,10 +191,29 @@ function App() {
 
       const { getToken } = await import('firebase/messaging');
       
-      const currentToken = await getToken(messaging, {
-        vapidKey: 'BGMIAO07gwGiD4klhaaOlQzjBTF4qJg702MXtB5Or4rm2wjdrLkZ562L7AY6uWD9kE1zjm5bxpLM9643wBKWp1E',
-        serviceWorkerRegistration: registration
-      });
+      const vapidKey = currentUser?.vapidKey || safeStorage.getItem('rai_vapid_key') || 'BGMIAO07gwGiD4klhaaOlQzjBTF4qJg702MXtB5Or4rm2wjdrLkZ562L7AY6uWD9kE1zjm5bxpLM9643wBKWp1E';
+      
+      let currentToken = '';
+      try {
+        console.log('Attempting FCM subscription with VAPID key:', vapidKey);
+        currentToken = await getToken(messaging, {
+          vapidKey,
+          serviceWorkerRegistration: registration
+        });
+      } catch (firstErr: any) {
+        console.warn('FCM registration with primary VAPID key failed, trying fallback default key...', firstErr);
+        try {
+          // Fallback Stage: Try without specifying a vapidKey to let Firebase use the default key
+          currentToken = await getToken(messaging, {
+            serviceWorkerRegistration: registration
+          });
+          console.log('FCM subscription succeeded with default VAPID key fallback.');
+        } catch (secondErr: any) {
+          console.error('FCM subscription failed in both stages:', secondErr);
+          // Throw the primary error to show the troubleshooting UI
+          throw firstErr;
+        }
+      }
 
       if (!currentToken) {
         showAlert('error', 'فشل جلب الرمز', 'لم نتمكن من الحصول على رمز التنبيهات من خوادم Google Cloud.');
@@ -235,17 +254,50 @@ function App() {
 
     } catch (e: any) {
       console.error('Test notifications failed:', e);
-      showAlert('error', 'عطل غير متوقع', e.message || 'تعذر استكمال اختبار التنبيهات.');
+      const errorMsg = e.message || '';
+      const isCredentialError = errorMsg.includes('auth') || 
+                                errorMsg.includes('credential') || 
+                                errorMsg.includes('subscribe-failed') ||
+                                errorMsg.includes('token-subscribe-failed');
+
+      if (isCredentialError) {
+        showAlert(
+          'error',
+          'عطل في مصادقة الإشعارات (FCM)',
+          <div className="space-y-3 text-right font-medium text-xs leading-relaxed" dir="rtl">
+            <p className="text-red-600 dark:text-red-400 font-black">
+              فشل المشروع في المصادقة مع خوادم Google Cloud/Firebase لرموز الويب.
+            </p>
+            <p className="text-gray-700 dark:text-slate-300">
+              يرجى التحقق من إعدادات مشروعك في كونسول Firebase بالطرق التالية:
+            </p>
+            <ol className="list-decimal list-inside space-y-2 text-[11px] text-gray-600 dark:text-slate-400 pr-2">
+              <li>
+                <strong>قيود مفتاح API Key في GCP:</strong> اذهب إلى <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-[#795548] dark:text-orange-400 underline font-bold">منصة Google Cloud {"->"} Credentials</a> وقم بتعديل مفتاح المتصفح وتأكد من تفعيل صلاحية <strong>"FCM Registration API"</strong> و <strong>"Firebase Cloud Messaging API"</strong> للمفتاح.
+              </li>
+              <li>
+                <strong>مفتاح VAPID المخصص:</strong> توليد مفتاح جديد من إعدادات مشروع Firebase {"->"} Cloud Messaging {"->"} Web configuration، ثم وضعه في <strong>"إعدادات الإشعارات المتقدمة"</strong> أسفل نافذة الإعدادات.
+              </li>
+            </ol>
+            <p className="text-[10px] text-red-500 font-bold mt-2 border-t pt-2 border-gray-100 dark:border-slate-800">
+              تفاصيل المشكلة الفنية: {errorMsg}
+            </p>
+          </div>
+        );
+      } else {
+        showAlert('error', 'عطل غير متوقع', e.message || 'تعذر استكمال اختبار التنبيهات.');
+      }
     }
   };
 
-  const handleUpdateUser = async (userId: string, updates: { name?: string, username?: string, password?: string, email?: string }) => {
+  const handleUpdateUser = async (userId: string, updates: { name?: string, username?: string, password?: string, email?: string, vapidKey?: string }) => {
     try {
       const cleanUpdates: any = {};
       if (updates.name !== undefined) cleanUpdates.name = updates.name;
       if (updates.username !== undefined) cleanUpdates.username = updates.username;
       if (updates.password !== undefined) cleanUpdates.password = updates.password;
       if (updates.email !== undefined) cleanUpdates.email = updates.email;
+      if (updates.vapidKey !== undefined) cleanUpdates.vapidKey = updates.vapidKey;
 
       await updateDoc(doc(db, 'users', userId), cleanUpdates);
       
@@ -712,7 +764,25 @@ function App() {
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
           import('firebase/messaging').then(({ getToken, onMessage }) => {
-            getToken(messaging, { vapidKey: 'BGMIAO07gwGiD4klhaaOlQzjBTF4qJg702MXtB5Or4rm2wjdrLkZ562L7AY6uWD9kE1zjm5bxpLM9643wBKWp1E' })
+            const vapidKey = currentUser?.vapidKey || safeStorage.getItem('rai_vapid_key') || 'BGMIAO07gwGiD4klhaaOlQzjBTF4qJg702MXtB5Or4rm2wjdrLkZ562L7AY6uWD9kE1zjm5bxpLM9643wBKWp1E';
+            
+            const handleTokenRetrieve = async () => {
+              let currentToken = '';
+              try {
+                currentToken = await getToken(messaging, { vapidKey });
+              } catch (firstErr: any) {
+                console.warn('FCM auto-registration with VAPID key failed, trying fallback default key...', firstErr);
+                try {
+                  currentToken = await getToken(messaging);
+                } catch (secondErr: any) {
+                  console.error('FCM auto-registration failed in both stages:', secondErr);
+                  throw firstErr;
+                }
+              }
+              return currentToken;
+            };
+
+            handleTokenRetrieve()
               .then(async (currentToken) => {
                 if (currentToken && currentUser.fcmToken !== currentToken) {
                   await updateDoc(doc(db, 'users', currentUser.id), { fcmToken: currentToken });
