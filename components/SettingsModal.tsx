@@ -727,6 +727,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                     disabled={isTestingNotifications}
                                     onClick={async () => {
                                         if (isTestingNotifications) return;
+                                        
+                                        // Check if they typed a new API key or VAPID key but didn't click save
+                                        const savedApiKey = safeStorage.getItem('rai_firebase_api_key') || '';
+                                        const savedVapidKey = safeStorage.getItem('rai_vapid_key') || '';
+                                        
+                                        if (customApiKey.trim() !== savedApiKey || customVapidKey.trim() !== savedVapidKey) {
+                                            if (onShowAlert) {
+                                                onShowAlert(
+                                                    'warning', 
+                                                    language === 'en' ? 'Unsaved Settings Detected' : 'تنبيه: إعدادات غير محفوظة', 
+                                                    language === 'en' 
+                                                        ? 'You have typed a new API Key or VAPID Key. Please click the "Save Advanced Settings" button below first, then let the page reload to apply the new keys before testing.'
+                                                        : 'لقد قمت بإدخال مفتاح جديد ولكنك لم تقم بحفظه. يرجى الضغط على زر "حفظ الإعدادات المتقدمة" بالأسفل أولاً لكي يتم حفظ المفتاح وتحديث الاتصال تلقائياً، ثم قم بالاختبار.'
+                                                );
+                                            }
+                                            return;
+                                        }
+
                                         setIsTestingNotifications(true);
                                         try {
                                             await onTestNotifications();
@@ -776,6 +794,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                                         ? 'Leave empty to use the default API key. If the default key is restricted in GCP, create a new API key in GCP Console -> APIs & Services -> Credentials -> Create API Key, and paste it here.'
                                                         : 'اتركه فارغاً للاعتماد على المفتاح الافتراضي للمشروع. إذا كان الافتراضي مقيداً في GCP، قم بإنشاء مفتاح جديد في Google Cloud Console -> APIs & Services -> Credentials -> Create API Key، وضعه هنا.'}
                                                 </p>
+                                                <div className="text-[9px] font-bold text-gray-400 text-right mt-1">
+                                                    {language === 'en' ? 'Currently active key: ' : 'المفتاح المفعل حالياً: '}
+                                                    <span className="text-[#795548] dark:text-orange-400 font-mono bg-orange-50/80 dark:bg-slate-800 px-2 py-0.5 rounded">
+                                                        {safeStorage.getItem('rai_firebase_api_key') 
+                                                            ? `مخصص (***${safeStorage.getItem('rai_firebase_api_key')?.slice(-6)})` 
+                                                            : (language === 'en' ? 'Default (Restricted)' : 'الافتراضي للمشروع (مقيد)')}
+                                                    </span>
+                                                </div>
                                             </div>
 
                                             <div className="space-y-1">
@@ -794,6 +820,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                                         ? 'Leave empty to use the project’s default key. Generate this key in Firebase Console -> Project Settings -> Cloud Messaging -> Web Push certificates.'
                                                         : 'اتركه فارغاً للاعتماد على المفتاح الافتراضي للمشروع. يمكنك توليد هذا المفتاح من إعدادات مشروع Firebase -> إعدادات المشروع -> السحابة -> شهادات الويب.'}
                                                 </p>
+                                                <div className="text-[9px] font-bold text-gray-400 text-right mt-1 font-medium">
+                                                    {language === 'en' ? 'Currently active: ' : 'مفتاح VAPID المفعل حالياً: '}
+                                                    <span className="text-[#795548] dark:text-orange-400 font-mono bg-orange-50/80 dark:bg-slate-800 px-2 py-0.5 rounded">
+                                                        {safeStorage.getItem('rai_vapid_key') 
+                                                            ? `مخصص (***${safeStorage.getItem('rai_vapid_key')?.slice(-8)})` 
+                                                            : (language === 'en' ? 'Default' : 'الافتراضي')}
+                                                    </span>
+                                                </div>
                                             </div>
 
                                             <button
