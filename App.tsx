@@ -24,6 +24,8 @@ import { Pen, MedicalRecord, FeedItem, FeedLogEntry, Sheep, SheepType, ChatMessa
 import CustomAlert, { AlertType } from './components/CustomAlert';
 import { ReportType } from './components/ReportsModal';
 import { getAnimalMetadata, calculateVaccineDueDate, getAnimalAgeLabel, generateId } from './utils/animalHelpers';
+import { Capacitor } from '@capacitor/core';
+import { PushNotifications } from '@capacitor/push-notifications';
 
 const colorNames: { [key: string]: string } = {
   '#EF4444': 'أحمر',
@@ -202,118 +204,186 @@ function App() {
 
   const handleTestNotifications = async () => {
     try {
-      if (typeof Notification === 'undefined') {
-        showAlert('error', 'غير مدعوم', 'هذا المتصفح أو بيئة التشغيل لا تدعم الإشعارات الفورية.');
-        return;
-      }
-      
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        showAlert('warning', 'الصلاحية مطلوبة', 'يرجى منح صلاحية الإشعارات من إعدادات المتصفح أو الهاتف لتشغيل الخدمة.');
-        return;
-      }
-
-      showAlert('warning', 'جاري التفعيل', 'جاري تسجيل الخدمة وجلب رمز التنبيهات الآمن...');
-
-      const messaging = await getFirebaseMessaging();
-      if (!messaging) {
-        showAlert('error', 'خطأ في الخدمة', 'فشل تهيئة نظام التنبيهات Firebase Cloud Messaging.');
-        return;
-      }
-
-      if (!('serviceWorker' in navigator)) {
-        showAlert('error', 'غير مدعوم', 'متصفحك لا يدعم تقنية Service Worker لتشغيل الإشعارات الخلفية.');
-        return;
-      }
-
-      // Explicitly register /firebase-messaging-sw.js with explicit scope to be 100% reliable
-      const customApiKeyVal = safeStorage.getItem('rai_firebase_api_key') || '';
-      const swUrl = customApiKeyVal 
-        ? `/firebase-messaging-sw.js?apiKey=${encodeURIComponent(customApiKeyVal)}`
-        : '/firebase-messaging-sw.js';
-
-      const registration = await navigator.serviceWorker.register(swUrl, {
-        scope: '/'
-      });
-      console.log('FCM Service Worker registered successfully:', registration);
-
-      // Wait for the service worker to be fully activated if it is installing or waiting
-      const serviceWorker = registration.installing || registration.waiting || registration.active;
-      if (serviceWorker && serviceWorker.state !== 'activated') {
-        await new Promise<void>((resolve) => {
-          const stateChangeHandler = () => {
-            if (serviceWorker.state === 'activated') {
-              serviceWorker.removeEventListener('statechange', stateChangeHandler);
-              resolve();
+      if (Capacitor.getPlatform() !== 'web') {
+        // 1. Add listeners first to guarantee we catch the registration event
+        await PushNotifications.addListener('registration', async (token) => {
+          console.log('FCM Token الموحد للجهاز:', token.value);
+          
+          if (currentUser) {
+            await updateDoc(doc(db, 'users', currentUser.id), { 
+              fcmToken: token.value,
+              platform: Capacitor.getPlatform(),
+              updatedAt: new Date().toISOString()
+            });
+            setCurrentUser(prev => prev ? { ...prev, fcmToken: token.value } : null);
+            const saved = safeStorage.getItem('rai_session');
+            if (saved) {
+              const session = JSON.parse(saved);
+              session.fcmToken = token.value;
+              safeStorage.setItem('rai_session', JSON.stringify(session));
             }
-          };
-          serviceWorker.addEventListener('statechange', stateChangeHandler);
-        });
-        // Tiny extra delay to allow clients.claim() and Firebase initialization to complete
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
+          }
 
-      const { getToken } = await import('firebase/messaging');
-      
-      const vapidKey = currentUser?.vapidKey || safeStorage.getItem('rai_vapid_key') || 'BGMIAO07gwGiD4klhaaOlQzjBTF4qJg702MXtB5Or4rm2wjdrLkZ562L7AY6uWD9kE1zjm5bxpLM9643wBKWp1E';
-      
-      let currentToken = '';
-      try {
-        console.log('Attempting FCM subscription with VAPID key:', vapidKey);
-        currentToken = await getToken(messaging, {
-          vapidKey,
-          serviceWorkerRegistration: registration
+          // Trigger a test push notification
+          try {
+            await fetch('/api/sendPush', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                token: token.value,
+                title: 'تطبيق راعي 🐑',
+                body: 'رائع جداً! تم تنشيط واختبار نظام إشعارات البث الهاتفي لجهازك بنجاح 100%!'
+              })
+            });
+          } catch (pushErr) {
+            console.error('Failed to send test push to native device:', pushErr);
+          }
         });
-      } catch (firstErr: any) {
-        console.warn('FCM registration with primary VAPID key failed, trying fallback default key...', firstErr);
+
+        await PushNotifications.addListener('registrationError', (err) => {
+          console.error('FCM Native Registration Error:', err);
+          showAlert('error', 'فشل التسجيل في النظام', 'تعذر تسجيل جهازك لتلقي التنبيهات: ' + (err.error || 'خطأ غير معروف'));
+        });
+
+        await PushNotifications.addListener('pushNotificationReceived', (notification) => {
+          console.log('تم استقبال إشعار والتطبيق مفتوح:', notification);
+          showAlert('success', notification.title || 'تنبيه جديد', notification.body || '');
+        });
+
+        await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+          console.log('المستخدم ضغط على الإشعار خارج التطبيق:', action.notification);
+        });
+
+        // 2. Request Permissions
+        let permStatus = await PushNotifications.checkPermissions();
+        if (permStatus.receive === 'prompt') {
+          permStatus = await PushNotifications.requestPermissions();
+        }
+
+        if (permStatus.receive !== 'granted') {
+          showAlert('error', 'الصلاحية مطلوبة', 'يرجى تفعيل صلاحية الإشعارات من إعدادات النظام لتلقي التنبيهات.');
+          return;
+        }
+
+        // 3. Register device
+        await PushNotifications.register();
+        showAlert('success', 'تم تفعيل التنبيهات', 'جهازك الآن جاهز لاستقبال الإشعارات خارج التطبيق تماماً مثل الواتساب. تم طلب إرسال تنبيه تجريبي!');
+
+      } else {
+        // Web Platform (Web Push Notifications)
+        if (typeof Notification === 'undefined') {
+          showAlert('error', 'غير مدعوم', 'هذا المتصفح أو بيئة التشغيل لا تدعم الإشعارات الفورية.');
+          return;
+        }
+        
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          showAlert('warning', 'الصلاحية مطلوبة', 'يرجى منح صلاحية الإشعارات من إعدادات المتصفح أو الهاتف لتشغيل الخدمة.');
+          return;
+        }
+
+        showAlert('warning', 'جاري التفعيل', 'جاري تسجيل الخدمة وجلب رمز التنبيهات الآمن...');
+
+        const messaging = await getFirebaseMessaging();
+        if (!messaging) {
+          showAlert('error', 'خطأ في الخدمة', 'فشل تهيئة نظام التنبيهات Firebase Cloud Messaging.');
+          return;
+        }
+
+        if (!('serviceWorker' in navigator)) {
+          showAlert('error', 'غير مدعوم', 'متصفحك لا يدعم تقنية Service Worker لتشغيل الإشعارات الخلفية.');
+          return;
+        }
+
+        // Explicitly register /firebase-messaging-sw.js with explicit scope to be 100% reliable
+        const customApiKeyVal = safeStorage.getItem('rai_firebase_api_key') || '';
+        const swUrl = customApiKeyVal 
+          ? `/firebase-messaging-sw.js?apiKey=${encodeURIComponent(customApiKeyVal)}`
+          : '/firebase-messaging-sw.js';
+
+        const registration = await navigator.serviceWorker.register(swUrl, {
+          scope: '/'
+        });
+        console.log('FCM Service Worker registered successfully:', registration);
+
+        // Wait for the service worker to be fully activated if it is installing or waiting
+        const serviceWorker = registration.installing || registration.waiting || registration.active;
+        if (serviceWorker && serviceWorker.state !== 'activated') {
+          await new Promise<void>((resolve) => {
+            const stateChangeHandler = () => {
+              if (serviceWorker.state === 'activated') {
+                serviceWorker.removeEventListener('statechange', stateChangeHandler);
+                resolve();
+              }
+            };
+            serviceWorker.addEventListener('statechange', stateChangeHandler);
+          });
+          // Tiny extra delay to allow clients.claim() and Firebase initialization to complete
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+
+        const { getToken } = await import('firebase/messaging');
+        
+        const vapidKey = currentUser?.vapidKey || safeStorage.getItem('rai_vapid_key') || 'BGMIAO07gwGiD4klhaaOlQzjBTF4qJg702MXtB5Or4rm2wjdrLkZ562L7AY6uWD9kE1zjm5bxpLM9643wBKWp1E';
+        
+        let currentToken = '';
         try {
-          // Fallback Stage: Try without specifying a vapidKey to let Firebase use the default key
+          console.log('Attempting FCM subscription with VAPID key:', vapidKey);
           currentToken = await getToken(messaging, {
+            vapidKey,
             serviceWorkerRegistration: registration
           });
-          console.log('FCM subscription succeeded with default VAPID key fallback.');
-        } catch (secondErr: any) {
-          console.error('FCM subscription failed in both stages:', secondErr);
-          // Throw the primary error to show the troubleshooting UI
-          throw firstErr;
+        } catch (firstErr: any) {
+          console.warn('FCM registration with primary VAPID key failed, trying fallback default key...', firstErr);
+          try {
+            // Fallback Stage: Try without specifying a vapidKey to let Firebase use the default key
+            currentToken = await getToken(messaging, {
+              serviceWorkerRegistration: registration
+            });
+            console.log('FCM subscription succeeded with default VAPID key fallback.');
+          } catch (secondErr: any) {
+            console.error('FCM subscription failed in both stages:', secondErr);
+            // Throw the primary error to show the troubleshooting UI
+            throw firstErr;
+          }
         }
-      }
 
-      if (!currentToken) {
-        showAlert('error', 'فشل جلب الرمز', 'لم نتمكن من الحصول على رمز التنبيهات من خوادم Google Cloud.');
-        return;
-      }
-
-      // Save token to Firestore
-      if (currentUser) {
-        await updateDoc(doc(db, 'users', currentUser.id), { fcmToken: currentToken });
-        setCurrentUser(prev => prev ? { ...prev, fcmToken: currentToken } : null);
-        const saved = safeStorage.getItem('rai_session');
-        if (saved) {
-          const session = JSON.parse(saved);
-          session.fcmToken = currentToken;
-          safeStorage.setItem('rai_session', JSON.stringify(session));
+        if (!currentToken) {
+          showAlert('error', 'فشل جلب الرمز', 'لم نتمكن من الحصول على رمز التنبيهات من خوادم Google Cloud.');
+          return;
         }
-      }
 
-      showAlert('warning', 'جاري إرسال التنبيه', 'تم جلب الرمز وتوثيقه بنجاح! جاري طلب إرسال تنبيه تجريبي لهاتفك...');
+        // Save token to Firestore
+        if (currentUser) {
+          await updateDoc(doc(db, 'users', currentUser.id), { fcmToken: currentToken });
+          setCurrentUser(prev => prev ? { ...prev, fcmToken: currentToken } : null);
+          const saved = safeStorage.getItem('rai_session');
+          if (saved) {
+            const session = JSON.parse(saved);
+            session.fcmToken = currentToken;
+            safeStorage.setItem('rai_session', JSON.stringify(session));
+          }
+        }
 
-      // Call sendPush endpoint directly with user's own token
-      const res = await fetch('/api/sendPush', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: currentToken,
-          title: 'تطبيق راعي 🐑',
-          body: 'رائع جداً! تم تنشيط واختبار نظام إشعارات البث الهاتفي بنجاح 100%!'
-        })
-      });
+        showAlert('warning', 'جاري إرسال التنبيه', 'تم جلب الرمز وتوثيقه بنجاح! جاري طلب إرسال تنبيه تجريبي لهاتفك...');
 
-      if (res.ok) {
-        showAlert('success', 'تم التفعيل بنجاح', 'تهانينا! تم تفعيل إشعارات الهاتف بنجاح، وستصلك رسالة تنبيه تجريبية خلال ثوانٍ!');
-      } else {
-        const errData = await res.json().catch(() => ({}));
-        showAlert('error', 'فشل الإرسال', `تم تسجيل الرمز بنجاح ولكن فشل السيرفر في الإرسال: ${errData.details || errData.error || 'خطأ غير معروف'}`);
+        // Call sendPush endpoint directly with user's own token
+        const res = await fetch('/api/sendPush', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: currentToken,
+            title: 'تطبيق راعي 🐑',
+            body: 'رائع جداً! تم تنشيط واختبار نظام إشعارات البث الهاتفي بنجاح 100%!'
+          })
+        });
+
+        if (res.ok) {
+          showAlert('success', 'تم التفعيل بنجاح', 'تهانينا! تم تفعيل إشعارات الهاتف بنجاح، وستصلك رسالة تنبيه تجريبية خلال ثوانٍ!');
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          showAlert('error', 'فشل الإرسال', `تم تسجيل الرمز بنجاح ولكن فشل السيرفر في الإرسال: ${errData.details || errData.error || 'خطأ غير معروف'}`);
+        }
       }
 
     } catch (e: any) {
