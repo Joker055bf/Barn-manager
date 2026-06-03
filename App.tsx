@@ -301,7 +301,7 @@ function App() {
         const registration = await navigator.serviceWorker.register(swUrl, {
           scope: '/'
         });
-        console.log('تم تسجيل FCM Service Worker للمتصفح بنجاح:', registration);
+        console.log('FCM Service Worker registered smoothly:', registration);
 
         // الانتظار حتى يتفعل في خلفية المتصفح بالكامل
         const serviceWorker = registration.installing || registration.waiting || registration.active;
