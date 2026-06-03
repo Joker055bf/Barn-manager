@@ -391,33 +391,33 @@ export const SheepModal: React.FC<SheepModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" dir="rtl">
-      <div className="bg-[#FCFBF4] rounded-[2.5rem] w-full max-w-lg shadow-2xl animate-scale-in dark:bg-slate-900 dark:border dark:border-slate-800 max-h-[90vh] flex flex-col">
-        <div className="bg-gradient-to-br from-[#795548] to-[#5D4037] p-6 text-white relative overflow-hidden rounded-t-[2.5rem] dark:from-slate-800 dark:to-slate-950 shrink-0">
+      <div className="bg-[#FCFBF4] rounded-3xl w-full max-w-md shadow-2xl animate-scale-in dark:bg-slate-900 dark:border dark:border-slate-800 max-h-[90vh] flex flex-col">
+        <div className="bg-gradient-to-br from-[#795548] to-[#5D4037] py-3.5 px-5 text-white relative overflow-hidden rounded-t-3xl dark:from-slate-800 dark:to-slate-950 shrink-0">
           <div className="flex justify-between items-center relative z-10">
             <div>
-              <h2 className="text-3xl font-black tracking-tighter">
+              <h2 className="text-xl font-bold tracking-tight">
                 {initialData ? `تعديل ${metadata.headLabel}` : `إضافة ${metadata.headLabel}`}
               </h2>
-              <p className="text-orange-100/60 text-[10px] font-bold mt-1 uppercase tracking-widest leading-none">
+              <p className="text-orange-100/60 text-[9px] font-bold mt-0.5 uppercase tracking-widest leading-none">
                 نظام إدارة {metadata.label.plural}
               </p>
             </div>
             <button 
               onClick={onClose} 
-              className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-full transition-all"
+              className="bg-white/10 hover:bg-white/20 text-white p-1.5 rounded-full transition-all cursor-pointer"
             >
-              <X size={22} />
+              <X size={18} />
             </button>
           </div>
           <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-white/5 rounded-full blur-3xl" />
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1 bg-white/30 dark:bg-transparent">
+        <form onSubmit={handleSubmit} className="p-4 space-y-3.5 overflow-y-auto custom-scrollbar flex-1 bg-white/30 dark:bg-transparent">
 
           {/* Type Selection and Count / Serial logic */}
           {isBatchMode && !initialData ? (
             /* Batch Mode: Type + Count + Gender + Common Date */
-            <div className="space-y-4">
+            <div className="space-y-3.5">
 
               {/* Pen Selector for Batch Mode */}
               <div>
@@ -425,6 +425,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                   label="القسم / الحظيرة"
                   value={selectedPenId}
                   onChange={(val) => setSelectedPenId(val)}
+                  textSize="text-xs"
                   options={pens
                     .filter(p =>
                       !p.isGroup &&
@@ -457,45 +458,45 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                 </div>
                 {/* Count Input */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-700">العدد</label>
+                  <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-right mb-1">العدد</label>
                   <input
                     type="number"
                     min="1"
                     value={count}
                     onChange={(e) => setCount(parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2.5 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#795548] focus:bg-white outline-none transition-all font-bold text-center text-sm"
+                    className="w-full h-[36px] px-2 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[#795548] outline-none transition-all font-bold text-center text-xs shadow-sm"
                   />
                 </div>
               </div>
 
               {/* Gender Selection for Batch */}
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-700">الجنس</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all p-2.5 flex items-center justify-center gap-2 ${gender === 'male' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-100 bg-[#fcfbf4] hover:border-gray-200'}`}>
+                <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-right mb-1">الجنس</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all h-[36px] flex items-center justify-center gap-2 ${gender === 'male' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-200 bg-white dark:bg-slate-800 dark:border-slate-700 hover:border-[#795548]'}`}>
                     <input type="radio" name="batch-gender" value="male" checked={gender === 'male'} onChange={() => setGender('male')} className="hidden" />
-                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${gender === 'male' ? 'border-[#795548] bg-[#795548] text-white' : 'border-gray-300'}`}>
-                      {gender === 'male' && <Check size={12} strokeWidth={3} />}
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${gender === 'male' ? 'border-[#795548] bg-[#795548] text-white' : 'border-gray-300 dark:border-slate-600'}`}>
+                      {gender === 'male' && <Check size={10} strokeWidth={3} />}
                     </div>
-                    <span className={`font-bold text-sm ${gender === 'male' ? 'text-[#795548]' : 'text-gray-600'}`}>{t.males}</span>
+                    <span className={`font-bold text-xs ${gender === 'male' ? 'text-[#795548]' : 'text-gray-600 dark:text-gray-300'}`}>{t.males}</span>
                   </label>
 
-                  <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all p-2.5 flex items-center justify-center gap-2 ${gender === 'female' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-100 bg-[#fcfbf4] hover:border-gray-200'}`}>
+                  <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all h-[36px] flex items-center justify-center gap-2 ${gender === 'female' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-200 bg-white dark:bg-slate-800 dark:border-slate-700 hover:border-[#795548]'}`}>
                     <input type="radio" name="batch-gender" value="female" checked={gender === 'female'} onChange={() => setGender('female')} className="hidden" />
-                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${gender === 'female' ? 'border-[#795548] bg-[#795548] text-white' : 'border-gray-300'}`}>
-                      {gender === 'female' && <Check size={12} strokeWidth={3} />}
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${gender === 'female' ? 'border-[#795548] bg-[#795548] text-white' : 'border-gray-300'}`}>
+                      {gender === 'female' && <Check size={10} strokeWidth={3} />}
                     </div>
-                    <span className={`font-bold text-sm ${gender === 'female' ? 'text-[#795548]' : 'text-gray-600'}`}>{t.females}</span>
+                    <span className={`font-bold text-xs ${gender === 'female' ? 'text-[#795548]' : 'text-gray-600 dark:text-gray-300'}`}>{t.females}</span>
                   </label>
                 </div>
               </div>
 
               {/* Common Fields (Date/Age) for Batch Mode */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-gray-700">تاريخ الميلاد</label>
-                    <label className="flex items-center gap-1.5 cursor-pointer bg-[#fcfbf4] px-2 py-0.5 rounded-lg border border-gray-200 hover:bg-gray-100 transition">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300">تاريخ الميلاد</label>
+                    <label className="flex items-center gap-1 cursor-pointer bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded-md border border-gray-200 dark:border-slate-700 hover:bg-gray-105 transition">
                       <input
                         type="checkbox"
                         checked={includeBirthDate}
@@ -506,9 +507,9 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                             setAgeString('');
                           }
                         }}
-                        className="w-3.5 h-3.5 text-emerald-600 rounded focus:ring-[#795548]"
+                        className="w-3 h-3 text-[#795548] rounded focus:ring-[#795548]"
                       />
-                      <span className="text-[10px] font-bold text-gray-600">تفعيل</span>
+                      <span className="text-[8px] font-bold text-gray-600 dark:text-gray-300">تفعيل</span>
                     </label>
                   </div>
 
@@ -518,33 +519,34 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                       required
                       value={birthDate}
                       onChange={(e) => setBirthDate(e.target.value)}
-                      className="w-full px-3 py-2 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#795548] focus:bg-white outline-none transition-all font-bold text-center text-sm shadow-sm"
+                      className="w-full h-[36px] px-2 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[#795548] outline-none transition-all font-bold text-center text-xs shadow-sm"
                     />
                   ) : (
-                    <div className="w-full px-3 py-2.5 bg-[#fcfbf4] text-gray-400 border border-gray-200 rounded-xl text-xs text-center font-medium shadow-sm">
+                    <div className="w-full h-[36px] flex items-center justify-center bg-white dark:bg-slate-800 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-slate-700 rounded-xl text-[10px] text-center font-medium shadow-sm">
                       بدون تاريخ
                     </div>
                   )}
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-700">العمر (تلقائي)</label>
-                  <div className="w-full px-3 py-2.5 bg-[#795548]/10 text-[#795548] border border-gray-200 rounded-xl flex items-center justify-center gap-1.5 shadow-sm">
-                    <Calculator size={14} className="text-[#795548]" />
-                    <span className="font-bold text-sm">{ageString || '-'}</span>
+                  <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-right mb-1">العمر (تلقائي)</label>
+                  <div className="w-full h-[36px] bg-[#795548]/10 text-[#795548] border border-gray-200 dark:border-slate-700 rounded-xl flex items-center justify-center gap-1 shadow-sm">
+                    <Calculator size={12} className="text-[#795548]" />
+                    <span className="font-bold text-xs">{ageString || '-'}</span>
                   </div>
                 </div>
               </div>
             </div>
           ) : (
             /* Single Mode: Serial No + Type + Color + Nickname (One Row) */
-            <div className="space-y-2">
+            <div className="space-y-3">
               {/* Pen Selector */}
               <div>
                 <CustomSelect
                   label="القسم / الحظيرة"
                   value={selectedPenId}
                   onChange={(val) => setSelectedPenId(val)}
+                  textSize="text-xs"
                   options={pens
                     .filter(p =>
                       !p.isGroup &&
@@ -557,11 +559,11 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                 />
               </div>
 
-              <div className="space-y-4">
-                {/* Row 1: النوع & الرقم */}
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Type */}
-                  <div className="space-y-1">
+              <div className="space-y-3">
+                {/* Single Row for the Four Inputs */}
+                <div className="grid grid-cols-12 gap-1.5 items-end">
+                  {/* Type (النوع) - col-span-4 */}
+                  <div className="col-span-4 space-y-1">
                     <CustomSelect
                       label="النوع"
                       value={type}
@@ -587,30 +589,9 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                     />
                   </div>
 
-                  {/* Serial Number */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-700 block text-right mb-1">الرقم</label>
-                    <input
-                      required
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={3}
-                      value={serialNumber}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '').slice(0, 3);
-                        setSerialNumber(val);
-                      }}
-                      placeholder="000"
-                      className="w-full h-[40px] bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-xl focus:ring-1 focus:ring-[#795548] focus:bg-white outline-none transition-all font-mono text-base tracking-wider text-center shadow-sm"
-                    />
-                  </div>
-                </div>
-
-                {/* Row 2: الشارة & الكنية */}
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Tag Color Picker */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-700 block text-right mb-1">الشارة</label>
+                  {/* Tag Color (الشارة) - col-span-2 */}
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-center mb-1">الشارة</label>
                     <div className="relative w-full">
                       <input
                         ref={colorInputRef}
@@ -624,23 +605,23 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setShowColorPicker(!showColorPicker)}
-                        className="w-full h-[40px] px-1 bg-[#fcfbf4] border border-gray-200 rounded-xl hover:bg-white hover:border-[#795548] transition-all flex items-center justify-center gap-1 shadow-sm group cursor-pointer"
+                        className="w-full h-[36px] px-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl hover:bg-[#fcfbf4] hover:border-[#795548] dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-1 shadow-sm group cursor-pointer"
                       >
                         {tagColor ? (
-                          <div className="w-5 h-5 rounded-full border border-gray-200 shadow-sm ring-1 ring-white" style={{ backgroundColor: tagColor }} />
+                          <div className="w-4 h-4 rounded-full border border-gray-200 dark:border-slate-600 shadow-sm ring-1 ring-white dark:ring-slate-900" style={{ backgroundColor: tagColor }} />
                         ) : (
-                          <div className="w-5 h-5 rounded-full border-2 border-dashed border-gray-300 group-hover:border-[#795548]" />
+                          <div className="w-4 h-4 rounded-full border border-gray-300 dark:border-slate-600 group-hover:border-[#795548]" />
                         )}
                       </button>
 
                       {showColorPicker && (
-                        <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-gray-100 shadow-xl rounded-xl p-2 grid grid-cols-4 gap-1.5 w-40 animate-scale-in">
+                        <div className="absolute right-0 top-full mt-1 z-20 bg-white dark:bg-slate-850 border border-gray-100 dark:border-slate-700 shadow-xl rounded-xl p-2 grid grid-cols-4 gap-1.5 w-40 animate-scale-in">
                           {Object.entries(colorNames).map(([c, name]) => (
                             <button
                               key={c}
                               type="button"
                               onClick={() => { setTagColor(c); setColor(c); setShowColorPicker(false); }}
-                              className={`w-6 h-6 rounded-full border transition hover:scale-110 hover:shadow-md cursor-pointer ${tagColor === c ? 'ring-2 ring-offset-2 ring-[#795548]' : 'border-gray-100'}`}
+                              className={`w-6 h-6 rounded-full border transition hover:scale-110 hover:shadow-md cursor-pointer ${tagColor === c ? 'ring-2 ring-offset-2 ring-[#795548]' : 'border-gray-100 dark:border-slate-750'}`}
                               style={{ backgroundColor: c }}
                               title={name}
                             />
@@ -648,7 +629,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                           <button
                             type="button"
                             onClick={() => { setTagColor(''); setColor(''); setShowColorPicker(false); }}
-                            className="w-full col-span-4 text-[10px] text-red-500 py-1 hover:bg-red-50 rounded-lg font-bold transition-colors cursor-pointer"
+                            className="w-full col-span-4 text-[10px] text-red-500 py-1 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg font-bold transition-colors cursor-pointer"
                           >
                             إزالة
                           </button>
@@ -657,62 +638,80 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Nickname */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-700 block text-right mb-1">الكنية</label>
+                  {/* Serial Number (الرقم) - col-span-3 */}
+                  <div className="col-span-3 space-y-1">
+                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-center mb-1">الرقم</label>
+                    <input
+                      required
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={3}
+                      value={serialNumber}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 3);
+                        setSerialNumber(val);
+                      }}
+                      placeholder="000"
+                      className="w-full h-[36px] bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[#795548] outline-none transition-all font-mono text-sm tracking-wider text-center shadow-sm"
+                    />
+                  </div>
+
+                  {/* Nickname (الكنية) - col-span-3 */}
+                  <div className="col-span-3 space-y-1">
+                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-center mb-1">الكنية</label>
                     <input
                       type="text"
                       value={nickname}
                       onChange={(e) => setNickname(e.target.value)}
                       placeholder="اختياري"
-                      className="w-full h-[40px] px-3 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-xl focus:ring-1 focus:ring-[#795548] focus:bg-white outline-none transition-all font-medium text-right shadow-sm placeholder:text-gray-300 text-sm"
+                      className="w-full h-[36px] px-2 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[#795548] outline-none transition-all font-medium text-center shadow-sm placeholder:text-gray-300 dark:placeholder:text-slate-500 text-xs"
                     />
                   </div>
                 </div>
 
-                {/* Row 3: تاريخ الميلاد & العمر */}
-                <div className="grid grid-cols-2 gap-4">
+                {/* Row 2: تاريخ الميلاد & العمر */}
+                <div className="grid grid-cols-2 gap-3">
                   {/* Date */}
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-700 block text-right mb-1">تاريخ الميلاد</label>
+                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-right mb-1">تاريخ الميلاد</label>
                     <input
                       type="date"
                       required
                       value={birthDate}
                       onChange={(e) => setBirthDate(e.target.value)}
-                      className="w-full h-[40px] px-3 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-xl focus:ring-1 focus:ring-[#795548] focus:bg-white outline-none transition-all font-bold text-center text-sm shadow-sm"
+                      className="w-full h-[36px] px-2 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[#795548] outline-none transition-all font-bold text-center text-xs shadow-sm"
                     />
                   </div>
 
                   {/* Age */}
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-700 block text-right mb-1">العمر</label>
-                    <div className="w-full h-[40px] px-2 bg-[#795548]/10 text-[#795548] border border-gray-200 rounded-xl flex items-center justify-center gap-1 shadow-sm overflow-hidden">
-                      <span className="font-bold text-[11px] whitespace-nowrap">{ageString || '-'}</span>
+                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-right mb-1">العمر</label>
+                    <div className="w-full h-[36px] px-2 bg-[#795548]/10 text-[#795548] border border-gray-200 dark:border-slate-700 rounded-xl flex items-center justify-center gap-1 shadow-sm overflow-hidden">
+                      <span className="font-bold text-xs whitespace-nowrap">{ageString || '-'}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Row 4: الجنس */}
+                {/* Row 3: الجنس */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-700 block text-right mb-1">الجنس</label>
+                  <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-right mb-1">الجنس</label>
                   <div className="grid grid-cols-2 gap-2">
                     {/* Male Button */}
-                    <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all h-[40px] flex items-center justify-center gap-2 ${gender === 'male' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-200 bg-[#fcfbf4] hover:border-gray-300'}`}>
+                    <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all h-[36px] flex items-center justify-center gap-2 ${gender === 'male' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-200 bg-white dark:bg-slate-800 dark:border-slate-700 hover:border-[#795548]'}`}>
                       <input type="radio" name="gender" value="male" checked={gender === 'male'} onChange={() => setGender('male')} className="hidden" />
-                      <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${gender === 'male' ? 'border-[#795548] bg-[#795548] text-white' : 'border-gray-300'}`}>
-                        {gender === 'male' && <Check size={12} strokeWidth={3} />}
+                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${gender === 'male' ? 'border-[#795548] bg-[#795548] text-white' : 'border-gray-300 dark:border-slate-650'}`}>
+                        {gender === 'male' && <Check size={10} strokeWidth={3} />}
                       </div>
-                      <span className={`font-bold text-sm ${gender === 'male' ? 'text-[#795548]' : 'text-gray-600'}`}>{t.male}</span>
+                      <span className={`font-bold text-xs ${gender === 'male' ? 'text-[#795548]' : 'text-gray-600 dark:text-gray-300'}`}>{t.male}</span>
                     </label>
 
                     {/* Female Button */}
-                    <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all h-[40px] flex items-center justify-center gap-2 ${gender === 'female' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-200 bg-[#fcfbf4] hover:border-gray-300'}`}>
+                    <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all h-[36px] flex items-center justify-center gap-2 ${gender === 'female' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-200 bg-white dark:bg-slate-800 dark:border-slate-700 hover:border-[#795548]'}`}>
                       <input type="radio" name="gender" value="female" checked={gender === 'female'} onChange={() => setGender('female')} className="hidden" />
-                      <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${gender === 'female' ? 'border-[#795548] bg-[#795548] text-white' : 'border-gray-300'}`}>
-                        {gender === 'female' && <Check size={12} strokeWidth={3} />}
+                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${gender === 'female' ? 'border-[#795548] bg-[#795548] text-white' : 'border-gray-300'}`}>
+                        {gender === 'female' && <Check size={10} strokeWidth={3} />}
                       </div>
-                      <span className={`font-bold text-sm ${gender === 'female' ? 'text-[#795548]' : 'text-gray-600'}`}>{t.female}</span>
+                      <span className={`font-bold text-xs ${gender === 'female' ? 'text-[#795548]' : 'text-gray-600 dark:text-gray-300'}`}>{t.female}</span>
                     </label>
                   </div>
                 </div>
@@ -723,24 +722,24 @@ export const SheepModal: React.FC<SheepModalProps> = ({
 
           {/* Parents - Only for Sheep/Camels/Cows (Not batch mode) */}
           {(!isBatchMode || initialData) && isSheep && (
-            <div className="space-y-4 pt-4 border-t border-gray-100">
+            <div className="space-y-3 pt-3.5 border-t border-gray-100 dark:border-slate-800">
 
-              <div className="grid grid-cols-2 gap-3 mb-2">
-                <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all p-2.5 flex items-center justify-center gap-2 ${source === 'purchase' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-100 bg-[#fcfbf4] hover:border-gray-200'}`}>
+              <div className="grid grid-cols-2 gap-2 mb-1">
+                <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all h-[36px] flex items-center justify-center gap-1.5 ${source === 'purchase' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-200 bg-white dark:bg-slate-800 dark:border-slate-700 hover:border-[#795548]'}`}>
                   <input type="radio" name="source" value="purchase" checked={source === 'purchase'} onChange={() => setSource('purchase')} className="hidden" />
-                  <span className={`font-bold text-sm ${source === 'purchase' ? 'text-[#795548]' : 'text-gray-600'}`}>شراء</span>
+                  <span className={`font-bold text-xs ${source === 'purchase' ? 'text-[#795548]' : 'text-gray-650 dark:text-gray-300'}`}>شراء</span>
                 </label>
 
-                <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all p-2.5 flex items-center justify-center gap-2 ${source === 'born' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-100 bg-[#fcfbf4] hover:border-gray-200'}`}>
+                <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all h-[36px] flex items-center justify-center gap-1.5 ${source === 'born' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-200 bg-white dark:bg-slate-800 dark:border-slate-700 hover:border-[#795548]'}`}>
                   <input type="radio" name="source" value="born" checked={source === 'born'} onChange={() => setSource('born')} className="hidden" />
-                  <span className={`font-bold text-sm ${source === 'born' ? 'text-[#795548]' : 'text-gray-600'}`}>مولود</span>
+                  <span className={`font-bold text-xs ${source === 'born' ? 'text-[#795548]' : 'text-gray-650 dark:text-gray-300'}`}>مولود</span>
                 </label>
               </div>
 
               {source === 'purchase' && (
-                <div className="grid grid-cols-2 gap-3 animate-fade-in bg-[#fcfbf4] p-3 rounded-xl border border-gray-100">
+                <div className="grid grid-cols-2 gap-3 animate-fade-in bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-gray-100 dark:border-slate-700 shadow-sm">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-700 block text-right">سعر الشراء</label>
+                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-right mb-1">سعر الشراء</label>
                     <input
                       type="number"
                       required
@@ -748,17 +747,17 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                       value={purchaseAmount}
                       onChange={(e) => setPurchaseAmount(e.target.value)}
                       placeholder="0"
-                      className="w-full h-[40px] px-3 bg-white text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#795548] outline-none transition-all shadow-sm text-center font-bold"
+                      className="w-full h-[36px] px-2 bg-white dark:bg-slate-900 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[#795548] outline-none transition-all shadow-sm text-center font-bold text-xs"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-700 block text-right">تاريخ الشراء</label>
+                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-right mb-1">تاريخ الشراء</label>
                     <input
                       type="date"
                       required
                       value={purchaseDate}
                       onChange={(e) => setPurchaseDate(e.target.value)}
-                      className="w-full px-3 py-2 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#795548] focus:bg-white outline-none transition-all font-bold text-center text-sm shadow-sm"
+                      className="w-full h-[36px] px-2 bg-white dark:bg-slate-900 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[#795548] outline-none transition-all font-bold text-center text-xs shadow-sm"
                     />
                   </div>
                 </div>
@@ -766,10 +765,9 @@ export const SheepModal: React.FC<SheepModalProps> = ({
 
               {source === 'born' && (
                 <>
-                  <label className="text-xs font-bold text-gray-700">بيانات الأب والأم <span className="text-[10px] text-gray-400 font-normal">(اختياري)</span></label>
+                  <label className="text-[10px] font-bold text-gray-550 dark:text-gray-300 block mb-1">بيانات الأب والأم <span className="text-[9px] text-gray-400 font-normal">(اختياري)</span></label>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Mother Selector */}
+                  <div className="grid grid-cols-2 gap-3">
                     {/* Mother Selector */}
                     {(() => {
                       const matches = motherSearchQuery ? existingSheep.filter(s =>
@@ -781,8 +779,8 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                       const selectedMother = motherId ? existingSheep.find(s => s.id === motherId) : null;
 
                       return (
-                        <div className="space-y-2 relative group/parent">
-                          <label className="text-[10px] font-bold text-pink-400 block text-center">الأم</label>
+                        <div className="space-y-1.5 relative group/parent">
+                          <label className="text-[10px] font-bold text-pink-400 block text-center mb-0.5">الأم</label>
                           <div className="flex flex-col gap-2">
                             {/* Number Input with Tooltip */}
                             <div className="relative w-full">
@@ -806,16 +804,16 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                                   }
                                 }}
                                 placeholder="رقم الأم"
-                                className={`w-full px-2 py-3 bg-white text-gray-900 border ${selectedMother ? 'border-pink-500 ring-1 ring-pink-500/20' : 'border-gray-200'} rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-center font-bold text-lg shadow-sm placeholder:text-gray-300 placeholder:text-sm transition-all`}
+                                className={`w-full h-[36px] px-2 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border ${selectedMother ? 'border-pink-500 ring-1 ring-pink-500/20' : 'border-gray-200 dark:border-slate-700'} rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-center font-bold text-sm shadow-sm placeholder:text-gray-300 dark:placeholder:text-slate-500 transition-all`}
                               />
                               {selectedMother && (
                                 <>
                                   <div
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full shadow-sm ring-1 ring-white"
+                                    className="absolute left-2.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full shadow-sm ring-1 ring-white dark:ring-slate-900"
                                     style={{ backgroundColor: selectedMother.tagColor || '#e5e7eb' }}
                                   />
                                   {/* Tooltip */}
-                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/parent:block z-50 whitespace-nowrap">
+                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/parent:block z-50 whitespace-nowrap">
                                     <div className="bg-gray-800 text-white text-xs px-2 py-1 rounded shadow-lg flex items-center gap-2">
                                       <span>{pens.find(p => p.id === selectedMother.penId)?.name || 'غير معروف'}</span>
                                       {selectedMother.tagColor && (
@@ -831,7 +829,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
 
                           {/* Dropdown for Matches */}
                           {!motherId && matches.length > 0 && (
-                            <div className="absolute top-[60px] left-0 right-0 z-30 mt-1 bg-white border border-gray-100 rounded-xl shadow-xl p-2 flex flex-col gap-1 animate-scale-in max-h-48 overflow-y-auto custom-scrollbar">
+                            <div className="absolute top-[40px] left-0 right-0 z-30 mt-1 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl shadow-xl p-1 flex flex-col gap-0.5 animate-scale-in max-h-48 overflow-y-auto custom-scrollbar">
                               {matches.map(match => (
                                 <button
                                   key={match.id}
@@ -840,13 +838,13 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                                     setMotherSearchQuery(match.serialNumber);
                                     setMotherId(match.id);
                                   }}
-                                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-gray-50 hover:bg-pink-50 hover:border-pink-200 hover:text-pink-700 transition-all text-xs group w-full text-right"
+                                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg border border-gray-50 dark:border-slate-700 hover:bg-pink-50 hover:border-pink-200 dark:hover:bg-pink-950/20 hover:text-pink-700 dark:hover:text-pink-400 transition-all text-xs group w-full text-right cursor-pointer"
                                 >
-                                  <div className={`w-2.5 h-2.5 rounded-full ring-1 ring-gray-100 shrink-0 ${match.tagColor ? '' : 'bg-gray-200'}`} style={{ backgroundColor: match.tagColor || undefined }} />
-                                  <span className="font-bold text-gray-700 group-hover:text-pink-700 truncate flex-1">
+                                  <div className={`w-2 h-2 rounded-full ring-1 ring-gray-100 dark:ring-slate-700 shrink-0 ${match.tagColor ? '' : 'bg-gray-200'}`} style={{ backgroundColor: match.tagColor || undefined }} />
+                                  <span className="font-bold text-gray-700 dark:text-gray-200 group-hover:text-pink-700 dark:group-hover:text-pink-450 truncate flex-1">
                                     {match.serialNumber}
                                   </span>
-                                  <span className="text-[10px] text-gray-400 group-hover:text-pink-400">
+                                  <span className="text-[10px] text-gray-400 dark:text-gray-500 group-hover:text-pink-400">
                                     {pens.find(p => p.id === match.penId)?.name}
                                   </span>
                                 </button>
@@ -854,9 +852,9 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                             </div>
                           )}
                           {!motherId && matches.length === 0 && motherSearchQuery.length >= 2 && (
-                            <div className="absolute top-[60px] left-0 right-0 z-30 mt-1 bg-white border border-gray-100 rounded-xl shadow-sm p-3 text-center">
-                              <p className="text-xs font-bold text-gray-800">لا يوجد نتائج</p>
-                              <p className="text-[10px] text-gray-400 mt-1">تأكد من رقم الأم</p>
+                            <div className="absolute top-[40px] left-0 right-0 z-30 mt-1 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl shadow-sm p-2 text-center">
+                              <p className="text-xs font-bold text-gray-800 dark:text-gray-250">لا يوجد نتائج</p>
+                              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">تأكد من رقم الأم</p>
                             </div>
                           )}
                         </div>
@@ -874,8 +872,8 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                       const selectedFather = fatherId ? existingSheep.find(s => s.id === fatherId) : null;
 
                       return (
-                        <div className="space-y-2 relative group/parent">
-                          <label className="text-[10px] font-bold text-blue-400 block text-center">الأب</label>
+                        <div className="space-y-1.5 relative group/parent">
+                          <label className="text-[10px] font-bold text-blue-400 block text-center mb-0.5">الأب</label>
                           <div className="flex flex-col gap-2">
                             {/* Number Input with Tooltip */}
                             <div className="relative w-full">
@@ -898,16 +896,16 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                                   }
                                 }}
                                 placeholder="رقم الأب"
-                                className={`w-full px-2 py-3 bg-white text-gray-900 border ${selectedFather ? 'border-blue-500 ring-1 ring-blue-500/20' : 'border-gray-200'} rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-center font-bold text-lg shadow-sm placeholder:text-gray-300 placeholder:text-sm transition-all`}
+                                className={`w-full h-[36px] px-2 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border ${selectedFather ? 'border-blue-500 ring-1 ring-blue-500/20' : 'border-gray-200 dark:border-slate-700'} rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-center font-bold text-sm shadow-sm placeholder:text-gray-300 dark:placeholder:text-slate-500 transition-all`}
                               />
                               {selectedFather && (
                                 <>
                                   <div
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full shadow-sm ring-1 ring-white"
+                                    className="absolute left-2.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full shadow-sm ring-1 ring-white dark:ring-slate-900"
                                     style={{ backgroundColor: selectedFather.tagColor || '#e5e7eb' }}
                                   />
                                   {/* Tooltip */}
-                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/parent:block z-50 whitespace-nowrap">
+                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/parent:block z-50 whitespace-nowrap">
                                     <div className="bg-gray-800 text-white text-xs px-2 py-1 rounded shadow-lg flex items-center gap-2">
                                       <span>{pens.find(p => p.id === selectedFather.penId)?.name || 'غير معروف'}</span>
                                       {selectedFather.tagColor && (
@@ -923,7 +921,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
 
                           {/* Dropdown for Matches */}
                           {!fatherId && matches.length > 0 && (
-                            <div className="absolute top-[60px] left-0 right-0 z-30 mt-1 bg-white border border-gray-100 rounded-xl shadow-xl p-2 flex flex-col gap-1 animate-scale-in max-h-48 overflow-y-auto custom-scrollbar">
+                            <div className="absolute top-[40px] left-0 right-0 z-30 mt-1 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl shadow-xl p-1 flex flex-col gap-0.5 animate-scale-in max-h-48 overflow-y-auto custom-scrollbar">
                               {matches.map(match => (
                                 <button
                                   key={match.id}
@@ -932,13 +930,13 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                                     setFatherSearchQuery(match.serialNumber);
                                     setFatherId(match.id);
                                   }}
-                                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-gray-50 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all text-xs group w-full text-right"
+                                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg border border-gray-50 dark:border-slate-700 hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/20 hover:text-blue-700 dark:hover:text-blue-400 transition-all text-xs group w-full text-right cursor-pointer"
                                 >
-                                  <div className={`w-2.5 h-2.5 rounded-full ring-1 ring-gray-100 shrink-0 ${match.tagColor ? '' : 'bg-gray-200'}`} style={{ backgroundColor: match.tagColor || undefined }} />
-                                  <span className="font-bold text-gray-700 group-hover:text-blue-700 truncate flex-1">
+                                  <div className={`w-2 h-2 rounded-full ring-1 ring-gray-100 dark:ring-slate-700 shrink-0 ${match.tagColor ? '' : 'bg-gray-200'}`} style={{ backgroundColor: match.tagColor || undefined }} />
+                                  <span className="font-bold text-gray-700 dark:text-gray-200 group-hover:text-blue-700 truncate flex-1">
                                     {match.serialNumber}
                                   </span>
-                                  <span className="text-[10px] text-gray-400 group-hover:text-blue-400">
+                                  <span className="text-[10px] text-gray-400 dark:text-gray-500 group-hover:text-blue-400">
                                     {pens.find(p => p.id === match.penId)?.name}
                                   </span>
                                 </button>
@@ -946,9 +944,9 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                             </div>
                           )}
                           {!fatherId && matches.length === 0 && fatherSearchQuery.length >= 2 && (
-                            <div className="absolute top-[60px] left-0 right-0 z-30 mt-1 bg-white border border-gray-100 rounded-xl shadow-sm p-3 text-center">
-                              <p className="text-xs font-bold text-gray-800">لا يوجد نتائج</p>
-                              <p className="text-[10px] text-gray-400 mt-1">تأكد من رقم الأب</p>
+                            <div className="absolute top-[40px] left-0 right-0 z-30 mt-1 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl shadow-sm p-2 text-center">
+                              <p className="text-xs font-bold text-gray-800 dark:text-gray-250">لا يوجد نتائج</p>
+                              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">تأكد من رقم الأب</p>
                             </div>
                           )}
                         </div>
@@ -963,19 +961,19 @@ export const SheepModal: React.FC<SheepModalProps> = ({
 
 
 
-          <div className="pt-8 border-t border-gray-100 dark:border-slate-800 flex gap-4">
+          <div className="pt-4 border-t border-gray-100 dark:border-slate-800 flex gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-3 rounded-xl border border-gray-200 text-gray-700 font-bold hover:bg-[#fcfbf4] hover:border-gray-300 transition-all text-sm"
+              className="px-4 h-[38px] rounded-xl border border-gray-200 text-gray-700 font-bold hover:bg-[#fcfbf4] hover:border-gray-300 transition-all text-xs cursor-pointer"
             >
               إلغاء
             </button>
             <button
               type="submit"
-              className="flex-1 px-6 py-3 rounded-xl bg-[#795548] text-white font-bold hover:bg-[#5D4037] transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 text-sm"
+              className="flex-1 px-4 h-[38px] rounded-xl bg-[#795548] text-white font-bold hover:bg-[#5D4037] transition-all shadow-md flex items-center justify-center gap-1.5 text-xs cursor-pointer"
             >
-              <Save size={18} />
+              <Save size={16} />
               <span>حفظ البيانات</span>
             </button>
           </div>
