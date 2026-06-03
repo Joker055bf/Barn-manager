@@ -16,6 +16,7 @@ interface CustomSelectProps {
     className?: string;
     dir?: string;
     required?: boolean;
+    textSize?: string;
 }
 
 export const CustomSelect: React.FC<CustomSelectProps> = ({
@@ -26,7 +27,8 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
     placeholder = 'اختر',
     className = '',
     dir = 'rtl',
-    required = false
+    required = false,
+    textSize = 'text-sm'
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -51,7 +53,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                 <button
                     type="button"
                     onClick={() => setIsOpen(!isOpen)}
-                    className="w-full px-4 py-3.5 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-[#795548] focus:border-[#795548] outline-none transition-all font-bold text-sm flex items-center justify-between shadow-sm"
+                    className={`w-full px-4 py-3.5 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-[#795548] focus:border-[#795548] outline-none transition-all font-bold flex items-center justify-between shadow-sm ${textSize}`}
                 >
                     <span className={selectedOption ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}>
                         {selectedOption ? selectedOption.label : placeholder}
@@ -74,7 +76,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                                                 setIsOpen(false);
                                             }
                                         }}
-                                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+                                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition-all ${textSize} ${
                                             option.disabled 
                                                 ? 'cursor-not-allowed text-gray-600/95 dark:text-slate-400/95 bg-gray-50/70 dark:bg-slate-900/30 font-medium' 
                                                 : isSelected

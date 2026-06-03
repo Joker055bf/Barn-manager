@@ -296,17 +296,14 @@ function App() {
         }
 
         // Explicitly register /firebase-messaging-sw.js with explicit scope to be 100% reliable
-        const customApiKeyVal = safeStorage.getItem('rai_firebase_api_key') || '';
-        const swUrl = customApiKeyVal 
-          ? `/firebase-messaging-sw.js?apiKey=${encodeURIComponent(customApiKeyVal)}`
-          : '/firebase-messaging-sw.js';
+        const swUrl = '/firebase-messaging-sw.js';
 
         const registration = await navigator.serviceWorker.register(swUrl, {
           scope: '/'
         });
-        console.log('FCM Service Worker registered successfully:', registration);
+        console.log('تم تسجيل FCM Service Worker للمتصفح بنجاح:', registration);
 
-        // Wait for the service worker to be fully activated if it is installing or waiting
+        // الانتظار حتى يتفعل في خلفية المتصفح بالكامل
         const serviceWorker = registration.installing || registration.waiting || registration.active;
         if (serviceWorker && serviceWorker.state !== 'activated') {
           await new Promise<void>((resolve) => {
@@ -318,8 +315,7 @@ function App() {
             };
             serviceWorker.addEventListener('statechange', stateChangeHandler);
           });
-          // Tiny extra delay to allow clients.claim() and Firebase initialization to complete
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
 
         const { getToken } = await import('firebase/messaging');
@@ -694,7 +690,8 @@ function App() {
   const [isActionMenuOpen, setIsActionMenu] = useState(false);
   const [isEditingOwner, setIsEditingOwner] = useState(false);
   const [customDateRange, setCustomDateRange] = useState<{ start: string, end: string }>({ start: '', end: '' });
-  const [medicalModalOptions, setMedicalModalOptions] = useState<{ defaultStatusOnSave?: 'healthy' | 'sick', allowNoName?: boolean }>({});
+  const [medicalModalOptions, setMedicalModalOptions] = useState<{ defaultStatusOnSave?: 'healthy' | 'sick', allowNoName?: boolean, defaultRecordType?: 'vaccine' | 'treatment' | 'checkup' }>({});
+  const [reproductionDate, setReproductionDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [isWorkerManageOpen, setIsWorkerManageOpen] = useState(false);
   const [isWorkerActivityOpen, setIsWorkerActivityOpen] = useState(false);
   const [workerActivityFilter, setWorkerActivityFilter] = useState<'all' | 'add' | 'edit' | 'delete' | 'medical' | 'finance'>('all');
@@ -1518,7 +1515,7 @@ function App() {
   };
 
   // --- Medical Record Logic ---
-  const openMedicalModal = (sheep: Sheep, options?: { defaultStatusOnSave?: 'healthy' | 'sick', allowNoName?: boolean }) => {
+  const openMedicalModal = (sheep: Sheep, options?: { defaultStatusOnSave?: 'healthy' | 'sick', allowNoName?: boolean, defaultRecordType?: 'vaccine' | 'treatment' | 'checkup' }) => {
     setSelectedSheepForAction(sheep);
     setMedicalModalOptions(options || {});
     setIsMedicalModalOpen(true);
@@ -1547,7 +1544,8 @@ function App() {
           updateData.status = medicalModalOptions.defaultStatusOnSave;
         }
         await updateDoc(doc(db, 'farms', ownerId, 'sheep', selectedSheepForAction.id), updateData);
-        logActivity('سجل طبي', `${record.type === 'vaccine' ? 'تلقيح' : 'علاج'} #${selectedSheepForAction.serialNumber}`, selectedSheepForAction.serialNumber, selectedSheepForAction.tagColor);
+        const recordTypeLabel = record.type === 'vaccine' ? 'تطعيم' : (record.type === 'treatment' ? 'علاج' : 'فحص');
+        logActivity('سجل طبي', `${recordTypeLabel}: ${record.name} (#${selectedSheepForAction.serialNumber})`, selectedSheepForAction.serialNumber, selectedSheepForAction.tagColor);
         // Locally update the selected sheep so the modal reflects the change
         setSelectedSheepForAction({
           ...selectedSheepForAction,
@@ -1715,6 +1713,12 @@ function App() {
     expectedDurationDays: number
   } | null>(null);
 
+  useEffect(() => {
+    if (reproductionConfirmState) {
+      setReproductionDate(new Date().toISOString().split('T')[0]);
+    }
+  }, [reproductionConfirmState]);
+
   const renderSheepRow = (sheep: Sheep) => (
     <div
       key={sheep.id}
@@ -1856,7 +1860,7 @@ function App() {
             <button
               onClick={() => {
                 setViewingSheep(undefined);
-                openMedicalModal(sheep, { defaultStatusOnSave: 'sick', allowNoName: true });
+                openMedicalModal(sheep, { defaultStatusOnSave: 'sick', allowNoName: true, defaultRecordType: 'treatment' });
               }}
               className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 rounded-2xl shadow-sm transition"
             >
@@ -1897,8 +1901,14 @@ function App() {
                 </button>
               );
             } else {
-              const daysLactation = sheep.lactationStartDate ? Math.max(0, Math.floor((Date.now() - new Date(sheep.lactationStartDate).getTime()) / (1000 * 60 * 60 * 24))) : 0;
-              const remainingLactation = Math.max(0, 90 - daysLactation);
+              let remainingLactation = 90;
+              if (sheep.lactationStartDate) {
+                const startTime = new Date(sheep.lactationStartDate).getTime();
+                if (!isNaN(startTime)) {
+                  const daysLactation = Math.max(0, Math.floor((Date.now() - startTime) / (1000 * 60 * 60 * 24)));
+                  remainingLactation = Math.max(0, 90 - daysLactation);
+                }
+              }
               return (
                 <button
                   onClick={() => setReproductionConfirmState({ sheep, currentStatus: 'mother', nextStatus: 'empty', expectedDurationDays: 0 })}
@@ -3365,6 +3375,7 @@ function App() {
         }}
         defaultStatusOnSave={medicalModalOptions.defaultStatusOnSave}
         allowNoName={medicalModalOptions.allowNoName}
+        defaultRecordType={medicalModalOptions.defaultRecordType}
       />
       <MoveSheepModal
         isOpen={isMoveModalOpen}
@@ -3468,18 +3479,34 @@ function App() {
                        'سيتم إعادة الحيوان إلى حالة (غير مضرع).'}
                     </p>
                     
+                    {(reproductionConfirmState.nextStatus === 'pregnant' || reproductionConfirmState.nextStatus === 'mother') && (
+                      <div className="mb-5 text-right space-y-1">
+                        <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">
+                          {reproductionConfirmState.nextStatus === 'pregnant' ? 'تاريخ التلقيح / الحمل' : 'تاريخ الولادة'}
+                        </label>
+                        <input
+                          type="date"
+                          value={reproductionDate}
+                          onChange={(e) => setReproductionDate(e.target.value)}
+                          max={new Date().toISOString().split('T')[0]}
+                          className="w-full h-[40px] px-3 bg-white text-gray-900 border border-gray-200 rounded-xl focus:ring-1 focus:ring-purple-500 focus:bg-white outline-none transition-all font-bold text-center text-sm shadow-sm"
+                        />
+                      </div>
+                    )}
+
                     <div className="flex flex-col gap-3">
                       <button
                         onClick={async () => {
                           const { sheep, nextStatus, expectedDurationDays } = reproductionConfirmState;
                           try {
                             let updates: any = { reproductionStatus: nextStatus };
+                            const selDate = new Date(reproductionDate);
                             if (nextStatus === 'pregnant') {
-                              updates.pregnancyDate = new Date().toISOString();
-                              updates.expectedBirthDate = new Date(Date.now() + expectedDurationDays * 24 * 60 * 60 * 1000).toISOString();
+                              updates.pregnancyDate = selDate.toISOString();
+                              updates.expectedBirthDate = new Date(selDate.getTime() + expectedDurationDays * 24 * 60 * 60 * 1000).toISOString();
                             } else if (nextStatus === 'mother') {
-                              updates.lactationStartDate = new Date().toISOString();
-                              updates.lastBirthDate = new Date().toISOString();
+                              updates.lactationStartDate = selDate.toISOString();
+                              updates.lastBirthDate = selDate.toISOString();
                             } else if (nextStatus === 'empty') {
                               updates.lactationStartDate = null;
                               updates.pregnancyDate = null;

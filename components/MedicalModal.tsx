@@ -11,6 +11,7 @@ interface MedicalModalProps {
   onUpdateStatus?: (status: 'healthy' | 'sick') => void;
   defaultStatusOnSave?: 'healthy' | 'sick';
   allowNoName?: boolean;
+  defaultRecordType?: 'vaccine' | 'treatment' | 'checkup';
 }
 
 const getAnimalAgeInDays = (birthDateStr: string | undefined): number => {
@@ -46,26 +47,18 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({
   onAddRecord,
   onUpdateStatus,
   defaultStatusOnSave,
-  allowNoName
+  allowNoName,
+  defaultRecordType
 }) => {
   const [activeTab, setActiveTab] = useState<'add' | 'history' | 'guide'>('add');
-
-  useEffect(() => {
-    if (isOpen && sheep) {
-      setActiveTab('add');
-    }
-  }, [isOpen, sheep]);
-  
-  // Form State
   const [recordType, setRecordType] = useState<'vaccine' | 'treatment' | 'checkup'>('vaccine');
   const [name, setName] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
 
-  if (!isOpen || !sheep) return null;
-
-  const records = sheep.medicalRecords || [];
-  const metadata = getAnimalMetadata(sheep.type);
+  // Calculate lists
+  const records = sheep?.medicalRecords || [];
+  const metadata = sheep ? getAnimalMetadata(sheep.type) : null;
   const vaccines = metadata?.vaccines || [];
 
   // Determine which recommended vaccines have been taken vs not taken
@@ -73,7 +66,7 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({
     records.some(rec => rec.type === 'vaccine' && rec.name.toLowerCase().includes(v.name.toLowerCase()))
   );
 
-  const animalAgeInDays = getAnimalAgeInDays(sheep.birthDate);
+  const animalAgeInDays = sheep ? getAnimalAgeInDays(sheep.birthDate) : 0;
 
   const untakenVaccines = vaccines.filter(v => {
     const isUntaken = !records.some(rec => rec.type === 'vaccine' && rec.name.toLowerCase().includes(v.name.toLowerCase()));
@@ -83,6 +76,25 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({
     const targetAgeDays = parseVaccineAgeToDays(v.age);
     return animalAgeInDays >= targetAgeDays;
   });
+
+  useEffect(() => {
+    if (isOpen && sheep) {
+      const isVaccineMode = !defaultRecordType || defaultRecordType === 'vaccine';
+      if (isVaccineMode) {
+        if (untakenVaccines.length > 0) {
+          setActiveTab('guide');
+        } else {
+          setActiveTab('history');
+        }
+        setRecordType('vaccine');
+      } else {
+        setActiveTab('add');
+        setRecordType(defaultRecordType);
+      }
+    }
+  }, [isOpen, sheep, defaultRecordType]);
+
+  if (!isOpen || !sheep) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

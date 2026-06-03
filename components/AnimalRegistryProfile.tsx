@@ -78,9 +78,11 @@ export const AnimalRegistryProfile: React.FC<AnimalRegistryProfileProps> = ({
 
   const getLactationRemainingDays = () => {
     if (sheep.reproductionStatus !== 'mother') return 0;
-    const daysLactation = sheep.lactationStartDate ? Math.max(0, Math.floor((Date.now() - new Date(sheep.lactationStartDate).getTime()) / (1000 * 60 * 60 * 24))) : 0;
-    const remaining = Math.max(0, 90 - daysLactation);
-    return remaining;
+    if (!sheep.lactationStartDate) return 90;
+    const startTime = new Date(sheep.lactationStartDate).getTime();
+    if (isNaN(startTime)) return 90;
+    const daysLactation = Math.max(0, Math.floor((Date.now() - startTime) / (1000 * 60 * 60 * 24)));
+    return Math.max(0, 90 - daysLactation);
   };
 
   // 1. Offspring calculation

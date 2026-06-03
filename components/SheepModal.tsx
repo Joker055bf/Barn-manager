@@ -444,6 +444,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                     label="النوع"
                     value={type}
                     onChange={(val) => setType(val as SheepType)}
+                    textSize="text-xs"
                     options={Object.values(SheepType)
                       .filter(t => {
                         const birdTypes = [SheepType.CHICKEN, SheepType.PIGEON, SheepType.DUCK, SheepType.GUINEA_FOWL, SheepType.TURKEY, SheepType.QUAIL];
@@ -471,20 +472,20 @@ export const SheepModal: React.FC<SheepModalProps> = ({
               <div className="space-y-1">
                 <label className="text-xs font-bold text-gray-700">الجنس</label>
                 <div className="grid grid-cols-2 gap-3">
-                  <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all p-2.5 flex items-center justify-center gap-2 ${gender === 'male' ? 'border-[#795548] bg-[#795548]/10/50' : 'border-gray-100 bg-[#fcfbf4] hover:border-gray-200'}`}>
+                  <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all p-2.5 flex items-center justify-center gap-2 ${gender === 'male' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-100 bg-[#fcfbf4] hover:border-gray-200'}`}>
                     <input type="radio" name="batch-gender" value="male" checked={gender === 'male'} onChange={() => setGender('male')} className="hidden" />
-                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${gender === 'male' ? 'border-[#795548] bg-[#795548]/100 text-white' : 'border-gray-300'}`}>
+                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${gender === 'male' ? 'border-[#795548] bg-[#795548] text-white' : 'border-gray-300'}`}>
                       {gender === 'male' && <Check size={12} strokeWidth={3} />}
                     </div>
-                    <span className={`font-bold text-sm ${gender === 'male' ? 'text-emerald-700' : 'text-gray-600'}`}>{t.males}</span>
+                    <span className={`font-bold text-sm ${gender === 'male' ? 'text-[#795548]' : 'text-gray-600'}`}>{t.males}</span>
                   </label>
 
-                  <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all p-2.5 flex items-center justify-center gap-2 ${gender === 'female' ? 'border-[#795548] bg-[#795548]/10/50' : 'border-gray-100 bg-[#fcfbf4] hover:border-gray-200'}`}>
+                  <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all p-2.5 flex items-center justify-center gap-2 ${gender === 'female' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-100 bg-[#fcfbf4] hover:border-gray-200'}`}>
                     <input type="radio" name="batch-gender" value="female" checked={gender === 'female'} onChange={() => setGender('female')} className="hidden" />
-                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${gender === 'female' ? 'border-[#795548] bg-[#795548]/100 text-white' : 'border-gray-300'}`}>
+                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${gender === 'female' ? 'border-[#795548] bg-[#795548] text-white' : 'border-gray-300'}`}>
                       {gender === 'female' && <Check size={12} strokeWidth={3} />}
                     </div>
-                    <span className={`font-bold text-sm ${gender === 'female' ? 'text-emerald-700' : 'text-gray-600'}`}>{t.females}</span>
+                    <span className={`font-bold text-sm ${gender === 'female' ? 'text-[#795548]' : 'text-gray-600'}`}>{t.females}</span>
                   </label>
                 </div>
               </div>
@@ -528,7 +529,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
 
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-700">العمر (تلقائي)</label>
-                  <div className="w-full px-3 py-2.5 bg-[#795548]/10/50 text-emerald-800 border border-emerald-100 rounded-xl flex items-center justify-center gap-1.5 shadow-sm">
+                  <div className="w-full px-3 py-2.5 bg-[#795548]/10 text-[#795548] border border-gray-200 rounded-xl flex items-center justify-center gap-1.5 shadow-sm">
                     <Calculator size={14} className="text-[#795548]" />
                     <span className="font-bold text-sm">{ageString || '-'}</span>
                   </div>
@@ -556,157 +557,164 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-12 gap-2">
-                {/* Type - col-span-3 */}
-                <div className="col-span-3 space-y-1">
-                  <CustomSelect
-                    label="النوع"
-                    value={type}
-                    onChange={(val) => setType(val as SheepType)}
-                    options={Object.values(SheepType)
-                      .filter(t => {
-                        const birdTypes = [SheepType.CHICKEN, SheepType.PIGEON, SheepType.DUCK, SheepType.GUINEA_FOWL, SheepType.TURKEY, SheepType.QUAIL];
-                        const camelTypes = [SheepType.MAJAHEEM, SheepType.WADAH, SheepType.SAFAR, SheepType.SHAAL, SheepType.HOMR];
+              <div className="space-y-4">
+                {/* Row 1: النوع & الرقم */}
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Type */}
+                  <div className="space-y-1">
+                    <CustomSelect
+                      label="النوع"
+                      value={type}
+                      onChange={(val) => setType(val as SheepType)}
+                      textSize="text-xs"
+                      options={Object.values(SheepType)
+                        .filter(t => {
+                          const birdTypes = [SheepType.CHICKEN, SheepType.PIGEON, SheepType.DUCK, SheepType.GUINEA_FOWL, SheepType.TURKEY, SheepType.QUAIL];
+                          const camelTypes = [SheepType.MAJAHEEM, SheepType.WADAH, SheepType.SAFAR, SheepType.SHAAL, SheepType.HOMR];
 
-                        if (isCamels) {
-                          return camelTypes.includes(t);
-                        }
+                          if (isCamels) {
+                            return camelTypes.includes(t);
+                          }
 
-                        if (isSheep) {
-                          return !birdTypes.includes(t) && !camelTypes.includes(t);
-                        }
+                          if (isSheep) {
+                            return !birdTypes.includes(t) && !camelTypes.includes(t);
+                          }
 
-                        return !camelTypes.includes(t);
-                      })
-                      .sort((a, b) => a === SheepType.OTHER ? 1 : b === SheepType.OTHER ? -1 : 0)
-                      .map(t => ({ value: t, label: t }))}
-                  />
-                </div>
-
-                {/* Tag Color Picker - col-span-2 */}
-                <div className="col-span-2 space-y-1">
-                  <label className="text-xs font-bold text-gray-700 block text-center mb-1">الشارة</label>
-                  <div className="relative w-full">
-                    <input
-                      ref={colorInputRef}
-                      type="text"
-                      required
-                      value={tagColor}
-                      onChange={() => { }}
-                      className="absolute inset-0 w-full h-full opacity-0 z-0 cursor-pointer pointer-events-none"
-                      tabIndex={-1}
+                          return !camelTypes.includes(t);
+                        })
+                        .sort((a, b) => a === SheepType.OTHER ? 1 : b === SheepType.OTHER ? -1 : 0)
+                        .map(t => ({ value: t, label: t }))}
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowColorPicker(!showColorPicker)}
-                      className="w-full h-[38px] px-1 bg-[#fcfbf4] border border-gray-200 rounded-lg hover:bg-white hover:border-emerald-300 transition-all flex items-center justify-center gap-1 shadow-sm group"
-                    >
-                      {tagColor ? (
-                        <div className="w-5 h-5 rounded-full border border-gray-200 shadow-sm ring-1 ring-white" style={{ backgroundColor: tagColor }} />
-                      ) : (
-                        <div className="w-5 h-5 rounded-full border-2 border-dashed border-gray-300 group-hover:border-emerald-400" />
-                      )}
-                    </button>
+                  </div>
 
-                    {showColorPicker && (
-                      <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-gray-100 shadow-xl rounded-xl p-2 grid grid-cols-4 gap-1.5 w-40 animate-scale-in">
-                        {Object.entries(colorNames).map(([c, name]) => (
+                  {/* Serial Number */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-700 block text-right mb-1">الرقم</label>
+                    <input
+                      required
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={3}
+                      value={serialNumber}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 3);
+                        setSerialNumber(val);
+                      }}
+                      placeholder="000"
+                      className="w-full h-[40px] bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-xl focus:ring-1 focus:ring-[#795548] focus:bg-white outline-none transition-all font-mono text-base tracking-wider text-center shadow-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Row 2: الشارة & الكنية */}
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Tag Color Picker */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-700 block text-right mb-1">الشارة</label>
+                    <div className="relative w-full">
+                      <input
+                        ref={colorInputRef}
+                        type="text"
+                        required
+                        value={tagColor}
+                        onChange={() => { }}
+                        className="absolute inset-0 w-full h-full opacity-0 z-0 cursor-pointer pointer-events-none"
+                        tabIndex={-1}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowColorPicker(!showColorPicker)}
+                        className="w-full h-[40px] px-1 bg-[#fcfbf4] border border-gray-200 rounded-xl hover:bg-white hover:border-[#795548] transition-all flex items-center justify-center gap-1 shadow-sm group cursor-pointer"
+                      >
+                        {tagColor ? (
+                          <div className="w-5 h-5 rounded-full border border-gray-200 shadow-sm ring-1 ring-white" style={{ backgroundColor: tagColor }} />
+                        ) : (
+                          <div className="w-5 h-5 rounded-full border-2 border-dashed border-gray-300 group-hover:border-[#795548]" />
+                        )}
+                      </button>
+
+                      {showColorPicker && (
+                        <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-gray-100 shadow-xl rounded-xl p-2 grid grid-cols-4 gap-1.5 w-40 animate-scale-in">
+                          {Object.entries(colorNames).map(([c, name]) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => { setTagColor(c); setColor(c); setShowColorPicker(false); }}
+                              className={`w-6 h-6 rounded-full border transition hover:scale-110 hover:shadow-md cursor-pointer ${tagColor === c ? 'ring-2 ring-offset-2 ring-[#795548]' : 'border-gray-100'}`}
+                              style={{ backgroundColor: c }}
+                              title={name}
+                            />
+                          ))}
                           <button
-                            key={c}
                             type="button"
-                            onClick={() => { setTagColor(c); setColor(c); setShowColorPicker(false); }}
-                            className={`w-6 h-6 rounded-full border transition hover:scale-110 hover:shadow-md ${tagColor === c ? 'ring-2 ring-offset-2 ring-emerald-500' : 'border-gray-100'}`}
-                            style={{ backgroundColor: c }}
-                            title={name}
-                          />
-                        ))}
-                        <button
-                          type="button"
-                          onClick={() => { setTagColor(''); setColor(''); setShowColorPicker(false); }}
-                          className="w-full col-span-4 text-[10px] text-red-500 py-1 hover:bg-red-50 rounded-lg font-bold transition-colors"
-                        >
-                          إزالة
-                        </button>
+                            onClick={() => { setTagColor(''); setColor(''); setShowColorPicker(false); }}
+                            className="w-full col-span-4 text-[10px] text-red-500 py-1 hover:bg-red-50 rounded-lg font-bold transition-colors cursor-pointer"
+                          >
+                            إزالة
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Nickname */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-700 block text-right mb-1">الكنية</label>
+                    <input
+                      type="text"
+                      value={nickname}
+                      onChange={(e) => setNickname(e.target.value)}
+                      placeholder="اختياري"
+                      className="w-full h-[40px] px-3 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-xl focus:ring-1 focus:ring-[#795548] focus:bg-white outline-none transition-all font-medium text-right shadow-sm placeholder:text-gray-300 text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Row 3: تاريخ الميلاد & العمر */}
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Date */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-700 block text-right mb-1">تاريخ الميلاد</label>
+                    <input
+                      type="date"
+                      required
+                      value={birthDate}
+                      onChange={(e) => setBirthDate(e.target.value)}
+                      className="w-full h-[40px] px-3 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-xl focus:ring-1 focus:ring-[#795548] focus:bg-white outline-none transition-all font-bold text-center text-sm shadow-sm"
+                    />
+                  </div>
+
+                  {/* Age */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-700 block text-right mb-1">العمر</label>
+                    <div className="w-full h-[40px] px-2 bg-[#795548]/10 text-[#795548] border border-gray-200 rounded-xl flex items-center justify-center gap-1 shadow-sm overflow-hidden">
+                      <span className="font-bold text-[11px] whitespace-nowrap">{ageString || '-'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 4: الجنس */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-700 block text-right mb-1">الجنس</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Male Button */}
+                    <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all h-[40px] flex items-center justify-center gap-2 ${gender === 'male' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-200 bg-[#fcfbf4] hover:border-gray-300'}`}>
+                      <input type="radio" name="gender" value="male" checked={gender === 'male'} onChange={() => setGender('male')} className="hidden" />
+                      <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${gender === 'male' ? 'border-[#795548] bg-[#795548] text-white' : 'border-gray-300'}`}>
+                        {gender === 'male' && <Check size={12} strokeWidth={3} />}
                       </div>
-                    )}
+                      <span className={`font-bold text-sm ${gender === 'male' ? 'text-[#795548]' : 'text-gray-600'}`}>{t.male}</span>
+                    </label>
+
+                    {/* Female Button */}
+                    <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all h-[40px] flex items-center justify-center gap-2 ${gender === 'female' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-200 bg-[#fcfbf4] hover:border-gray-300'}`}>
+                      <input type="radio" name="gender" value="female" checked={gender === 'female'} onChange={() => setGender('female')} className="hidden" />
+                      <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${gender === 'female' ? 'border-[#795548] bg-[#795548] text-white' : 'border-gray-300'}`}>
+                        {gender === 'female' && <Check size={12} strokeWidth={3} />}
+                      </div>
+                      <span className={`font-bold text-sm ${gender === 'female' ? 'text-[#795548]' : 'text-gray-600'}`}>{t.female}</span>
+                    </label>
                   </div>
-                </div>
-
-                {/* Serial Number - col-span-3 */}
-                <div className="col-span-3 space-y-1">
-                  <label className="text-xs font-bold text-gray-700 block text-center mb-1">الرقم</label>
-                  <input
-                    required
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={3}
-                    value={serialNumber}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, '').slice(0, 3);
-                      setSerialNumber(val);
-                    }}
-                    placeholder="000"
-                    className="w-full h-[38px] bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#795548] focus:bg-white outline-none transition-all font-mono text-base tracking-wider text-center shadow-sm"
-                  />
-                </div>
-
-                {/* Nickname - col-span-3 */}
-                <div className="col-span-3 space-y-1">
-                  <label className="text-xs font-bold text-gray-700 block text-center mb-1">الكنية</label>
-                  <input
-                    type="text"
-                    value={nickname}
-                    onChange={(e) => setNickname(e.target.value)}
-                    placeholder="اختياري"
-                    className="w-full h-[38px] px-1 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#795548] focus:bg-white outline-none transition-all font-medium text-center shadow-sm placeholder:text-gray-300 text-sm"
-                  />
-                </div>
-              </div>
-
-              {/* Row 2: Date + Age */}
-              <div className="grid grid-cols-2 gap-2">
-                {/* Date */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-700 block text-center">تاريخ الميلاد</label>
-                  <input
-                    type="date"
-                    required
-                    value={birthDate}
-                    onChange={(e) => setBirthDate(e.target.value)}
-                    className="w-full h-[38px] px-2 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#795548] focus:bg-white outline-none transition-all font-bold text-center text-sm shadow-sm"
-                  />
-                </div>
-
-                {/* Age */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-700 block text-center">العمر</label>
-                  <div className="w-full h-[38px] px-1 bg-[#795548]/10/50 text-emerald-800 border border-emerald-100 rounded-lg flex items-center justify-center gap-1 shadow-sm overflow-hidden">
-                    <span className="font-bold text-[10px] whitespace-nowrap">{ageString || '-'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 3: Gender Selection */}
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-700 block text-center">الجنس</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {/* Male Button */}
-                  <label className={`cursor-pointer relative overflow-hidden rounded-lg border transition-all h-[38px] flex items-center justify-center gap-2 ${gender === 'male' ? 'border-[#795548] bg-[#795548]/10/50' : 'border-gray-100 bg-[#fcfbf4] hover:border-gray-200'}`}>
-                    <input type="radio" name="gender" value="male" checked={gender === 'male'} onChange={() => setGender('male')} className="hidden" />
-                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${gender === 'male' ? 'border-[#795548] bg-[#795548]/100 text-white' : 'border-gray-300'}`}>
-                      {gender === 'male' && <Check size={12} strokeWidth={3} />}
-                    </div>
-                    <span className={`font-bold text-sm ${gender === 'male' ? 'text-emerald-700' : 'text-gray-600'}`}>{t.male}</span>
-                  </label>
-
-                  {/* Female Button */}
-                  <label className={`cursor-pointer relative overflow-hidden rounded-lg border transition-all h-[38px] flex items-center justify-center gap-2 ${gender === 'female' ? 'border-[#795548] bg-[#795548]/10/50' : 'border-gray-100 bg-[#fcfbf4] hover:border-gray-200'}`}>
-                    <input type="radio" name="gender" value="female" checked={gender === 'female'} onChange={() => setGender('female')} className="hidden" />
-                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${gender === 'female' ? 'border-[#795548] bg-[#795548]/100 text-white' : 'border-gray-300'}`}>
-                      {gender === 'female' && <Check size={12} strokeWidth={3} />}
-                    </div>
-                    <span className={`font-bold text-sm ${gender === 'female' ? 'text-emerald-700' : 'text-gray-600'}`}>{t.female}</span>
-                  </label>
                 </div>
               </div>
             </div>
@@ -718,14 +726,14 @@ export const SheepModal: React.FC<SheepModalProps> = ({
             <div className="space-y-4 pt-4 border-t border-gray-100">
 
               <div className="grid grid-cols-2 gap-3 mb-2">
-                <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all p-2.5 flex items-center justify-center gap-2 ${source === 'purchase' ? 'border-[#795548] bg-[#795548]/10/50' : 'border-gray-100 bg-[#fcfbf4] hover:border-gray-200'}`}>
+                <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all p-2.5 flex items-center justify-center gap-2 ${source === 'purchase' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-100 bg-[#fcfbf4] hover:border-gray-200'}`}>
                   <input type="radio" name="source" value="purchase" checked={source === 'purchase'} onChange={() => setSource('purchase')} className="hidden" />
-                  <span className={`font-bold text-sm ${source === 'purchase' ? 'text-emerald-700' : 'text-gray-600'}`}>شراء</span>
+                  <span className={`font-bold text-sm ${source === 'purchase' ? 'text-[#795548]' : 'text-gray-600'}`}>شراء</span>
                 </label>
 
-                <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all p-2.5 flex items-center justify-center gap-2 ${source === 'born' ? 'border-[#795548] bg-[#795548]/10/50' : 'border-gray-100 bg-[#fcfbf4] hover:border-gray-200'}`}>
+                <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all p-2.5 flex items-center justify-center gap-2 ${source === 'born' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-100 bg-[#fcfbf4] hover:border-gray-200'}`}>
                   <input type="radio" name="source" value="born" checked={source === 'born'} onChange={() => setSource('born')} className="hidden" />
-                  <span className={`font-bold text-sm ${source === 'born' ? 'text-emerald-700' : 'text-gray-600'}`}>مولود</span>
+                  <span className={`font-bold text-sm ${source === 'born' ? 'text-[#795548]' : 'text-gray-600'}`}>مولود</span>
                 </label>
               </div>
 
