@@ -71,3 +71,12 @@ self.addEventListener('notificationclick', function(event) {
     })
   );
 });
+
+// Force immediate update and activation of the new service worker
+self.addEventListener('install', function(event) {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', function(event) {
+  event.waitUntil(self.clients.claim());
+});

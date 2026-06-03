@@ -237,6 +237,22 @@ function App() {
       });
       console.log('FCM Service Worker registered successfully:', registration);
 
+      // Wait for the service worker to be fully activated if it is installing or waiting
+      const serviceWorker = registration.installing || registration.waiting || registration.active;
+      if (serviceWorker && serviceWorker.state !== 'activated') {
+        await new Promise<void>((resolve) => {
+          const stateChangeHandler = () => {
+            if (serviceWorker.state === 'activated') {
+              serviceWorker.removeEventListener('statechange', stateChangeHandler);
+              resolve();
+            }
+          };
+          serviceWorker.addEventListener('statechange', stateChangeHandler);
+        });
+        // Tiny extra delay to allow clients.claim() and Firebase initialization to complete
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+
       const { getToken } = await import('firebase/messaging');
       
       const vapidKey = currentUser?.vapidKey || safeStorage.getItem('rai_vapid_key') || 'BGMIAO07gwGiD4klhaaOlQzjBTF4qJg702MXtB5Or4rm2wjdrLkZ562L7AY6uWD9kE1zjm5bxpLM9643wBKWp1E';
