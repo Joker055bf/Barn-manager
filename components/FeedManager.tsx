@@ -17,7 +17,7 @@ interface FeedManagerProps {
   onShowConfirm?: any;
 }
 
-export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, currentUser }) => {
+export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, currentUser, onShowConfirm }) => {
   const [activeTab, setActiveTab] = useState<'all' | 'grain' | 'fodder'>('all');
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   
@@ -37,7 +37,13 @@ export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, curre
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm('هل أنت متأكد من حذف هذا الصنف من المخزون؟')) {
+    if (onShowConfirm) {
+      onShowConfirm(
+        'حذف الصنف',
+        'هل أنت متأكد من حذف هذا الصنف من المخزون؟',
+        () => onUpdate(items.filter(i => i.id !== id))
+      );
+    } else if (confirm('هل أنت متأكد من حذف هذا الصنف من المخزون؟')) {
       onUpdate(items.filter(i => i.id !== id));
     }
   };
@@ -203,7 +209,7 @@ export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, curre
                          onClick={(e) => openEditModal(item, e)}
                          className="flex items-center gap-1 text-blue-400 hover:text-blue-600 transition text-[11px] font-bold px-3 py-1.5 rounded-lg hover:bg-blue-50"
                        >
-                         تحديث الصنف <Edit2 size={14} />
+                         تحديث الاستهلاك <Edit2 size={14} />
                        </button>
                     </div>
 
