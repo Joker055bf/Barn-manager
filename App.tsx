@@ -912,57 +912,69 @@ function App() {
           return;
         }
         const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-          import('firebase/messaging').then(({ getToken, onMessage }) => {
-            const vapidKey = currentUser?.vapidKey || safeStorage.getItem('rai_vapid_key') || 'BGMIAO07gwGiD4klhaaOlQzjBTF4qJg702MXtB5Or4rm2wjdrLkZ562L7AY6uWD9kE1zjm5bxpLM9643wBKWp1E';
-            
-            const handleTokenRetrieve = async () => {
-              let currentToken = '';
-              try {
-                currentToken = await getToken(messaging, { vapidKey });
-              } catch (firstErr: any) {
-                console.warn('FCM auto-registration with VAPID key failed, trying fallback default key...', firstErr);
-                try {
-                  currentToken = await getToken(messaging);
-                } catch (secondErr: any) {
-                  console.error('FCM auto-registration failed in both stages:', secondErr);
-                  throw firstErr;
-                }
-              }
-              return currentToken;
-            };
-
-            handleTokenRetrieve()
-              .then(async (currentToken) => {
-                if (currentToken && currentUser.fcmToken !== currentToken) {
-                  await updateDoc(doc(db, 'users', currentUser.id), { fcmToken: currentToken });
-                  setCurrentUser(prev => prev ? { ...prev, fcmToken: currentToken } : null);
-                  const saved = safeStorage.getItem('rai_session');
-                  if (saved) {
-                    const session = JSON.parse(saved);
-                    session.fcmToken = currentToken;
-                    safeStorage.setItem('rai_session', JSON.stringify(session));
+        if (permission === 'granted' && 'serviceWorker' in navigator) {
+          navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' })
+            .then((registration) => {
+              console.log('FCM SW registered in auto-setup:', registration);
+              import('firebase/messaging').then(({ getToken, onMessage }) => {
+                const vapidKey = currentUser?.vapidKey || safeStorage.getItem('rai_vapid_key') || 'BGMIAO07gwGiD4klhaaOlQzjBTF4qJg702MXtB5Or4rm2wjdrLkZ562L7AY6uWD9kE1zjm5bxpLM9643wBKWp1E';
+                
+                const handleTokenRetrieve = async () => {
+                  let currentToken = '';
+                  try {
+                    currentToken = await getToken(messaging, { 
+                      vapidKey,
+                      serviceWorkerRegistration: registration
+                    });
+                  } catch (firstErr: any) {
+                    console.warn('FCM auto-registration with VAPID key failed, trying fallback default key...', firstErr);
+                    try {
+                      currentToken = await getToken(messaging, {
+                        serviceWorkerRegistration: registration
+                      });
+                    } catch (secondErr: any) {
+                      console.error('FCM auto-registration failed in both stages:', secondErr);
+                      throw firstErr;
+                    }
                   }
-                }
-              })
-              .catch((err) => {
-                console.log('An error occurred while retrieving token. ', err);
-              });
+                  return currentToken;
+                };
 
-            onMessage(messaging, (payload) => {
-              console.log('Foreground Message received. ', payload);
-              if (Notification.permission === 'granted') {
-                try {
-                  new Notification(payload.notification?.title || 'رسالة جديدة', {
-                    body: payload.notification?.body || 'لديك رسالة جديدة في مدير الحظائر',
-                    icon: '/assets/logo.jpg',
+                handleTokenRetrieve()
+                  .then(async (currentToken) => {
+                    if (currentToken && currentUser.fcmToken !== currentToken) {
+                      await updateDoc(doc(db, 'users', currentUser.id), { fcmToken: currentToken });
+                      setCurrentUser(prev => prev ? { ...prev, fcmToken: currentToken } : null);
+                      const saved = safeStorage.getItem('rai_session');
+                      if (saved) {
+                        const session = JSON.parse(saved);
+                        session.fcmToken = currentToken;
+                        safeStorage.setItem('rai_session', JSON.stringify(session));
+                      }
+                    }
+                  })
+                  .catch((err) => {
+                    console.log('An error occurred while retrieving token. ', err);
                   });
-                } catch (e) {
-                  console.error('Failed to show foreground notification:', e);
-                }
-              }
+
+                onMessage(messaging, (payload) => {
+                  console.log('Foreground Message received. ', payload);
+                  if (Notification.permission === 'granted') {
+                    try {
+                      new Notification(payload.notification?.title || 'رسالة جديدة', {
+                        body: payload.notification?.body || 'لديك رسالة جديدة في مدير الحظائر',
+                        icon: '/assets/logo.jpg',
+                      });
+                    } catch (e) {
+                      console.error('Failed to show foreground notification:', e);
+                    }
+                  }
+                });
+              });
+            })
+            .catch((err) => {
+              console.error('SW registration failed in auto-setup:', err);
             });
-          });
         }
       } catch (e) {
         console.error('Push setup failed:', e);
