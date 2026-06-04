@@ -656,6 +656,40 @@ function App() {
   const totalExpenseVal = expenses.reduce((sum, e) => sum + e.amount, 0);
   const netProfit = totalRevenue - totalExpenseVal;
 
+  // Isolating Activity Logs by Barn (Group) ID
+  const getBarnRelevantLogs = React.useCallback((barnId: string | null) => {
+    if (!barnId) return activityLog;
+    return activityLog.filter(log => {
+      // 1. If it has a serialNumber, check if that sheep belongs to the current barn/group
+      if (log.serialNumber) {
+        const s = rawSheep.find(sheep => sheep.serialNumber === log.serialNumber || sheep.id === log.serialNumber);
+        if (s) {
+          const pen = pens.find(p => p.id === s.penId);
+          return (
+            pen?.parentId === barnId ||
+            pen?.id === barnId ||
+            (s.penId.startsWith('mortality:') && s.penId.includes(barnId))
+          );
+        }
+      }
+      
+      // 2. If it's a pen-specific action or log detail contains pen name of current group
+      const groupPens = pens.filter(p => p.parentId === barnId || p.id === barnId);
+      const hasGroupPenName = groupPens.some(p => log.detail?.includes(p.name) || log.action?.includes(p.name));
+      if (hasGroupPenName) return true;
+
+      // 3. Fallback: if the detail/action contains the group name itself
+      const currentGroup = pens.find(p => p.id === barnId);
+      if (currentGroup && (log.detail?.includes(currentGroup.name) || log.action?.includes(currentGroup.name))) {
+        return true;
+      }
+
+      return false;
+    });
+  }, [activityLog, rawSheep, pens]);
+
+
+
   // New: Smart Alerts
   const alerts = [
     ...allSheep
@@ -1067,7 +1101,7 @@ function App() {
 
   // Auto-restore orphaned sheep sections
   useEffect(() => {
-    if (!ownerId || !isOwner || pens.length === 0 || rawSheep.length === 0) return;
+    if (!ownerId || pens.length === 0 || rawSheep.length === 0) return;
 
     // Find all unique invalid penIds used by sheep
     const activePenIds = new Set(pens.map(p => p.id));
@@ -1119,7 +1153,63 @@ function App() {
     };
 
     restorePens();
-  }, [ownerId, isOwner, pens, rawSheep]);
+  }, [ownerId, pens, rawSheep]);
+
+  // Auto-restore orphaned sheep sections
+  useEffect(() => {
+    if (!ownerId || pens.length === 0 || rawSheep.length === 0) return;
+
+    // Find all unique invalid penIds used by sheep
+    const activePenIds = new Set(pens.map(p => p.id));
+    const orphanedPenIds = Array.from(new Set(
+      rawSheep
+        .map(s => s.penId)
+        .filter(penId => {
+          if (!penId) return false;
+          if (activePenIds.has(penId)) return false;
+          if (penId === 'mortality' || penId.startsWith('mortality:')) return false;
+          if (penId.startsWith('sold') || penId.startsWith('death')) return false;
+          return true;
+        })
+    ));
+
+    if (orphanedPenIds.length === 0) return;
+
+    // We have orphaned pens. We need to restore them!
+    // Find first barn to put them under (since it's a section, it needs a parent barn)
+    const targetBarn = pens.find(p => p.isGroup || !p.parentId);
+    if (!targetBarn) {
+      console.warn("Cannot restore orphaned sections: no parent barn exists.");
+      return;
+    }
+
+    const restorePens = async () => {
+      let restoredCount = 0;
+      for (const penId of orphanedPenIds) {
+        try {
+          const penRef = doc(db, 'farms', ownerId, 'pens', penId);
+          await setDoc(penRef, {
+            id: penId,
+            name: 'قسم مسترجع',
+            parentId: targetBarn.id,
+            isGroup: false,
+            isMain: false,
+            createdAt: new Date().toISOString(),
+            sortOrder: pens.length + restoredCount
+          });
+          restoredCount++;
+          logActivity('استرجاع قسم', `تم استرجاع قسم مسترجع للحيوانات الضائعة بـ ID: ${penId}`);
+        } catch (error) {
+          console.error(`Failed to restore pen ${penId}:`, error);
+        }
+      }
+      if (restoredCount > 0) {
+        showAlert('success', 'تم استرجاع الأقسام المفقودة والحيوانات بنجاح!', 'تم العثور على حيوانات في أقسام غير موجودة (تم حذفها سابقاً). تم إنشاء قسم "قسم مسترجع" لها بنجاح تحت حظيرة ' + targetBarn.name);
+      }
+    };
+
+    restorePens();
+  }, [ownerId, pens, rawSheep]);
 
   // Click outside for custom section & barn filter dropdowns
   useEffect(() => {
@@ -2792,11 +2882,14 @@ function App() {
                                       </div>
                                     </div>
                                     
-                                    {activityLog.length === 0 ? (
-                                      <div className="text-center py-6 text-gray-300 font-bold text-xs">لا توجد أحداث مسجلة بالحظيرة</div>
-                                    ) : (
-                                      <div className="relative pr-3 space-y-5 before:absolute before:right-[15px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gray-100 dark:before:bg-slate-800">
-                                        {activityLog.slice(0, 5).map(log => {
+                                    {(() => {
+                                      const barnLogs = getBarnRelevantLogs(selectedGroupId);
+                                      if (barnLogs.length === 0) {
+                                        return <div className="text-center py-6 text-gray-300 font-bold text-xs">لا توجد أحداث مسجلة بالحظيرة</div>;
+                                      }
+                                      return (
+                                        <div className="relative pr-3 space-y-5 before:absolute before:right-[15px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gray-100 dark:before:bg-slate-800">
+                                          {barnLogs.slice(0, 5).map(log => {
                                           // Determine dot color based on action type
                                           let dotColor = 'bg-slate-400 border-slate-200';
                                           if (log.action.includes('سجل طبي') || log.action.includes('تلقيح') || log.action.includes('تحصين') || log.action.includes('علاج') || log.action.includes('شفاء') || log.action.includes('صحة')) {
@@ -2879,10 +2972,11 @@ function App() {
                                                  </div>
                                                )}
                                              </div>
-                                           );
-                                        })}
+                                              );
+                                           })}
                                       </div>
-                                    )}
+                                     );
+                                    })()}
                                   </div>
                                 </div>
                               )}
@@ -3024,7 +3118,7 @@ function App() {
 
                 <div className="relative pr-3 space-y-5 before:absolute before:right-[15px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gray-100 dark:before:bg-slate-800">
                   {(() => {
-                    const workerActivities = activityLog.filter(log => {
+                    const workerActivities = getBarnRelevantLogs(selectedGroupId).filter(log => {
                       if (log.userRole) return log.userRole === 'worker';
                       const u = users.find(user => user.id === log.userId || user.name === log.userName);
                       if (u) return u.role === 'worker';
@@ -3250,25 +3344,7 @@ function App() {
                 // Isolate Data by Barn
                 const relevantSheep = selectedGroupId
                 // Isolate Data by Barn
-                const relevantLogs = selectedGroupId
-                  ? activityLog.filter(log => {
-                      // 1. If it has a serialNumber, check if that sheep belongs to the current barn/group
-                      if (log.serialNumber) {
-                        const s = allSheep.find(sheep => sheep.serialNumber === log.serialNumber);
-                        if (s) {
-                          const pen = pens.find(p => p.id === s.penId);
-                          return pen?.parentId === selectedGroupId || pen?.id === selectedGroupId || s.penId.startsWith('mortality:') && s.penId.includes(selectedGroupId);
-                        }
-                      }
-                      
-                      // 2. If it's a pen-specific action or log detail contains pen name of current group
-                      const groupPens = pens.filter(p => p.parentId === selectedGroupId || p.id === selectedGroupId);
-                      const hasGroupPenName = groupPens.some(p => log.detail?.includes(p.name));
-                      if (hasGroupPenName) return true;
-
-                      return false;
-                    })
-                  : activityLog;
+                const relevantLogs = getBarnRelevantLogs(selectedGroupId);
 
                 const allEvents = relevantLogs.map(log => {
                   let type = 'other';
@@ -3893,7 +3969,7 @@ function App() {
                 const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
                 const startOfYear = new Date(now.getFullYear(), 0, 1);
 
-                const filteredLogs = activityLog
+                const filteredLogs = getBarnRelevantLogs(selectedGroupId)
                   .filter(l => l.userRole === 'worker')
                   .filter(l => workerFilter === 'all' || l.userId === workerFilter)
                   .filter(l => {
