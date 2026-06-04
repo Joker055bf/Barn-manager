@@ -47,12 +47,8 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
         setIsCustomName(false);
       }
       
-      // Calculate display quantity (grains stored in kg, display as bags)
-      if (initialData.category === 'grain') {
-         setQuantity(initialData.quantity ? (initialData.quantity / 50).toString() : '');
-      } else {
-         setQuantity(initialData.quantity ? initialData.quantity.toString() : '');
-      }
+      // Clear quantity in edit mode as we removed the amount input field
+      setQuantity('');
 
       setConsumptionMethod(initialData.consumptionMethod || 'uniform');
       setDailyConsumption(initialData.dailyConsumption ? initialData.dailyConsumption.toString() : '');
@@ -183,67 +179,89 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
           <div className="flex p-1 bg-gray-50 rounded-2xl border border-gray-100">
              <button
                type="button"
+               disabled={!!initialData}
                onClick={() => setCategory('grain')}
-               className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition ${category === 'grain' ? 'bg-white text-orange-600 shadow-sm border border-orange-100' : 'text-gray-400 hover:text-gray-600'}`}
+               className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition ${
+                 category === 'grain' 
+                   ? 'bg-white text-orange-600 shadow-sm border border-orange-100' 
+                   : 'text-gray-400 hover:text-gray-600'
+               } ${!!initialData ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
              >
                <Wheat size={18} /> حبوب
              </button>
              <button
                type="button"
+               disabled={!!initialData}
                onClick={() => setCategory('fodder')}
-               className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition ${category === 'fodder' ? 'bg-white text-green-600 shadow-sm border border-green-100' : 'text-gray-400 hover:text-gray-600'}`}
+               className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition ${
+                 category === 'fodder' 
+                   ? 'bg-white text-green-600 shadow-sm border border-green-100' 
+                   : 'text-gray-400 hover:text-gray-600'
+               } ${!!initialData ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
              >
                <Layers size={18} /> أعلاف
              </button>
           </div>
 
           <div>
-            <CustomSelect
-              required
-              label="اسم الصنف"
-              placeholder="اختر الصنف"
-              value={isCustomName ? 'other' : name}
-              onChange={(val) => {
-                if (val === 'other') {
-                  setIsCustomName(true);
-                  setName('');
-                } else {
-                  setIsCustomName(false);
-                  setName(val);
-                }
-              }}
-              options={[
-                ...(category === 'grain' ? GRAIN_OPTIONS : FODDER_OPTIONS).map(opt => ({ value: opt, label: opt })),
-                { value: 'other', label: 'أخرى (كتابة يدوية)' }
-              ]}
-            />
-            
-            {isCustomName && (
-              <input
-                required
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="اكتب اسم الصنف هنا..."
-                className="w-full mt-3 px-5 py-4 bg-white text-gray-800 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none text-sm font-bold text-right shadow-sm transition animate-fade-in"
-              />
+            <label className="block text-xs font-bold text-gray-500 mb-2 text-right font-bold">
+              اسم الصنف
+            </label>
+            {initialData ? (
+              <div className="w-full px-5 py-4 bg-gray-50 text-gray-400 border border-gray-200 rounded-2xl text-sm font-bold text-right shadow-sm cursor-not-allowed">
+                {name}
+              </div>
+            ) : (
+              <>
+                <CustomSelect
+                  required
+                  placeholder="اختر الصنف"
+                  value={isCustomName ? 'other' : name}
+                  onChange={(val) => {
+                    if (val === 'other') {
+                      setIsCustomName(true);
+                      setName('');
+                    } else {
+                      setIsCustomName(false);
+                      setName(val);
+                    }
+                  }}
+                  options={[
+                    ...(category === 'grain' ? GRAIN_OPTIONS : FODDER_OPTIONS).map(opt => ({ value: opt, label: opt })),
+                    { value: 'other', label: 'أخرى (كتابة يدوية)' }
+                  ]}
+                />
+                
+                {isCustomName && (
+                  <input
+                    required
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="اكتب اسم الصنف هنا..."
+                    className="w-full mt-3 px-5 py-4 bg-white text-gray-800 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none text-sm font-bold text-right shadow-sm transition animate-fade-in"
+                  />
+                )}
+              </>
             )}
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-gray-500 mb-2 text-right">
-              {category === 'grain' ? 'الكمية المراد إضافتها (أكياس)' : 'الكمية المراد إضافتها (حزم)'}
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="0.1"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              placeholder="0"
-              className="w-full px-5 py-4 bg-white text-gray-800 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none text-sm font-bold text-right shadow-sm transition"
-            />
-          </div>
+          {!initialData && (
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-2 text-right">
+                {category === 'grain' ? 'الكمية المراد إضافتها (أكياس)' : 'الكمية المراد إضافتها (حزم)'}
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                placeholder="0"
+                className="w-full px-5 py-4 bg-white text-gray-800 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none text-sm font-bold text-right shadow-sm transition"
+              />
+            </div>
+          )}
 
           {/* Consumption Method Settings */}
           <div className="pt-2 border-t border-gray-100">
@@ -314,9 +332,9 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 bg-[#765341] hover:bg-[#5D4037] text-white font-bold py-4 px-4 rounded-2xl transition shadow-lg shadow-orange-900/20 transform hover:-translate-y-0.5"
+              className="w-full flex items-center justify-center gap-2 bg-[#765341] hover:bg-[#5D4037] text-white font-bold py-4 px-4 rounded-2xl transition shadow-lg shadow-orange-900/20 transform hover:-translate-y-0.5 cursor-pointer"
             >
-              <Plus size={20} />
+              {initialData ? <Save size={20} /> : <Plus size={20} />}
               <span>{initialData ? 'حفظ التعديلات' : 'إضافة للمخزون'}</span>
             </button>
           </div>
