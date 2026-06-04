@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Plus, Search, MoreVertical, LayoutGrid, Calendar, ChevronLeft, ArrowRight, Star, Dna, Settings, Check, X, Filter, Target,
-  Warehouse, Wheat, ShieldCheck, Activity, Wallet, Eye, Edit, Trash2, Syringe, ArrowRightLeft, Skull, FileText, LayoutDashboard, MoreHorizontal, LogOut, Users, Shield, History, Share2, Banknote, BarChart3, Baby, HeartPulse, MessageCircle, ArrowUp, ArrowDown
+  Warehouse, Wheat, ShieldCheck, Activity, Wallet, Eye, Edit, Trash2, Syringe, ArrowRightLeft, Skull, FileText, LayoutDashboard, MoreHorizontal, LogOut, Users, Shield, History, Share2, Banknote, BarChart3, Baby, HeartPulse, MessageCircle, ArrowUp, ArrowDown, RefreshCw
 } from 'lucide-react';
 import { ChatModal } from './components/ChatModal';
 import { PenModal } from './components/PenModal';
@@ -271,8 +271,20 @@ function App() {
 
       } else {
         // Web Platform (Web Push Notifications)
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+
+        if (isIOS && !isStandalone) {
+          showAlert(
+            'warning',
+            'تنشيط الإشعارات للآيفون',
+            'لتتمكن من تفعيل الإشعارات على هاتف الآيفون، يرجى أولاً إضافة التطبيق إلى الشاشة الرئيسية:\n\n1. اضغط على زر مشاركة (Share) في متصفح Safari\n2. اختر "إضافة إلى الشاشة الرئيسية" (Add to Home Screen)\n3. افتح التطبيق من الأيقونة على الشاشة الرئيسية ثم اضغط على زر تفعيل التنبيهات.'
+          );
+          return;
+        }
+
         if (typeof Notification === 'undefined') {
-          showAlert('error', 'غير مدعوم', 'هذا المتصفح أو بيئة التشغيل لا تدعم الإشعارات الفورية.');
+          showAlert('error', 'غير مدعوم', 'هذا المتصفح أو بيئة التشغيل لا تدعم الإشعارات الفورية. لمستخدمي آيفون يرجى فتح الموقع عبر متصفح Safari وإضافته للشاشة الرئيسية أولاً.');
           return;
         }
         
@@ -886,6 +898,12 @@ function App() {
     if (!currentUser) return;
     const setupPushNotifications = async () => {
       try {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+        if (isIOS) {
+          console.log('[iOS] Autostart push skipped to prevent Safari permission block.');
+          return;
+        }
+
         const messaging = await getFirebaseMessaging();
         if (!messaging) return;
 
@@ -1164,6 +1182,75 @@ function App() {
       return;
     }
     try {
+      if (newItems.length > feedItems.length) {
+        // Item Added
+        const addedItem = newItems.find(n => !feedItems.some(f => f.id === n.id));
+        if (addedItem) {
+          logActivity('إضافة مخزون', `تمت إضافة صنف جديد للمخزون: ${addedItem.name}`);
+        }
+      } else if (newItems.length < feedItems.length) {
+        // Item Deleted
+        const deletedItem = feedItems.find(f => !newItems.some(n => n.id === f.id));
+        if (deletedItem) {
+          await deleteDoc(doc(db, 'farms', ownerId, 'feed', deletedItem.id));
+          logActivity('حذف صنف', `تم حذف الصنف: ${deletedItem.name}`);
+        }
+      } else {
+        // Item Updated (Update Consumption / تحديث الاستهلاك)
+        let changes: string[] = [];
+        let itemName = '';
+        
+        for (const n of newItems) {
+          const original = feedItems.find(f => f.id === n.id);
+          if (original) {
+            const itemChanges: string[] = [];
+            
+            if (original.name !== n.name) {
+              itemChanges.push(`تعديل الاسم من (${original.name}) إلى (${n.name})`);
+            }
+            if (original.category !== n.category) {
+              const oldCat = original.category === 'grain' ? 'حبوب' : 'أعلاف';
+              const newCat = n.category === 'grain' ? 'حبوب' : 'أعلاف';
+              itemChanges.push(`تعديل التصنيف من (${oldCat}) إلى (${newCat})`);
+            }
+            if (original.unit !== n.unit) {
+              itemChanges.push(`تعديل الوحدة لـ (${n.name}) من (${original.unit}) إلى (${n.unit})`);
+            }
+            if (original.quantity !== n.quantity) {
+              itemChanges.push(`تعديل كمية المخزن لـ (${n.name}) من (${original.quantity}) إلى (${n.quantity})`);
+            }
+            if (original.consumptionMethod !== n.consumptionMethod) {
+              const oldMethod = original.consumptionMethod === 'uniform' ? 'موحد' : 'يومي متفاوت';
+              const newMethod = n.consumptionMethod === 'uniform' ? 'موحد' : 'يومي متفاوت';
+              itemChanges.push(`تعديل طريقة الاستهلاك لـ (${n.name}) من (${oldMethod}) إلى (${newMethod})`);
+            }
+            if (original.dailyConsumption !== n.dailyConsumption) {
+              itemChanges.push(`تعديل الاستهلاك اليومي الموحد لـ (${n.name}) من (${original.dailyConsumption}) إلى (${n.dailyConsumption})`);
+            }
+            
+            const days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+            const oldVaried = original.variedDailyConsumption || {};
+            const newVaried = n.variedDailyConsumption || {};
+            days.forEach((dayName, idx) => {
+              const oldVal = oldVaried[idx as any] || 0;
+              const newVal = newVaried[idx as any] || 0;
+              if (oldVal !== newVal) {
+                itemChanges.push(`تعديل استهلاك يوم ${dayName} لـ (${n.name}) من (${oldVal}) إلى (${newVal})`);
+              }
+            });
+            
+            if (itemChanges.length > 0) {
+              changes.push(...itemChanges);
+              itemName = n.name;
+            }
+          }
+        }
+        
+        if (changes.length > 0) {
+          logActivity('تحديث الاستهلاك', `تم تحديث استهلاك ${itemName}: ${changes.join(' | ')}`);
+        }
+      }
+
       // Sync all items to Firestore
       for (const item of newItems) {
         const cleanItem = JSON.parse(JSON.stringify(item));
@@ -1338,36 +1425,47 @@ function App() {
         const changes: string[] = [];
         const newSheep = sheepData as Sheep;
         
-        if (editingSheep.type !== newSheep.type) {
-          changes.push(`تغيير الصنف من (${editingSheep.type}) إلى (${newSheep.type})`);
-        }
-        if (editingSheep.gender !== newSheep.gender) {
-          changes.push(`تغيير الجنس من (${editingSheep.gender === 'male' ? 'ذكر' : 'أنثى'}) إلى (${newSheep.gender === 'male' ? 'ذكر' : 'أنثى'})`);
-        }
-        if (editingSheep.reproductionStatus !== newSheep.reproductionStatus) {
-          const getRepStatusLabel = (status?: string) => {
-            if (status === 'pregnant') return 'مضرع';
-            if (status === 'mother') return 'أم مرضعة';
-            return 'غير مضرع';
-          };
-          changes.push(`تغيير حالة الإخصاب من (${getRepStatusLabel(editingSheep.reproductionStatus)}) إلى (${getRepStatusLabel(newSheep.reproductionStatus)})`);
-        }
-        if (editingSheep.healthStatus !== newSheep.healthStatus && (editingSheep.healthStatus || newSheep.healthStatus)) {
-          const getHealthLabel = (st?: string) => st === 'sick' ? 'مريض' : 'سليم';
-          changes.push(`تغيير الحالة الصحية من (${getHealthLabel(editingSheep.healthStatus)}) إلى (${getHealthLabel(newSheep.healthStatus)})`);
+        if (editingSheep.serialNumber !== newSheep.serialNumber) {
+          changes.push(`تعديل الرقم من (#${editingSheep.serialNumber}) إلى (#${newSheep.serialNumber})`);
         }
         if (editingSheep.tagColor !== newSheep.tagColor) {
           const oldColorLabel = colorNames[editingSheep.tagColor || ''] || 'بدون لون';
           const newColorLabel = colorNames[newSheep.tagColor || ''] || 'بدون لون';
-          changes.push(`تعديل لون الشارة من (${oldColorLabel}) إلى (${newColorLabel})`);
+          changes.push(`تعديل اللون من (${oldColorLabel}) إلى (${newColorLabel})`);
         }
-        if (editingSheep.serialNumber !== newSheep.serialNumber) {
-          changes.push(`تعديل الرقم التسلسلي من (#${editingSheep.serialNumber}) إلى (#${newSheep.serialNumber})`);
+        if (editingSheep.birthDate !== newSheep.birthDate) {
+          changes.push(`تعديل التاريخ من (${editingSheep.birthDate}) إلى (${newSheep.birthDate})`);
+        }
+        if (editingSheep.type !== newSheep.type) {
+          changes.push(`تعديل الصنف من (${editingSheep.type}) إلى (${newSheep.type})`);
+        }
+        if (editingSheep.gender !== newSheep.gender) {
+          const oldGender = editingSheep.gender === 'male' ? 'ذكر' : 'أنثى';
+          const newGender = newSheep.gender === 'male' ? 'ذكر' : 'أنثى';
+          changes.push(`تعديل الجنس من (${oldGender}) إلى (${newGender})`);
         }
         if (editingSheep.penId !== newSheep.penId) {
           const oldPenName = pens.find(p => p.id === editingSheep.penId)?.name || 'غير معروف';
           const newPenName = pens.find(p => p.id === newSheep.penId)?.name || 'غير معروف';
           changes.push(`نقل من قسم (${oldPenName}) إلى (${newPenName})`);
+        }
+        if ((editingSheep.fatherId || '') !== (newSheep.fatherId || '')) {
+          const oldFather = editingSheep.fatherId ? `#${editingSheep.fatherId}` : 'بدون';
+          const newFather = newSheep.fatherId ? `#${newSheep.fatherId}` : 'بدون';
+          changes.push(`تعديل رقم الأب من (${oldFather}) إلى (${newFather})`);
+        }
+        if ((editingSheep.motherId || '') !== (newSheep.motherId || '')) {
+          const oldMother = editingSheep.motherId ? `#${editingSheep.motherId}` : 'بدون';
+          const newMother = newSheep.motherId ? `#${newSheep.motherId}` : 'بدون';
+          changes.push(`تعديل رقم الأم من (${oldMother}) إلى (${newMother})`);
+        }
+        if ((editingSheep.nickname || '') !== (newSheep.nickname || '')) {
+          const oldNickname = editingSheep.nickname || 'بدون لقب';
+          const newNickname = newSheep.nickname || 'بدون لقب';
+          changes.push(`تعديل اللقب من (${oldNickname}) إلى (${newNickname})`);
+        }
+        if ((editingSheep.notes || '') !== (newSheep.notes || '')) {
+          changes.push('تعديل الملاحظات');
         }
         
         const detailsText = changes.length > 0 ? `تم تعديل #${newSheep.serialNumber} (${changes.join(' | ')})` : `تم تعديل بيانات #${newSheep.serialNumber}`;
@@ -2650,12 +2748,21 @@ function App() {
                                                      {log.action}
                                                    </h4>
                                                    <p className="text-[10px] text-gray-400 font-bold mt-0.5 flex items-center justify-start gap-1 leading-relaxed">
-                                                     {(log.tagColor || (log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor : undefined)) && (
-                                                       <span 
-                                                         className="w-2.5 h-2.5 rounded-full inline-block border border-white dark:border-slate-900 shadow-sm shrink-0" 
-                                                         style={{ backgroundColor: log.tagColor || allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor }}
-                                                       />
-                                                     )}
+                                                     {(() => {
+                                                       const tagCol = log.tagColor || (log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor : undefined);
+                                                       if (!tagCol) return null;
+                                                       return (
+                                                         <span className="flex flex-col items-center justify-center shrink-0 mr-1 ml-0.5">
+                                                           <span 
+                                                             className="w-2.5 h-2.5 rounded-full inline-block border border-white dark:border-slate-900 shadow-sm shrink-0" 
+                                                             style={{ backgroundColor: tagCol }}
+                                                           />
+                                                           <span className="text-[6px] text-gray-400 font-black mt-0.5 leading-none">
+                                                             {colorNames[tagCol] || ''}
+                                                           </span>
+                                                         </span>
+                                                       );
+                                                     })()}
                                                      <span className="truncate">{log.detail || 'تحديث بيانات الحلال'}</span>
                                                    </p>
                                                  </div>
@@ -2882,12 +2989,21 @@ function App() {
                                 {log.userName}: {log.action}
                               </h4>
                               <p className="text-[10px] text-gray-400 font-bold mt-0.5 flex items-center justify-start gap-1 leading-relaxed">
-                                {(log.tagColor || (log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor : undefined)) && (
-                                  <span 
-                                    className="w-2.5 h-2.5 rounded-full inline-block border border-white dark:border-slate-900 shadow-sm shrink-0" 
-                                    style={{ backgroundColor: log.tagColor || allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor }}
-                                  />
-                                )}
+                                {(() => {
+                                  const tagCol = log.tagColor || (log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor : undefined);
+                                  if (!tagCol) return null;
+                                  return (
+                                    <span className="flex flex-col items-center justify-center shrink-0 mr-1 ml-0.5">
+                                      <span 
+                                        className="w-2.5 h-2.5 rounded-full inline-block border border-white dark:border-slate-900 shadow-sm shrink-0" 
+                                        style={{ backgroundColor: tagCol }}
+                                      />
+                                      <span className="text-[6px] text-gray-400 font-black mt-0.5 leading-none">
+                                        {colorNames[tagCol] || ''}
+                                      </span>
+                                    </span>
+                                  );
+                                })()}
                                 <span className="truncate">{log.detail || 'تحديث بيانات الحظيرة'}</span>
                               </p>
                             </div>
@@ -3013,6 +3129,8 @@ function App() {
                     { id: 'medical', label: 'علاجات/تحصين', icon: Syringe },
                     { id: 'expense', label: 'مصروفات', icon: Wallet },
                     { id: 'feed', label: 'إضافة مخزون', icon: Wheat },
+                    { id: 'feed_update', label: 'تحديث الاستهلاك', icon: RefreshCw },
+                    { id: 'transfer', label: 'نقل', icon: ArrowRightLeft },
                   ].map(f => (
                     <button
                       key={f.id}
@@ -3086,6 +3204,18 @@ function App() {
                     type = 'other';
                     icon = Warehouse;
                     color = 'text-emerald-600 bg-emerald-50';
+                  } else if (log.action.includes('تحديث الاستهلاك')) {
+                    type = 'feed_update';
+                    icon = RefreshCw;
+                    color = 'text-orange-600 bg-orange-50';
+                  } else if (log.action.includes('مخزون') || log.action.includes('أعلاف') || log.action.includes('حبوب') || log.action.includes('صنف')) {
+                    type = 'feed';
+                    icon = Wheat;
+                    color = 'text-orange-600 bg-orange-50';
+                  } else if (log.action.includes('نقل')) {
+                    type = 'transfer';
+                    icon = ArrowRightLeft;
+                    color = 'text-indigo-600 bg-indigo-50';
                   } else if (log.action.includes('إضافة') || log.action.includes('ولادة')) {
                     type = 'birth';
                     icon = log.action.includes('ولادة') ? Baby : Plus;
@@ -3102,14 +3232,6 @@ function App() {
                     type = 'expense';
                     icon = Wallet;
                     color = 'text-blue-600 bg-blue-50';
-                  } else if (log.action.includes('مخزون') || log.action.includes('أعلاف') || log.action.includes('حبوب')) {
-                    type = 'feed';
-                    icon = Wheat;
-                    color = 'text-orange-600 bg-orange-50';
-                  } else if (log.action.includes('نقل')) {
-                    type = 'other';
-                    icon = ArrowRightLeft;
-                    color = 'text-indigo-600 bg-indigo-50';
                   } else if (log.action.includes('تعديل') || log.action.includes('تحديث')) {
                     type = 'edit';
                     icon = Edit;
@@ -3137,12 +3259,12 @@ function App() {
                           </span>
                         ) : null}
                         {logTagColor && (
-                          <span className="inline-flex items-center gap-1 bg-gray-50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded-md border border-gray-100 dark:border-slate-700 shrink-0">
+                          <span className="inline-flex flex-col items-center gap-0.5 bg-gray-50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded-md border border-gray-100 dark:border-slate-700 shrink-0">
                             <span 
                               className="w-2 h-2 rounded-full inline-block border border-white dark:border-slate-800 shadow-sm" 
                               style={{ backgroundColor: logTagColor }}
                             />
-                            <span className="text-[9px] font-extrabold text-gray-500 dark:text-gray-400">{colorNames[logTagColor] || 'ملون'}</span>
+                            <span className="text-[6px] text-gray-400 font-black leading-none">{colorNames[logTagColor] || 'ملون'}</span>
                           </span>
                         )}
                         {sheepType && (
@@ -3666,11 +3788,14 @@ function App() {
                 <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1" dir="rtl">
                   {[
                     { id: 'all', label: 'كافة الأحداث', icon: LayoutGrid },
-                    { id: 'add', label: 'ولادات/إضافة', icon: Plus },
                     { id: 'edit', label: 'تعديلات', icon: Edit },
-                    { id: 'delete', label: 'استبعادات', icon: Skull, color: 'text-rose-600' },
-                    { id: 'medical', label: 'علاجات/تحصين', icon: Syringe, color: 'text-purple-600' },
-                    { id: 'finance', label: 'مصروفات', icon: Wallet, color: 'text-indigo-600' },
+                    { id: 'birth', label: 'ولادات/إضافة', icon: Dna },
+                    { id: 'death', label: 'استبعاد/وفيات', icon: Skull },
+                    { id: 'medical', label: 'علاجات/تحصين', icon: Syringe },
+                    { id: 'expense', label: 'مصروفات', icon: Wallet },
+                    { id: 'feed', label: 'إضافة مخزون', icon: Wheat },
+                    { id: 'feed_update', label: 'تحديث الاستهلاك', icon: RefreshCw },
+                    { id: 'transfer', label: 'نقل', icon: ArrowRightLeft },
                   ].map(f => (
                     <button
                       key={f.id}
@@ -3706,12 +3831,29 @@ function App() {
                   })
                   .filter(l => {
                     if (workerActivityFilter === 'all') return true;
-                    if (workerActivityFilter === 'add') return l.action.includes('إضافة') || l.action.includes('ولادة');
-                    if (workerActivityFilter === 'edit') return l.action.includes('تعديل');
-                    if (workerActivityFilter === 'delete') return l.action.includes('حذف') || l.action.includes('استبعاد') || l.action.includes('وفاة');
-                    if (workerActivityFilter === 'medical') return l.action.includes('طبي') || l.action.includes('تلقيح') || l.action.includes('علاج');
-                    if (workerActivityFilter === 'finance') return l.action.includes('مصروف') || l.action.includes('بيع') || l.action.includes('مخزون');
-                    return true;
+                    let type = 'other';
+                    if (l.action.includes('إضافة حظيرة') || l.action.includes('حظيرة')) {
+                      type = 'other';
+                    } else if (l.action.includes('تحديث الاستهلاك')) {
+                      type = 'feed_update';
+                    } else if (l.action.includes('مخزون') || l.action.includes('أعلاف') || l.action.includes('حبوب') || l.action.includes('صنف')) {
+                      type = 'feed';
+                    } else if (l.action.includes('نقل')) {
+                      type = 'transfer';
+                    } else if (l.action.includes('إضافة') || l.action.includes('ولادة')) {
+                      type = 'birth';
+                    } else if (l.action.includes('حذف') || l.action.includes('استبعاد') || l.action.includes('وفاة') || l.action.includes('نفوق')) {
+                      type = 'death';
+                    } else if (l.action.includes('علاج') || l.action.includes('تحصين') || l.action.includes('تلقيح') || l.action.includes('طبي')) {
+                      type = 'medical';
+                    } else if (l.action.includes('مصروف') || l.action.includes('مبيعات') || l.action.includes('شراء') || l.action.includes('بيع') || l.action.includes('مالي')) {
+                      type = 'expense';
+                    } else if (l.action.includes('تعديل') || l.action.includes('تحديث')) {
+                      type = 'edit';
+                    } else if (l.action.includes('إجهاض') || l.action.includes('إلغاء')) {
+                      type = 'other';
+                    }
+                    return workerActivityFilter === type;
                   });
 
                 if (filteredLogs.length === 0) return (
@@ -3725,18 +3867,23 @@ function App() {
                   <div className="relative pl-2 pr-12 space-y-6 before:absolute before:inset-y-0 before:right-[3.25rem] before:w-[2px] before:bg-gray-100 dark:before:bg-slate-800" dir="rtl">
                     {filteredLogs.map((log, idx) => {
                       const getActionInfo = (action: string) => {
-                        if (action.includes('إضافة') || action.includes('ولادة')) return { icon: Plus, color: 'text-emerald-600', dotColor: 'bg-emerald-500' };
-                        if (action.includes('تعديل')) return { icon: Edit, color: 'text-blue-600', dotColor: 'bg-blue-500' };
-                        if (action.includes('حذف') || action.includes('استبعاد') || action.includes('وفاة')) return { icon: Skull, color: 'text-rose-600', dotColor: 'bg-rose-500' };
-                        if (action.includes('نقل')) return { icon: ArrowRightLeft, color: 'text-orange-600', dotColor: 'bg-orange-500' };
-                        if (action.includes('طبي') || action.includes('تلقيح') || action.includes('علاج')) return { icon: Syringe, color: 'text-purple-600', dotColor: 'bg-purple-500' };
-                        if (action.includes('مصروف') || action.includes('بيع')) return { icon: Wallet, color: 'text-indigo-600', dotColor: 'bg-indigo-500' };
+                        if (action.includes('إضافة حظيرة') || action.includes('حظيرة')) return { icon: Warehouse, color: 'text-emerald-600', dotColor: 'bg-emerald-500' };
+                        if (action.includes('تحديث الاستهلاك')) return { icon: RefreshCw, color: 'text-orange-600', dotColor: 'bg-orange-500' };
+                        if (action.includes('مخزون') || action.includes('أعلاف') || action.includes('حبوب') || action.includes('صنف')) return { icon: Wheat, color: 'text-orange-600', dotColor: 'bg-orange-500' };
+                        if (action.includes('نقل')) return { icon: ArrowRightLeft, color: 'text-indigo-600', dotColor: 'bg-indigo-500' };
+                        if (action.includes('إضافة') || action.includes('ولادة')) return { icon: Baby, color: 'text-emerald-600', dotColor: 'bg-emerald-500' };
+                        if (action.includes('حذف') || action.includes('استبعاد') || action.includes('وفاة') || action.includes('نفوق')) return { icon: Skull, color: 'text-red-600', dotColor: 'bg-red-500' };
+                        if (action.includes('علاج') || action.includes('تحصين') || action.includes('تلقيح') || action.includes('طبي')) return { icon: Syringe, color: 'text-purple-600', dotColor: 'bg-purple-500' };
+                        if (action.includes('مصروف') || action.includes('مبيعات') || action.includes('شراء') || action.includes('بيع') || action.includes('مالي')) return { icon: Wallet, color: 'text-blue-600', dotColor: 'bg-blue-500' };
+                        if (action.includes('تعديل') || action.includes('تحديث')) return { icon: Edit, color: 'text-amber-600', dotColor: 'bg-amber-500' };
                         return { icon: History, color: 'text-gray-600', dotColor: 'bg-gray-500' };
                       };
                       const { icon: ActionIcon, color, dotColor } = getActionInfo(log.action);
                       const d = new Date(log.timestamp);
                       const dateStr = d.toLocaleDateString('en-GB');
                       const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
+                      
+                      const logTagColor = log.tagColor || (log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor : undefined);
                       
                       return (
                         <div key={log.id} className="relative flex items-start w-full">
@@ -3753,6 +3900,15 @@ function App() {
                           <div className="flex-1 bg-gray-50/50 border border-gray-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition dark:bg-slate-800/50 dark:border-slate-700 mr-2 w-full">
                             <div className="flex justify-between items-start gap-2 mb-2">
                               <h4 className="font-bold text-gray-900 text-sm dark:text-gray-100 leading-tight">{log.action}</h4>
+                              {logTagColor && (
+                                <span className="inline-flex flex-col items-center gap-0.5 bg-gray-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md border border-gray-200 dark:border-slate-700 shrink-0">
+                                  <span 
+                                    className="w-2 h-2 rounded-full inline-block border border-white dark:border-slate-800 shadow-sm" 
+                                    style={{ backgroundColor: logTagColor }}
+                                  />
+                                  <span className="text-[6px] text-gray-400 font-black leading-none">{colorNames[logTagColor] || 'ملون'}</span>
+                                </span>
+                              )}
                             </div>
                             <p className="text-[10px] text-gray-500 font-bold mb-3">العامل: {log.userName}</p>
                             <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed bg-white dark:bg-slate-900 p-3 rounded-xl border border-gray-100 dark:border-slate-800">
