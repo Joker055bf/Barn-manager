@@ -1065,6 +1065,62 @@ function App() {
   useEffect(() => { safeStorage.setItem('rai_lang', appLanguage); }, [appLanguage]);
   useEffect(() => { safeStorage.setItem('rai_theme', appTheme); }, [appTheme]);
 
+  // Auto-restore orphaned sheep sections
+  useEffect(() => {
+    if (!ownerId || !isOwner || pens.length === 0 || rawSheep.length === 0) return;
+
+    // Find all unique invalid penIds used by sheep
+    const activePenIds = new Set(pens.map(p => p.id));
+    const orphanedPenIds = Array.from(new Set(
+      rawSheep
+        .map(s => s.penId)
+        .filter(penId => {
+          if (!penId) return false;
+          if (activePenIds.has(penId)) return false;
+          if (penId === 'mortality' || penId.startsWith('mortality:')) return false;
+          if (penId.startsWith('sold') || penId.startsWith('death')) return false;
+          return true;
+        })
+    ));
+
+    if (orphanedPenIds.length === 0) return;
+
+    // We have orphaned pens. We need to restore them!
+    // Find first barn to put them under (since it's a section, it needs a parent barn)
+    const targetBarn = pens.find(p => p.isGroup || !p.parentId);
+    if (!targetBarn) {
+      console.warn("Cannot restore orphaned sections: no parent barn exists.");
+      return;
+    }
+
+    const restorePens = async () => {
+      let restoredCount = 0;
+      for (const penId of orphanedPenIds) {
+        try {
+          const penRef = doc(db, 'farms', ownerId, 'pens', penId);
+          await setDoc(penRef, {
+            id: penId,
+            name: 'قسم مسترجع',
+            parentId: targetBarn.id,
+            isGroup: false,
+            isMain: false,
+            createdAt: new Date().toISOString(),
+            sortOrder: pens.length + restoredCount
+          });
+          restoredCount++;
+          logActivity('استرجاع قسم', `تم استرجاع قسم مسترجع للحيوانات الضائعة بـ ID: ${penId}`);
+        } catch (error) {
+          console.error(`Failed to restore pen ${penId}:`, error);
+        }
+      }
+      if (restoredCount > 0) {
+        showAlert('success', 'تم استرجاع الأقسام المفقودة والحيوانات بنجاح!', 'تم العثور على حيوانات في أقسام غير موجودة (تم حذفها سابقاً). تم إنشاء قسم "قسم مسترجع" لها بنجاح تحت حظيرة ' + targetBarn.name);
+      }
+    };
+
+    restorePens();
+  }, [ownerId, isOwner, pens, rawSheep]);
+
   // Click outside for custom section & barn filter dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -1283,7 +1339,7 @@ function App() {
       return;
     }
     
-    let penToSave: any = { ...pen };
+    let penToSave: any;
     if (!editingPen) {
       let isMainPen = false;
       if (!isAddingGroup && selectedGroupId) {
@@ -1295,6 +1351,11 @@ function App() {
         isGroup: isAddingGroup || false,
         parentId: isAddingGroup ? null : (selectedGroupId || null),
         isMain: isMainPen
+      };
+    } else {
+      penToSave = {
+        ...editingPen,
+        ...pen
       };
     }
 
@@ -1348,7 +1409,8 @@ function App() {
   };
 
   const handleDeletePen = async (id: string, isGroup: boolean) => {
-    if (!ownerId || !isOwner) return;
+    const requiredPermission = isGroup ? 'canDeleteBarns' : 'canDeletePens';
+    if (!ownerId || !can(requiredPermission, id)) return;
     const penToDelete = pens.find(p => p.id === id);
     const title = isGroup ? 'حذف حظيرة' : 'حذف قسم';
     const msg = isGroup
@@ -1379,6 +1441,7 @@ function App() {
           logActivity('حذف قسم', `تم حذف قسم ${penToDelete?.name || ''}`);
         }
         if (selectedGroupId === id) setSelectedGroupId(null);
+        if (selectedPenId === id) setSelectedPenId(null);
       } catch (e) {
         console.error(e);
       }
@@ -2404,9 +2467,9 @@ function App() {
                       <Edit size={12} /> تعديل
                     </button>
                   )}
-                  {can('canDeletePens') && (
+                  {can('canDeletePens', selectedPen.id) && (
                     <button 
-                      onClick={() => showConfirm('تأكيد الحذف', `هل أنت متأكد من حذف ${selectedPen.name}؟`, () => { handleDeletePen(selectedPen.id, false); setSelectedPenId(null); setActiveTab('pens'); })}
+                      onClick={() => handleDeletePen(selectedPen.id, false)}
                       className="flex items-center justify-center p-1.5 bg-red-50 text-red-600 rounded-xl border border-red-100 hover:bg-red-100 transition dark:bg-red-900/20 dark:border-red-900/50"
                       title="حذف القسم"
                     >
