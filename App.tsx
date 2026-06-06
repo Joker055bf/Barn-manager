@@ -2216,7 +2216,7 @@ function App() {
           {can('canMoveAnimals') && (
             <button onClick={() => { setViewingSheep(undefined); openMoveModal(sheep); }} className="flex flex-col items-center justify-center gap-2 py-4 rounded-2xl text-[11px] font-black text-orange-700 bg-orange-50 hover:bg-orange-100 transition premium-shadow dark:bg-orange-900/20 dark:text-orange-300">
               <ArrowRightLeft size={20} />
-              نقل
+              الاجراءات
             </button>
           )}
 
