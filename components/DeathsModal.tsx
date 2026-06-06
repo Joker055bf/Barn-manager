@@ -19,6 +19,9 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
 }) => {
     if (!isOpen) return null;
 
+    const [typeFilter, setTypeFilter] = React.useState<'all' | 'ذبح' | 'ميت' | 'بيع' | 'other'>('all');
+    const [dateFilter, setDateFilter] = React.useState<'all' | 'day' | 'week' | 'month' | 'year'>('all');
+
     const calculateAgeDisplay = (dateStr: string) => {
         if (!dateStr) return '-';
         const birth = new Date(dateStr);
@@ -27,7 +30,7 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
         let months = now.getMonth() - birth.getMonth();
         if (months < 0) { years--; months += 12; }
         if (years > 0) return `${years} سنة`;
-        return `${months} شهر`;
+        return months === 1 ? 'شهر' : `${months} أشهر`;
     };
 
     const getParentSerial = (id: string | undefined) => {
@@ -40,6 +43,42 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
         const dateA = a.exclusionDate ? new Date(a.exclusionDate).getTime() : 0;
         const dateB = b.exclusionDate ? new Date(b.exclusionDate).getTime() : 0;
         return dateB - dateA;
+    });
+
+    const filteredDeaths = sortedDeaths.filter(sheep => {
+        // 1. Filter by Type
+        if (typeFilter !== 'all') {
+            const notesVal = (sheep.notes || '').trim();
+            if (typeFilter === 'ذبح') {
+                if (notesVal !== 'ذبح') return false;
+            } else if (typeFilter === 'ميت') {
+                if (notesVal !== 'ميت') return false;
+            } else if (typeFilter === 'بيع') {
+                if (notesVal !== 'بيع') return false;
+            } else if (typeFilter === 'other') {
+                if (notesVal === 'ذبح' || notesVal === 'ميت' || notesVal === 'بيع') return false;
+            }
+        }
+
+        // 2. Filter by Date
+        if (dateFilter !== 'all' && sheep.exclusionDate) {
+            const exclTime = new Date(sheep.exclusionDate).getTime();
+            const nowTime = new Date().getTime();
+            const diffMs = nowTime - exclTime;
+            const oneDay = 24 * 60 * 60 * 1000;
+
+            if (dateFilter === 'day') {
+                if (diffMs > oneDay) return false;
+            } else if (dateFilter === 'week') {
+                if (diffMs > 7 * oneDay) return false;
+            } else if (dateFilter === 'month') {
+                if (diffMs > 30 * oneDay) return false;
+            } else if (dateFilter === 'year') {
+                if (diffMs > 365 * oneDay) return false;
+            }
+        }
+
+        return true;
     });
 
     return (
@@ -68,19 +107,76 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
                     <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-white/5 rounded-full blur-3xl" />
                 </div>
 
-                <div className="px-6 mt-4">
+                <div className="px-6 mt-4 space-y-3 shrink-0">
                     <div className="bg-red-50/50 backdrop-blur-md border border-red-100 p-3 rounded-xl flex items-center justify-between dark:bg-red-900/10 dark:border-red-900/20">
                        <span className="text-[10px] font-black text-red-900 uppercase tracking-widest dark:text-red-400">{barnName}</span>
                        <span className="bg-red-600 text-white text-[9px] px-2.5 py-1 rounded-lg font-black uppercase tracking-tighter">
-                           {deaths.length} حالات استبعاد
+                           {filteredDeaths.length} من {deaths.length} حالات استبعاد
                        </span>
+                    </div>
+
+                    {/* Filter Section */}
+                    <div className="space-y-2.5 bg-gray-50/50 dark:bg-slate-800/30 border border-gray-100 dark:border-slate-800/80 p-3 rounded-2xl">
+                        {/* Type Filter */}
+                        <div className="flex flex-col gap-1.5">
+                            <span className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest text-right">نوع الاستبعاد</span>
+                            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                                {[
+                                    { id: 'all', label: 'الكل' },
+                                    { id: 'ذبح', label: 'ذبح' },
+                                    { id: 'ميت', label: 'ميت' },
+                                    { id: 'بيع', label: 'بيع' },
+                                    { id: 'other', label: 'آخر' }
+                                ].map(t => (
+                                    <button
+                                        key={t.id}
+                                        type="button"
+                                        onClick={() => setTypeFilter(t.id as any)}
+                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all duration-200 border cursor-pointer shrink-0 ${
+                                            typeFilter === t.id
+                                                ? 'bg-red-900 border-red-900 text-white shadow-md shadow-red-950/20'
+                                                : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-slate-600'
+                                        }`}
+                                    >
+                                        {t.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Date Filter */}
+                        <div className="flex flex-col gap-1.5">
+                            <span className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest text-right">تاريخ الاستبعاد</span>
+                            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                                {[
+                                    { id: 'all', label: 'الكل' },
+                                    { id: 'day', label: 'يوم' },
+                                    { id: 'week', label: 'أسبوع' },
+                                    { id: 'month', label: 'شهر' },
+                                    { id: 'year', label: 'سنة' }
+                                ].map(d => (
+                                    <button
+                                        key={d.id}
+                                        type="button"
+                                        onClick={() => setDateFilter(d.id as any)}
+                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all duration-200 border cursor-pointer shrink-0 ${
+                                            dateFilter === d.id
+                                                ? 'bg-red-900 border-red-900 text-white shadow-md shadow-red-950/20'
+                                                : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-slate-600'
+                                        }`}
+                                    >
+                                        {d.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
-                    {sortedDeaths.length > 0 ? (
-                        sortedDeaths.map((sheep) => (
+                    {filteredDeaths.length > 0 ? (
+                        filteredDeaths.map((sheep) => (
                             <div key={sheep.id} className="bg-white border border-gray-100 rounded-2xl p-4 transition-all hover:shadow-xl dark:bg-slate-800 dark:border-slate-700">
                                 <div className="flex items-center justify-between mb-3">
                                     <div className="flex items-center gap-3">
@@ -118,7 +214,7 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="bg-gray-50/50 p-3 rounded-xl border border-gray-50 dark:bg-slate-900 dark:border-slate-800">
-                                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-0.5 leading-none">العمر عند النفوق</p>
+                                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-0.5 leading-none">العمر عند الاستبعاد</p>
                                         <p className="text-xs font-black text-gray-800 dark:text-gray-200">
                                             {calculateAgeDisplay(sheep.birthDate)}
                                         </p>
@@ -134,7 +230,7 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
                                 <div className="mt-3 p-3 bg-orange-50/30 rounded-xl border border-orange-50 dark:bg-orange-900/5 dark:border-orange-900/10">
                                     <p className="text-[8px] font-black text-[#795548] uppercase tracking-widest mb-0.5 leading-none">ملاحظات وسبب الاستبعاد</p>
                                     <p className="text-[11px] font-bold text-gray-600 italic ltr:text-left rtl:text-right dark:text-gray-400">
-                                        "{sheep.notes || 'لم يتم تحديد سبب الوفاة بالتفصيل'}"
+                                        "{sheep.notes || 'لم يتم تحديد سبب الاستبعاد بالتفصيل'}"
                                     </p>
                                 </div>
 
@@ -150,6 +246,14 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
                                 </div>
                             </div>
                         ))
+                    ) : deaths.length > 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 text-gray-400 bg-white border border-gray-100 rounded-2xl dark:bg-slate-800 dark:border-slate-700">
+                            <div className="bg-gray-50 p-6 rounded-xl mb-4 dark:bg-slate-900">
+                                <Skull size={48} className="text-gray-200 dark:text-slate-700" />
+                            </div>
+                            <p className="font-black text-sm text-gray-400 dark:text-gray-500 uppercase tracking-widest">لا توجد نتائج مطابقة</p>
+                            <p className="text-[9px] font-bold text-gray-300 dark:text-gray-600 mt-1">جرب تغيير خيارات الفلترة المحددة</p>
+                        </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center py-16 text-gray-400 bg-white border border-gray-100 rounded-2xl dark:bg-slate-800 dark:border-slate-700">
                             <div className="bg-gray-50 p-6 rounded-xl mb-4 dark:bg-slate-900">
