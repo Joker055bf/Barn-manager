@@ -11,32 +11,50 @@ interface MoveSheepModalProps {
 }
 
 // Custom icons
-const SkullCrossbonesIcon = () => (
-  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    {/* Crossed Bones */}
-    <path d="M4 4l16 16M20 4L4 16" />
-    {/* Bone joints */}
-    <circle cx="4" cy="4" r="1" fill="currentColor" />
-    <circle cx="20" cy="4" r="1" fill="currentColor" />
-    <circle cx="4" cy="20" r="1" fill="currentColor" />
-    <circle cx="20" cy="20" r="1" fill="currentColor" />
-    {/* Skull */}
-    <path d="M9 10a3 3 0 0 1 6 0v3a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-3z" fill="currentColor" />
-    <path d="M10 14v2h4v-2" stroke="currentColor" />
+const SkullCrossbonesIcon: React.FC<{ size?: number }> = ({ size = 24 }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2.2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+  >
+    {/* Bone joint ends */}
+    <path d="M4.5 3a1.2 1.2 0 1 0-1.5 1.5M19.5 3a1.2 1.2 0 1 1 1.5 1.5M4.5 21a1.2 1.2 0 1 1-1.5-1.5M19.5 21a1.2 1.2 0 1 0 1.5-1.5" />
+    {/* Bone shafts (pointing to corners but not entering center) */}
+    <path d="M4.5 4.5l3.5 3.5M19.5 4.5l-3.5 3.5M4.5 19.5l4-4M19.5 19.5l-4-4" />
+    {/* Skull Face (transparent fill) */}
+    <path d="M12 6c-2.5 0-4 1.5-4 4v3.5c0 .8.8 1.5 1.5 1.5h5c.7 0 1.5-.7 1.5-1.5V10c0-2.5-1.5-4-4-4z" />
+    {/* Teeth */}
+    <path d="M10 15v1.8h4V15M12 15v1.8" />
+    {/* Eyes (X shape) */}
+    <path d="M9.5 9.5l1.5 1.5M11 9.5l-1.5 1.5M13 9.5l1.5 1.5M14.5 9.5l-1.5 1.5" />
   </svg>
 );
 
-const FlyingCashIcon = () => (
-  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    {/* Bill shape */}
-    <rect x="6" y="8" width="12" height="8" rx="1.5" />
-    <circle cx="12" cy="12" r="1.5" />
-    {/* Left Wing */}
-    <path d="M6 10c-2-2-4-1-4 1.5s2 3 4 1.5" />
-    <path d="M5 11c-1.5-1-2.5-0.5-2.5.5s1 1.5 2.5 1" />
-    {/* Right Wing */}
-    <path d="M18 10c2.5-2 4.5-0.5 4.5 1.5s-2 2.5-4.5 1" />
-    <path d="M19 11c1.5-1 2.5-0.5 2.5.5s-1 1.5-2.5 1" />
+const FlyingCashIcon: React.FC<{ size?: number }> = ({ size = 24 }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2.2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+  >
+    {/* Bill (banknote) */}
+    <rect x="5.5" y="9" width="13" height="8" rx="1.5" />
+    <circle cx="12" cy="13" r="1.5" />
+    {/* Left wing flapping up */}
+    <path d="M5.5 11c-2-3-4.5-2.5-4.5.5 0 2 1.5 3 4.5 2" />
+    <path d="M4.5 12c-1.5-1.5-3-1-3 1 0 1 1 2.5 3 1.5" />
+    {/* Right wing flapping up */}
+    <path d="M18.5 11c2-3 4.5-2.5 4.5.5 0 2-1.5 3-4.5 2" />
+    <path d="M19.5 12c1.5-1.5 3-1 3 1 0 1-1 2.5-3 1.5" />
   </svg>
 );
 
@@ -85,6 +103,44 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
   const isExclusion = targetPenId.includes('mortality');
   const isExclusionValid = !isExclusion || (exclusionType !== '' && (exclusionType !== 'آخر' || reason.trim() !== ''));
 
+  // Dynamic theme based on selected exclusion type
+  const getExclusionTheme = () => {
+    switch (exclusionType) {
+      case 'ذبح':
+        return {
+          btnClass: 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/25 dark:shadow-red-900/30',
+          icon: <Skull size={20} />
+        };
+      case 'ميت':
+        return {
+          btnClass: 'bg-red-900 hover:bg-red-950 text-white shadow-red-900/30 dark:shadow-red-950/40',
+          icon: <SkullCrossbonesIcon size={20} />
+        };
+      case 'بيع':
+        return {
+          btnClass: 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/25 dark:shadow-green-900/30',
+          icon: <FlyingCashIcon size={20} />
+        };
+      case 'آخر':
+        return {
+          btnClass: 'bg-slate-700 hover:bg-slate-800 text-white shadow-slate-700/25 dark:shadow-slate-800/35',
+          icon: <FileText size={20} />
+        };
+      default:
+        return {
+          btnClass: 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/20',
+          icon: <Skull size={20} />
+        };
+    }
+  };
+
+  const submitBtnTheme = isExclusion 
+    ? getExclusionTheme() 
+    : {
+        btnClass: 'bg-orange-600 hover:bg-orange-700 text-white shadow-orange-600/20',
+        icon: <ArrowRightLeft size={20} />
+      };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
       <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-sm shadow-xl border border-gray-100 dark:border-slate-800 transition-colors duration-200">
@@ -118,7 +174,7 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
               <button
                 type="button"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="w-full px-4 py-3 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-orange-500 dark:focus:ring-orange-600 outline-none flex items-center justify-between transition-colors shadow-sm"
+                className="w-full px-4 py-3 bg-white dark:bg-slate-850 text-gray-900 dark:text-white border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-orange-500 dark:focus:ring-orange-600 outline-none flex items-center justify-between transition-colors shadow-sm"
               >
                 <span className="font-bold">
                   {targetPenId 
@@ -175,8 +231,8 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
                   }}
                   className={`flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl border text-center transition-all duration-200 cursor-pointer ${
                     exclusionType === 'ذبح'
-                      ? 'bg-red-600 border-red-600 text-white shadow-lg shadow-red-600/30 scale-105'
-                      : 'bg-red-50/30 dark:bg-red-950/10 border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-50/60 dark:hover:bg-red-950/20'
+                      ? 'bg-red-600 border-red-600 text-white shadow-md shadow-red-600/20 scale-[1.02]'
+                      : 'bg-red-50/20 dark:bg-red-950/5 border border-red-100 dark:border-red-900/10 text-red-600 dark:text-red-400 hover:bg-red-50/50 dark:hover:bg-red-950/10'
                   }`}
                 >
                   <Skull size={24} />
@@ -192,8 +248,8 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
                   }}
                   className={`flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl border text-center transition-all duration-200 cursor-pointer ${
                     exclusionType === 'ميت'
-                      ? 'bg-red-900 border-red-900 text-white shadow-lg shadow-red-900/40 scale-105'
-                      : 'bg-rose-50/20 dark:bg-rose-950/5 border-rose-100 dark:border-rose-900/10 text-rose-800 dark:text-rose-400 hover:bg-rose-50/40 dark:hover:bg-rose-950/10'
+                      ? 'bg-red-900 border-red-900 text-white shadow-md shadow-red-900/30 scale-[1.02]'
+                      : 'bg-rose-50/15 dark:bg-rose-950/5 border border-rose-100 dark:border-rose-900/10 text-rose-800 dark:text-rose-400 hover:bg-rose-50/30 dark:hover:bg-rose-950/10'
                   }`}
                 >
                   <SkullCrossbonesIcon />
@@ -209,8 +265,8 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
                   }}
                   className={`flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl border text-center transition-all duration-200 cursor-pointer ${
                     exclusionType === 'بيع'
-                      ? 'bg-green-600 border-green-600 text-white shadow-lg shadow-green-600/30 scale-105'
-                      : 'bg-green-50/30 dark:bg-green-950/10 border-green-100 dark:border-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-50/60 dark:hover:bg-green-950/20'
+                      ? 'bg-green-600 border-green-600 text-white shadow-md shadow-green-600/20 scale-[1.02]'
+                      : 'bg-green-50/20 dark:bg-green-950/5 border border-green-100 dark:border-green-900/10 text-green-600 dark:text-green-400 hover:bg-green-50/50 dark:hover:bg-green-950/10'
                   }`}
                 >
                   <FlyingCashIcon />
@@ -226,8 +282,8 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
                   }}
                   className={`flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl border text-center transition-all duration-200 cursor-pointer ${
                     exclusionType === 'آخر'
-                      ? 'bg-slate-700 border-slate-700 text-white shadow-lg shadow-slate-700/30 scale-105'
-                      : 'bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50'
+                      ? 'bg-slate-700 border-slate-700 text-white shadow-md shadow-slate-700/25 scale-[1.02]'
+                      : 'bg-slate-50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50'
                   }`}
                 >
                   <FileText size={24} />
@@ -254,13 +310,9 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
             <button
               type="submit"
               disabled={validTargets.length === 0 || !targetPenId || !isExclusionValid}
-              className={`w-full flex items-center justify-center gap-2 font-bold py-3.5 px-4 rounded-xl transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${
-                isExclusion 
-                  ? 'bg-red-600 hover:bg-red-700 text-white' 
-                  : 'bg-orange-600 hover:bg-orange-700 text-white'
-              }`}
+              className={`w-full flex items-center justify-center gap-2 font-bold py-3.5 px-4 rounded-xl transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${submitBtnTheme.btnClass}`}
             >
-              {isExclusion ? <Skull size={20} /> : <ArrowRightLeft size={20} />}
+              {submitBtnTheme.icon}
               <span>
                 {isExclusion 
                   ? `تأكيد الاستبعاد${exclusionType ? ` (${exclusionType})` : ''}` 
