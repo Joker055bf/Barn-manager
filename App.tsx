@@ -662,7 +662,7 @@ function App() {
     return activityLog.filter(log => {
       // 1. If it has a serialNumber, check if that sheep belongs to the current barn/group
       if (log.serialNumber) {
-        const s = rawSheep.find(sheep => sheep.serialNumber === log.serialNumber || sheep.id === log.serialNumber);
+        const s = rawSheep.find(sheep => (sheep.serialNumber === log.serialNumber && sheep.tagColor === (log.tagColor || undefined)) || sheep.serialNumber === log.serialNumber || sheep.id === log.serialNumber);
         if (s) {
           const pen = pens.find(p => p.id === s.penId);
           return (
@@ -2295,7 +2295,11 @@ function App() {
   const deceasedSheep = selectedGroupId ? allSheep.filter(s => s.penId.startsWith('mortality:') && s.penId.includes(selectedGroupId)) : [];
 
   const availablePensForMove = selectedGroupId ? [
-    ...pens.filter(p => p.parentId === selectedGroupId && p.id !== selectedPenId && !p.isGroup),
+    ...pens.filter(p => p.parentId === selectedGroupId && p.id !== selectedPenId && !p.isGroup)
+         .map(p => ({
+            ...p,
+            currentCount: allSheep.filter(s => s.penId === p.id).length
+         })),
     {
       id: mortalityPenId,
       name: 'المستبعدة',
@@ -2381,7 +2385,7 @@ function App() {
             </svg>
 
             <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
-              <span className="text-3xl font-black text-[#3E2723] dark:text-gray-100">{pen.currentCount || 0}</span>
+              <span className="text-3xl font-black text-[#3E2723] dark:text-gray-100">{penSheep.length}</span>
               <span className="text-[10px] text-gray-400 font-bold tracking-widest mt-1 uppercase">رأس</span>
             </div>
 
@@ -2917,7 +2921,8 @@ function App() {
                                                    </h4>
                                                    <p className="text-[10px] text-gray-400 font-bold mt-0.5 flex items-center justify-start gap-1 leading-relaxed">
                                                      {(() => {
-                                                       const tagCol = log.tagColor || (log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor : undefined);
+                                                       const s_item = log.serialNumber ? (allSheep.find(s => s.serialNumber === log.serialNumber && s.tagColor === (log.tagColor || undefined)) || allSheep.find(s => s.serialNumber === log.serialNumber)) : null;
+                                                        const tagCol = log.tagColor || s_item?.tagColor;
                                                        if (!tagCol) return null;
                                                        return (
                                                          <span className="flex flex-col items-center justify-center shrink-0 mr-1 ml-0.5">
@@ -2955,18 +2960,23 @@ function App() {
                                                    {can('canViewActivity') && <div><span className="text-gray-400">القائم بالعمل: </span>{log.userName}</div>}
                                                    <div><span className="text-gray-400">الإجراء: </span>{log.action}</div>
                                                    <div><span className="text-gray-400">التفاصيل: </span>{log.detail || 'تحديث بيانات'}</div>
-                                                    {(log.tagColor || (log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor : undefined)) && (
-                                                      <div className="flex items-center justify-start gap-1.5">
-                                                        <span className="text-gray-400">لون الشارة: </span>
-                                                        <span className="inline-flex items-center gap-1.5">
-                                                          <span 
-                                                            className="w-2 h-2 rounded-full inline-block border border-white dark:border-slate-900 shadow-sm shrink-0" 
-                                                            style={{ backgroundColor: log.tagColor || allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor }}
-                                                          />
-                                                          {colorNames[log.tagColor || allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor || ''] || 'ملون'}
-                                                        </span>
-                                                      </div>
-                                                    )}
+                                                    {(() => {
+                                                      const s = log.serialNumber ? (allSheep.find(s => s.serialNumber === log.serialNumber && s.tagColor === (log.tagColor || undefined)) || allSheep.find(s => s.serialNumber === log.serialNumber)) : null;
+                                                      const tagCol = log.tagColor || s?.tagColor;
+                                                      if (!tagCol) return null;
+                                                      return (
+                                                        <div className="flex items-center justify-start gap-1.5">
+                                                          <span className="text-gray-400">لون الشارة: </span>
+                                                          <span className="inline-flex items-center gap-1.5">
+                                                            <span 
+                                                              className="w-2 h-2 rounded-full inline-block border border-white dark:border-slate-900 shadow-sm shrink-0" 
+                                                              style={{ backgroundColor: tagCol }}
+                                                            />
+                                                            {colorNames[tagCol] || 'ملون'}
+                                                          </span>
+                                                        </div>
+                                                      );
+                                                    })()}
                                                    
                                                    <div><span className="text-gray-400">التاريخ: </span>{new Date(log.timestamp).toLocaleString('ar-EG', { numberingSystem: 'latn' })}</div>
                                                  </div>
@@ -3159,7 +3169,8 @@ function App() {
                               </h4>
                               <p className="text-[10px] text-gray-400 font-bold mt-0.5 flex items-center justify-start gap-1 leading-relaxed">
                                 {(() => {
-                                  const tagCol = log.tagColor || (log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor : undefined);
+                                  const s_item = log.serialNumber ? (allSheep.find(s => s.serialNumber === log.serialNumber && s.tagColor === (log.tagColor || undefined)) || allSheep.find(s => s.serialNumber === log.serialNumber)) : null;
+                                                        const tagCol = log.tagColor || s_item?.tagColor;
                                   if (!tagCol) return null;
                                   return (
                                     <span className="flex flex-col items-center justify-center shrink-0 mr-1 ml-0.5">
@@ -3393,8 +3404,12 @@ function App() {
                     color = 'text-red-600 bg-red-50';
                   }
 
-                  const logTagColor = log.tagColor || (log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor : undefined);
-                  const sheep = log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber || s.id === log.serialNumber) : null;
+                  const sheep = log.serialNumber
+                    ? (allSheep.find(s => s.serialNumber === log.serialNumber && s.tagColor === (log.tagColor || undefined))
+                       || allSheep.find(s => s.serialNumber === log.serialNumber)
+                       || allSheep.find(s => s.id === log.serialNumber))
+                    : null;
+                  const logTagColor = log.tagColor || sheep?.tagColor;
                   const sheepType = sheep?.type;
 
                   return {
@@ -4034,7 +4049,12 @@ function App() {
                       const dateStr = d.toLocaleDateString('en-GB');
                       const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
                       
-                      const logTagColor = log.tagColor || (log.serialNumber ? allSheep.find(s => s.serialNumber === log.serialNumber)?.tagColor : undefined);
+                      const sheep = log.serialNumber
+                        ? (allSheep.find(s => s.serialNumber === log.serialNumber && s.tagColor === (log.tagColor || undefined))
+                           || allSheep.find(s => s.serialNumber === log.serialNumber)
+                           || allSheep.find(s => s.id === log.serialNumber))
+                        : null;
+                      const logTagColor = log.tagColor || sheep?.tagColor;
                       
                       return (
                         <div key={log.id} className="relative flex items-start w-full">
