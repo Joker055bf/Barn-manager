@@ -615,21 +615,25 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                       </button>
 
                       {showColorPicker && (
-                        <div className="absolute right-0 top-full mt-1 z-20 bg-white dark:bg-slate-850 border border-gray-100 dark:border-slate-700 shadow-xl rounded-xl p-2 grid grid-cols-4 gap-1.5 w-40 animate-scale-in">
+                        <div className="absolute right-0 top-full mt-1 z-20 bg-white dark:bg-slate-850 border border-gray-100 dark:border-slate-700 shadow-xl rounded-xl p-2 grid grid-cols-4 gap-x-1 gap-y-2 w-[168px] animate-scale-in">
                           {Object.entries(colorNames).map(([c, name]) => (
-                            <button
-                              key={c}
-                              type="button"
-                              onClick={() => { setTagColor(c); setColor(c); setShowColorPicker(false); }}
-                              className={`w-6 h-6 rounded-full border transition hover:scale-110 hover:shadow-md cursor-pointer ${tagColor === c ? 'ring-2 ring-offset-2 ring-[#795548]' : 'border-gray-100 dark:border-slate-750'}`}
-                              style={{ backgroundColor: c }}
-                              title={name}
-                            />
+                            <div key={c} className="flex flex-col items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => { setTagColor(c); setColor(c); setShowColorPicker(false); }}
+                                className={`w-6 h-6 rounded-full border transition hover:scale-110 hover:shadow-md cursor-pointer ${tagColor === c ? 'ring-2 ring-offset-2 ring-[#795548]' : 'border-gray-100 dark:border-slate-750'}`}
+                                style={{ backgroundColor: c }}
+                                title={name}
+                              />
+                              <span className="text-[8px] font-bold text-gray-500 dark:text-gray-400 text-center leading-none select-none">
+                                {name}
+                              </span>
+                            </div>
                           ))}
                           <button
                             type="button"
                             onClick={() => { setTagColor(''); setColor(''); setShowColorPicker(false); }}
-                            className="w-full col-span-4 text-[10px] text-red-500 py-1 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg font-bold transition-colors cursor-pointer"
+                            className="w-full col-span-4 text-[10px] text-red-500 py-1 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg font-bold transition-colors cursor-pointer mt-1"
                           >
                             إزالة
                           </button>
