@@ -50,13 +50,13 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
         if (typeFilter !== 'all') {
             const notesVal = (sheep.notes || '').trim();
             if (typeFilter === 'ذبح') {
-                if (notesVal !== 'ذبح') return false;
+                if (!notesVal.startsWith('ذبح')) return false;
             } else if (typeFilter === 'ميت') {
-                if (notesVal !== 'ميت') return false;
+                if (!notesVal.startsWith('ميت')) return false;
             } else if (typeFilter === 'بيع') {
-                if (notesVal !== 'بيع') return false;
+                if (!notesVal.startsWith('بيع')) return false;
             } else if (typeFilter === 'other') {
-                if (notesVal === 'ذبح' || notesVal === 'ميت' || notesVal === 'بيع') return false;
+                if (notesVal.startsWith('ذبح') || notesVal.startsWith('ميت') || notesVal.startsWith('بيع')) return false;
             }
         }
 

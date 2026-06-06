@@ -1739,6 +1739,26 @@ function App() {
         }
         if (targetPenId.includes('mortality')) {
           logActivity('استبعاد حيوان', `تم استبعاد ${toMove.length} رأس. السبب: ${finalReason || 'غير محدد'}`);
+          if (finalReason && finalReason.startsWith('بيع - بقيمة')) {
+            const saleAmountMatch = finalReason.match(/بيع - بقيمة (\d+(?:\.\d+)?) ريال/);
+            if (saleAmountMatch) {
+              const price = parseFloat(saleAmountMatch[1]);
+              for (const s of toMove) {
+                const sale: Sale = {
+                  id: generateId(),
+                  penId: s.penId,
+                  relatedAnimalId: s.serialNumber,
+                  title: `بيع حيوان #${s.serialNumber}`,
+                  amount: price,
+                  buyer: 'غير محدد',
+                  date: new Date().toISOString().split('T')[0],
+                  createdAt: new Date().toISOString(),
+                  category: 'sheep'
+                };
+                await handleSaveSale(sale);
+              }
+            }
+          }
         } else {
           logActivity('نقل جماعي', `تم نقل ${toMove.length} رأس من [${sourceName}] إلى [${targetPenName}]`);
         }
@@ -1767,6 +1787,24 @@ function App() {
         });
         if (isExcl) {
           logActivity('استبعاد حيوان', `تم استبعاد #${selectedSheepForAction.serialNumber}. السبب: ${finalReason || 'غير محدد'}`, selectedSheepForAction.serialNumber, selectedSheepForAction.tagColor);
+          if (finalReason && finalReason.startsWith('بيع - بقيمة')) {
+            const saleAmountMatch = finalReason.match(/بيع - بقيمة (\d+(?:\.\d+)?) ريال/);
+            if (saleAmountMatch) {
+              const price = parseFloat(saleAmountMatch[1]);
+              const sale: Sale = {
+                id: generateId(),
+                penId: selectedSheepForAction.penId,
+                relatedAnimalId: selectedSheepForAction.serialNumber,
+                title: `بيع حيوان #${selectedSheepForAction.serialNumber}`,
+                amount: price,
+                buyer: 'غير محدد',
+                date: new Date().toISOString().split('T')[0],
+                createdAt: new Date().toISOString(),
+                category: 'sheep'
+              };
+              await handleSaveSale(sale);
+            }
+          }
         } else {
           logActivity('نقل حيوان', `تم نقل #${selectedSheepForAction.serialNumber} من [${sourceName}] إلى [${targetPenName}]`, selectedSheepForAction.serialNumber, selectedSheepForAction.tagColor);
         }

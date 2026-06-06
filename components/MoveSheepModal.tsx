@@ -62,6 +62,7 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
   const [targetPenId, setTargetPenId] = useState('');
   const [exclusionType, setExclusionType] = useState<'ذبح' | 'ميت' | 'بيع' | 'آخر' | ''>('');
   const [reason, setReason] = useState('');
+  const [saleAmount, setSaleAmount] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -82,26 +83,50 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
     };
   }, [isDropdownOpen]);
 
+  // Reset state when modal is closed
+  useEffect(() => {
+    if (!isOpen) {
+      setTargetPenId('');
+      setExclusionType('');
+      setReason('');
+      setSaleAmount('');
+    }
+  }, [isOpen]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (targetPenId) {
       const isExclusion = targetPenId.includes('mortality');
-      const finalReason = isExclusion 
-        ? (exclusionType === 'آخر' ? reason : exclusionType)
-        : undefined;
+      let finalReason = undefined;
+      if (isExclusion) {
+        if (exclusionType === 'آخر') {
+          finalReason = reason;
+        } else if (exclusionType === 'بيع') {
+          finalReason = `بيع - بقيمة ${saleAmount} ريال`;
+        } else {
+          finalReason = exclusionType;
+        }
+      }
 
       onMove(targetPenId, finalReason);
       onClose();
       setTargetPenId('');
       setExclusionType('');
       setReason('');
+      setSaleAmount('');
     }
   };
 
   if (!isOpen) return null;
 
   const isExclusion = targetPenId.includes('mortality');
-  const isExclusionValid = !isExclusion || (exclusionType !== '' && (exclusionType !== 'آخر' || reason.trim() !== ''));
+  const isExclusionValid = !isExclusion || (
+    exclusionType !== '' && (
+      (exclusionType === 'آخر' && reason.trim() !== '') ||
+      (exclusionType === 'بيع' && saleAmount.trim() !== '') ||
+      (exclusionType !== 'آخر' && exclusionType !== 'بيع')
+    )
+  );
 
   // Dynamic theme based on selected exclusion type
   const getExclusionTheme = () => {
@@ -300,6 +325,23 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
                     onChange={(e) => setReason(e.target.value)}
                     placeholder="اكتب سبب استبعاد الحيوان هنا..."
                     className="w-full px-4 py-3 bg-white dark:bg-slate-850 text-gray-900 dark:text-white border border-gray-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-red-500 outline-none resize-none h-24 shadow-sm"
+                  />
+                </div>
+              )}
+
+              {exclusionType === 'بيع' && (
+                <div className="animate-fade-in space-y-2">
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">مبلغ البيع (ريال) (إجباري)</label>
+                  <input
+                    required
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="any"
+                    value={saleAmount}
+                    onChange={(e) => setSaleAmount(e.target.value)}
+                    placeholder="أدخل مبلغ البيع بالريال..."
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-850 text-gray-900 dark:text-white border border-gray-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-green-500 outline-none shadow-sm font-bold text-center text-lg text-green-600 dark:text-green-400 focus:border-green-500"
                   />
                 </div>
               )}
