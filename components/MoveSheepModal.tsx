@@ -46,6 +46,27 @@ const FlyingCashIcon: React.FC<{ size?: number }> = ({ size = 24 }) => (
   </svg>
 );
 
+const CleaverIcon: React.FC<{ size?: number }> = ({ size = 24 }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2.2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+  >
+    {/* Blade */}
+    <path d="M9 15l8-8 4 4-8 8-4-4z" />
+    {/* Handle */}
+    <path d="M9 15l-6 6" />
+    {/* Hole */}
+    <circle cx="17" cy="10" r="0.75" fill="currentColor" />
+  </svg>
+);
+
+
 export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose, onMove, currentPenId, availablePens }) => {
   const [targetPenId, setTargetPenId] = useState('');
   const [exclusionType, setExclusionType] = useState<'ذبح' | 'ميت' | 'بيع' | 'آخر' | ''>('');
@@ -122,7 +143,12 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
       case 'ذبح':
         return {
           btnClass: 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/25 dark:shadow-red-900/30',
-          icon: <Skull size={20} />
+          icon: (
+            <div className="flex items-center gap-1">
+              <Skull size={18} />
+              <CleaverIcon size={18} />
+            </div>
+          )
         };
       case 'ميت':
         return {
@@ -248,7 +274,10 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
                       : 'bg-red-50/20 dark:bg-red-950/5 border border-red-100 dark:border-red-900/10 text-red-600 dark:text-red-400 hover:bg-red-50/50 dark:hover:bg-red-950/10'
                   }`}
                 >
-                  <Skull size={24} />
+                  <div className="flex items-center gap-1">
+                    <Skull size={22} />
+                    <CleaverIcon size={22} />
+                  </div>
                   <span className="text-xs font-black">ذبح</span>
                 </button>
 
