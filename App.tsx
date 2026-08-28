@@ -2358,6 +2358,14 @@ function App() {
     setIsEditingOwner(false);
   };
   const selectedPen = pens.find(p => p.id === selectedPenId);
+  const isAnimalSearchActive = React.useMemo(() => {
+    return (
+      sheepSearchNumber !== '' ||
+      sheepSearchType !== 'all' ||
+      sheepSearchColor !== 'all' ||
+      sheepSearchAge !== 'all'
+    );
+  }, [sheepSearchNumber, sheepSearchType, sheepSearchColor, sheepSearchAge]);
   const displayedSheep = (selectedPenId
     ? allSheep.filter(s => s.penId === selectedPenId)
     : selectedGroupId
@@ -2607,13 +2615,26 @@ function App() {
               ) : null}
 
               {selectedGroup ? (
-                <div className="flex flex-col">
-                  <h1 className="text-xl font-bold text-[#3E2723] dark:text-gray-100 leading-tight">
-                    {selectedGroup.name} {selectedPen ? ` • ${selectedPen.name}` : ''}
-                  </h1>
-                  <span className="text-[10px] font-black text-orange-600 dark:text-orange-400 mt-0.5">
-                    {selectedPen ? `عدد الحيوانات بالقسم: ${displayedSheep.length}` : `عدد الأقسام: ${pens.filter(p => p.parentId === selectedGroupId).length}`}
-                  </span>
+                <div className="flex flex-col font-sans">
+                  {selectedPen ? (
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-sm sm:text-base font-black text-[#3E2723] dark:text-gray-100 leading-tight">
+                        {selectedPen.name}
+                      </h1>
+                      <span className="bg-[#795548]/10 text-[#795548] text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded-lg dark:bg-orange-500/10 dark:text-orange-400">
+                        {displayedSheep.length} رأس
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <h1 className="text-base sm:text-lg font-bold text-[#3E2723] dark:text-gray-100 leading-tight">
+                        {selectedGroup.name}
+                      </h1>
+                      <span className="text-[10px] font-black text-orange-605 dark:text-orange-400 mt-0.5">
+                        عدد الأقسام: {pens.filter(p => p.parentId === selectedGroupId).length}
+                      </span>
+                    </>
+                  )}
                 </div>
               ) : (
                 <h1 className="text-xl font-bold text-[#3E2723] flex items-center gap-3 dark:text-gray-100">
@@ -2651,7 +2672,7 @@ function App() {
                     </>
                   )}
                   {can('canAddAnimals') && <button onClick={() => openNewSheepModal(selectedPenId || undefined)} className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-600 rounded-xl text-[10px] font-bold border border-orange-100 dark:bg-orange-900/20 whitespace-nowrap"><Dna size={12} /> {t.head} <Plus size={10} /></button>}
-                  {can('canAddPens') && <button onClick={openAddSectionModal} className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-bold border border-blue-100 dark:bg-blue-900/20 whitespace-nowrap"><Warehouse size={12} /> قسم <Plus size={10} /></button>}
+                  {can('canAddPens') && !selectedPenId && <button onClick={openAddSectionModal} className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-bold border border-blue-100 dark:bg-blue-900/20 whitespace-nowrap"><Warehouse size={12} /> قسم <Plus size={10} /></button>}
                   <button 
                     onClick={() => setIsChatOpen(true)} 
                     className="relative flex items-center justify-center p-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 hover:bg-emerald-105 transition dark:bg-emerald-900/20 dark:border-emerald-900/50"
@@ -2783,7 +2804,7 @@ function App() {
                          const sectionsCount = pens.filter(p => p.parentId === pen.id).length;
                          return (
                            <div key={pen.id} className="hover-glow transition-all">
-                             <SwipeableBarnCard onEdit={() => openEditModal(pen)} canEdit={isOwner || can('canEditBarns')} canDelete={isOwner || can('canDeleteBarns')}
+                              <SwipeableBarnCard onEdit={() => openEditModal(pen)} canEdit={isOwner || can('canEditBarns')} canDelete={isOwner || can('canDeleteBarns')}
                                name={pen.name} 
                                sectionsCount={sectionsCount}
                                onClick={() => enterGroup(pen.id)} 
@@ -2817,7 +2838,6 @@ function App() {
               <div className="flex-1 flex flex-col min-h-0 relative">
                 {barnTab === 'pens' && (
                   <div className="flex-1 flex flex-col overflow-hidden">
-
                     <div className="flex-1 overflow-y-auto pb-40 pt-6">
                       {/* Section Filtering & Custom Reordering Controls */}
                       <div className="flex items-center justify-between px-4 md:px-8 mb-4 gap-3" dir="rtl">
@@ -2844,7 +2864,7 @@ function App() {
                                 setSectionSearchQuery('');
                                 setSelectedPenId(null);
                               }}
-                              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-650 dark:hover:text-gray-250 text-[10px] font-bold w-4 h-4 flex items-center justify-center bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-full"
+                              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-650 dark:hover:text-gray-250 text-[10px] font-bold w-4 h-4 flex items-center justify-center bg-gray-100 hover:bg-gray-200 dark:bg-slate-850 dark:hover:bg-slate-700 rounded-full"
                             >
                               ✕
                             </button>
@@ -2864,7 +2884,109 @@ function App() {
                         )}
                       </div>
 
+
                       {!selectedPenId && (
+                        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm rounded-[2rem] p-5 shadow-sm border border-gray-100 dark:border-slate-800 mx-4 md:mx-8 mb-6 mt-2" dir="rtl">
+                          <h4 className="text-[10px] font-black text-gray-400 mb-3">البحث والتصفية في الحظيرة</h4>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-right">
+                            {/* Search by Number */}
+                            <div className="relative col-span-2 md:col-span-1">
+                              <label className="block text-[8px] font-black text-gray-400 mb-1">رقم الحيوان</label>
+                              <div className="relative">
+                                <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3 h-3 pointer-events-none" />
+                                <input
+                                  type="text"
+                                  placeholder="رقم الحيوان..."
+                                  value={tempSearchNumber}
+                                  onChange={(e) => setTempSearchNumber(e.target.value)}
+                                  className="w-full pr-7 pl-2.5 py-1.5 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-xl text-[10px] font-bold focus:ring-1 focus:ring-[#795548] focus:border-[#795548] outline-none transition-all dark:text-white"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Search by Color */}
+                            <div>
+                              <label className="block text-[8px] font-black text-gray-400 mb-1">اللون</label>
+                              <select
+                                value={tempSearchColor}
+                                onChange={(e) => setTempSearchColor(e.target.value)}
+                                className="w-full px-2 py-1.5 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-xl text-[10px] font-bold focus:ring-1 focus:ring-[#795548] focus:border-[#795548] outline-none transition-all dark:text-white cursor-pointer"
+                              >
+                                <option value="all">كل الألوان</option>
+                                {Array.from(new Set(displayedSheep.map(s => s.tagColor || 'none'))).map((color: any) => (
+                                  <option key={color} value={color}>
+                                    {color === 'none' ? 'بدون لون' : (colorNames[color] || color)}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Search by Type */}
+                            <div>
+                              <label className="block text-[8px] font-black text-gray-400 mb-1">النوع</label>
+                              <select
+                                value={tempSearchType}
+                                onChange={(e) => setTempSearchType(e.target.value)}
+                                className="w-full px-2 py-1.5 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-xl text-[10px] font-bold focus:ring-1 focus:ring-[#795548] focus:border-[#795548] outline-none transition-all dark:text-white cursor-pointer"
+                              >
+                                <option value="all">كل الأنواع</option>
+                                {Array.from(new Set(displayedSheep.map(s => s.type))).filter(Boolean).map(t => (
+                                  <option key={t} value={t}>{t}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Search by Age */}
+                            <div>
+                              <label className="block text-[8px] font-black text-gray-400 mb-1">العمر</label>
+                              <select
+                                value={tempSearchAge}
+                                onChange={(e) => setTempSearchAge(e.target.value)}
+                                className="w-full px-2 py-1.5 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-xl text-[10px] font-bold focus:ring-1 focus:ring-[#795548] focus:border-[#795548] outline-none transition-all dark:text-white cursor-pointer"
+                              >
+                                <option value="all">كل الأعمار</option>
+                                {Array.from(new Set(displayedSheep.map(s => getAnimalAgeLabel(s.birthDate, s.type, s.gender)))).filter(Boolean).map(age => (
+                                  <option key={age} value={age}>{age}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2 justify-end mt-4">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTempSearchNumber('');
+                                setTempSearchType('all');
+                                setTempSearchColor('all');
+                                setTempSearchAge('all');
+                                setSheepSearchNumber('');
+                                setSheepSearchType('all');
+                                setSheepSearchColor('all');
+                                setSheepSearchAge('all');
+                              }}
+                              className="px-5 py-1.5 bg-gray-105 hover:bg-gray-200 text-gray-650 rounded-xl text-[10px] font-black transition dark:bg-slate-850 dark:hover:bg-slate-700 cursor-pointer"
+                            >
+                              الغاء
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSheepSearchNumber(tempSearchNumber);
+                                setSheepSearchType(tempSearchType);
+                                setSheepSearchColor(tempSearchColor);
+                                setSheepSearchAge(tempSearchAge);
+                              }}
+                              className="px-5 py-1.5 bg-[#795548] hover:bg-[#5E3F35] text-white rounded-xl text-[10px] font-black transition dark:bg-orange-600 dark:hover:bg-orange-700 cursor-pointer shadow-sm"
+                            >
+                              بحث
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Display Section Cards if NO section selected AND animal search is NOT active */}
+                      {!selectedPenId && !isAnimalSearchActive && (
                         <div className="flex overflow-x-auto snap-x gap-4 no-scrollbar pb-6 px-4 md:px-8">
                           {displayedPens
                             .filter(pen => pen.name.includes(sectionSearchQuery))
@@ -2918,141 +3040,63 @@ function App() {
                         </div>
                       )}
 
-                      {/* Integrated Animal Filters & Listing Section */}
-                      {selectedPenId && (
-                        <div className="mt-8 space-y-4 px-4 md:px-8">
-                        <div className="flex justify-between items-center mb-1" dir="rtl">
-                          <h3 className="text-sm font-black text-[#3E2723] dark:text-gray-100 flex items-center gap-2">
-                            <span>{selectedPen ? `حيوانات قسم: ${selectedPen.name}` : 'كافة حيوانات الحظيرة'}</span>
-                            <span className="text-xs font-bold bg-[#795548]/10 text-[#795548] px-2 py-0.5 rounded-lg dark:bg-orange-500/10 dark:text-orange-400">
-                              {displayedSheep.length} {currentMetadata.headLabel}
-                            </span>
-                          </h3>
-                          {displayedSheep.length > 0 && (
-                            <button
-                              onClick={() => setIsAnimalFilterOpen(!isAnimalFilterOpen)}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black border transition-all cursor-pointer ${
-                                isAnimalFilterOpen || sheepSearchNumber || sheepSearchType !== 'all' || sheepSearchColor !== 'all' || sheepSearchAge !== 'all'
-                                  ? 'bg-[#795548] text-white border-[#795548] dark:bg-orange-600 dark:border-orange-600 shadow-sm'
-                                  : 'bg-white text-gray-500 border-gray-200 dark:bg-slate-900 dark:border-slate-800'
-                              }`}
-                            >
-                              <Search size={12} />
-                              <span>البحث والتصفية</span>
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Search & Filter Bar */}
-                        {displayedSheep.length > 0 && isAnimalFilterOpen && (
-                          <div className="bg-white/95 border border-gray-150/10 rounded-2xl p-3 shadow-md dark:bg-slate-900 dark:border-slate-800 grid grid-cols-2 lg:grid-cols-6 gap-2 text-right items-end animate-fade-in" dir="rtl">
-                            {/* Animal Number Search */}
-                            <div className="col-span-2 lg:col-span-2 relative">
-                              <label className="block text-[8px] font-black text-gray-400 mb-1">رقم الحيوان</label>
-                              <div className="relative">
-                                <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-405 w-3 h-3 pointer-events-none" />
-                                <input
-                                  type="text"
-                                  placeholder="رقم الحيوان..."
-                                  value={tempSearchNumber}
-                                  onChange={(e) => setTempSearchNumber(e.target.value)}
-                                  className="w-full pr-7 pl-2.5 py-1 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-xl text-[10px] font-bold focus:ring-1 focus:ring-[#795548] focus:border-[#795548] outline-none transition-all dark:text-white"
-                                />
-                              </div>
+                      {/* Display Animal Search Results if active (instead of section cards) */}
+                      {!selectedPenId && isAnimalSearchActive && (
+                        <div className="px-4 md:px-8 pb-10">
+                          <div className="bg-white/80 rounded-[2.5rem] shadow-sm border border-gray-100 p-6 dark:bg-slate-900 animate-slide-up">
+                            <div className="flex justify-between items-center mb-4" dir="rtl">
+                              <h3 className="text-sm font-black text-[#3E2723] dark:text-gray-100 flex items-center gap-2">
+                                <span>نتائج البحث عن الحيوان</span>
+                                <span className="text-xs font-bold bg-[#795548]/10 text-[#795548] px-2 py-0.5 rounded-lg dark:bg-orange-500/10 dark:text-orange-400">
+                                  {filteredSheepList.length} رأس
+                                </span>
+                              </h3>
                             </div>
 
-                            {/* Animal Type Filter */}
-                            <div className="col-span-1">
-                              <label className="block text-[8px] font-black text-gray-400 mb-1">النوع</label>
-                              <select
-                                value={tempSearchType}
-                                onChange={(e) => setTempSearchType(e.target.value)}
-                                className="w-full px-2 py-1 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-xl text-[10px] font-bold focus:ring-1 focus:ring-[#795548] focus:border-[#795548] outline-none transition-all dark:text-white cursor-pointer"
-                              >
-                                <option value="all">كل الأنواع</option>
-                                {Array.from(new Set(displayedSheep.map(s => s.type)))
-                                  .filter(Boolean)
-                                  .map(type => (
-                                    <option key={type} value={type}>{type}</option>
-                                  ))}
-                              </select>
-                            </div>
-
-                            {/* Tag Color Filter */}
-                            <div className="col-span-1">
-                              <label className="block text-[8px] font-black text-gray-400 mb-1">اللون</label>
-                              <select
-                                value={tempSearchColor}
-                                onChange={(e) => setTempSearchColor(e.target.value)}
-                                className="w-full px-2 py-1 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-xl text-[10px] font-bold focus:ring-1 focus:ring-[#795548] focus:border-[#795548] outline-none transition-all dark:text-white cursor-pointer"
-                              >
-                                <option value="all">كل الألوان</option>
-                                {Array.from(new Set(displayedSheep.map(s => s.tagColor || 'none')))
-                                  .map((color: any) => (
-                                    <option key={color} value={color}>
-                                      {color === 'none' ? 'بدون لون' : (colorNames[color] || color)}
-                                    </option>
-                                  ))}
-                              </select>
-                            </div>
-
-                            {/* Age Classification Filter */}
-                            <div className="col-span-1">
-                              <label className="block text-[8px] font-black text-gray-400 mb-1">العمر</label>
-                              <select
-                                value={tempSearchAge}
-                                onChange={(e) => setTempSearchAge(e.target.value)}
-                                className="w-full px-2 py-1 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-xl text-[10px] font-bold focus:ring-1 focus:ring-[#795548] focus:border-[#795548] outline-none transition-all dark:text-white cursor-pointer"
-                              >
-                                <option value="all">كل الأعمار</option>
-                                {Array.from(new Set(displayedSheep.map(s => getAnimalAgeLabel(s.birthDate, s.type, s.gender))))
-                                  .filter(Boolean)
-                                  .map(age => (
-                                    <option key={age} value={age}>{age}</option>
-                                  ))}
-                              </select>
-                            </div>
-
-                            {/* Action Buttons: search and clear */}
-                            <div className="col-span-1 flex gap-1 items-stretch">
-                              <button
-                                onClick={() => {
-                                  setTempSearchNumber('');
-                                  setTempSearchType('all');
-                                  setTempSearchColor('all');
-                                  setTempSearchAge('all');
-                                  setSheepSearchNumber('');
-                                  setSheepSearchType('all');
-                                  setSheepSearchColor('all');
-                                  setSheepSearchAge('all');
-                                }}
-                                className="flex-1 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-xl text-[10px] font-black transition dark:bg-slate-800 dark:hover:bg-slate-700 cursor-pointer text-center"
-                                title="مسح الفلاتر"
-                              >
-                                مسح
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setSheepSearchNumber(tempSearchNumber);
-                                  setSheepSearchType(tempSearchType);
-                                  setSheepSearchColor(tempSearchColor);
-                                  setSheepSearchAge(tempSearchAge);
-                                }}
-                                className="flex-1 py-1.5 bg-[#795548] hover:bg-[#5E3F35] text-white rounded-xl text-[10px] font-black transition dark:bg-orange-600 dark:hover:bg-orange-700 cursor-pointer text-center shadow-sm"
-                              >
-                                بحث
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Sheep Grid/Group Display */}
-                        <div className="bg-white/80 rounded-[2.5rem] shadow-sm border border-gray-100 p-6 dark:bg-slate-900">
-                          {displayedSheep.length > 0 ? (
-                            filteredSheepList.length > 0 ? (
+                            {filteredSheepList.length > 0 ? (
                               <div className={`grid ${ (selectedGroup?.animalType === 'chickens' || selectedGroup?.animalType === 'pigeons') ? 'grid-cols-1 md:grid-cols-2 gap-4' : 'grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3' }`}>
                                 {(selectedGroup?.animalType === 'chickens' || selectedGroup?.animalType === 'pigeons') ? (
                                    Object.values(filteredSheepList.reduce((acc, s) => {
+                                      const key = `${s.type}-${s.tagColor || 'none'}`;
+                                      if (!acc[key]) acc[key] = { type: s.type, tagColor: s.tagColor, male: 0, female: 0 };
+                                      if (s.gender === 'male') acc[key].male++; else acc[key].female++;
+                                      return acc;
+                                    }, {} as any)).map((group: any, idx) => (
+                                      <div key={idx} className="bg-white border border-gray-105 rounded-2xl p-4 dark:bg-slate-900">
+                                         <div className="flex items-center justify-between mb-4">
+                                           <div className="flex items-center gap-3">
+                                             <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-sm" style={{ backgroundColor: group.tagColor || '#D7CCC8' }}><Dna size={18} className="text-white" /></div>
+                                             <h3 className="font-bold text-gray-800 dark:text-gray-100">{group.type}</h3>
+                                           </div>
+                                           <span className="text-xs font-black bg-[#795548] text-white px-2 py-1 rounded-lg">{group.male + group.female} {currentMetadata.headLabel}</span>
+                                         </div>
+                                         <div className="grid grid-cols-2 gap-2 text-center">
+                                           <div className="bg-blue-50/50 p-2 rounded-xl"><span className="text-[10px] block">ذكور</span><span className="font-black text-blue-700">{group.male}</span></div>
+                                           <div className="bg-pink-50/50 p-2 rounded-xl"><span className="text-[10px] block">إناث</span><span className="font-black text-pink-700">{group.female}</span></div>
+                                         </div>
+                                      </div>
+                                    )))
+                                  : (
+                                   filteredSheepList.map(sheep => renderSheepRow(sheep))
+                                 )}
+                              </div>
+                            ) : (
+                              <div className="text-center py-12 text-gray-400 dark:text-slate-650 font-bold text-[11px]">
+                                لا توجد نتائج مطابقة لبحثك في هذه الحظيرة
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Inside Section View (ONLY shown when selectedPenId is set, clean with no filters) */}
+                      {selectedPenId && (
+                        <div className="px-4 md:px-8 mt-2">
+                          <div className="bg-white/80 rounded-[2.5rem] shadow-sm border border-gray-100 p-6 dark:bg-slate-900 animate-slide-up">
+                            {displayedSheep.length > 0 ? (
+                              <div className={`grid ${ (selectedGroup?.animalType === 'chickens' || selectedGroup?.animalType === 'pigeons') ? 'grid-cols-1 md:grid-cols-2 gap-4' : 'grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3' }`}>
+                                {(selectedGroup?.animalType === 'chickens' || selectedGroup?.animalType === 'pigeons') ? (
+                                   Object.values(displayedSheep.reduce((acc, s) => {
                                       const key = `${s.type}-${s.tagColor || 'none'}`;
                                       if (!acc[key]) acc[key] = { type: s.type, tagColor: s.tagColor, male: 0, female: 0 };
                                       if (s.gender === 'male') acc[key].male++; else acc[key].female++;
@@ -3071,26 +3115,20 @@ function App() {
                                            <div className="bg-pink-50/50 p-2 rounded-xl"><span className="text-[10px] block">إناث</span><span className="font-black text-pink-700">{group.female}</span></div>
                                          </div>
                                       </div>
-                                    ))
-                                 ) : (
-                                   filteredSheepList.map(sheep => renderSheepRow(sheep))
+                                    )))
+                                  : (
+                                   displayedSheep.map((sheep) => renderSheepRow(sheep))
                                  )}
                               </div>
                             ) : (
-                              <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-                                <Search size={40} className="stroke-[1.5] mb-2 opacity-55 text-orange-500" />
-                                <p className="font-bold text-xs">لا توجد نتائج تطابق الفلاتر المحددة</p>
+                              <div className="flex flex-col items-center justify-center py-16 text-gray-450 dark:text-gray-500">
+                                <Warehouse size={48} className="text-gray-300 dark:text-slate-700 mb-3" />
+                                <p className="font-black text-xs text-gray-450 dark:text-gray-400">هذا القسم فارغ، لا توجد به حيوانات حالياً</p>
                               </div>
-                            )
-                          ) : (
-                            <div className="flex flex-col items-center justify-center py-16 text-gray-450 dark:text-gray-500">
-                              <Warehouse size={48} className="text-gray-300 dark:text-slate-700 mb-3" />
-                              <p className="font-black text-xs text-gray-450 dark:text-gray-400">{selectedPen ? 'هذا القسم فارغ، لا توجد به حيوانات حالياً' : 'الحظيرة فارغة، يرجى إضافة حيوانات للبدء'}</p>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
                       {displayedPens.length > 0 && !selectedPenId && (() => {
                         const barnAnimals = allSheep.filter(s => {
