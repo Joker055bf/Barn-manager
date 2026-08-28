@@ -2562,10 +2562,10 @@ function App() {
         <div className="bg-white/90 backdrop-blur-sm p-4 shadow-sm sticky top-0 z-30 mb-0 dark:bg-slate-900 dark:border-b dark:border-slate-800">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {(activeTab === 'pens' && selectedGroupId) || (activeTab === 'sheepList') ? (
+              {activeTab === 'pens' && selectedGroupId ? (
                 <button
                   onClick={() => {
-                    if (activeTab === 'sheepList') { setSelectedPenId(null); setActiveTab('pens'); }
+                    if (selectedPenId) { setSelectedPenId(null); setSectionSearchQuery(''); }
                     else { setSelectedGroupId(null); }
                   }}
                   className="p-2 rounded-xl bg-[#fcfbf4] hover:bg-gray-100 text-gray-500 transition dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-gray-400"
@@ -2574,17 +2574,13 @@ function App() {
                 </button>
               ) : null}
 
-              {selectedPen ? (
-                <h1 className="text-xl font-bold text-[#3E2723] flex items-center gap-3 dark:text-gray-100">
-                  {selectedPen.name}
-                </h1>
-              ) : selectedGroup ? (
+              {selectedGroup ? (
                 <div className="flex flex-col">
                   <h1 className="text-xl font-bold text-[#3E2723] dark:text-gray-100 leading-tight">
-                    {selectedGroup.name}
+                    {selectedGroup.name} {selectedPen ? ` • ${selectedPen.name}` : ''}
                   </h1>
                   <span className="text-[10px] font-black text-orange-600 dark:text-orange-400 mt-0.5">
-                    عدد الأقسام: {pens.filter(p => p.parentId === selectedGroupId).length}
+                    {selectedPen ? `عدد الحيوانات بالقسم: ${displayedSheep.length}` : `عدد الأقسام: ${pens.filter(p => p.parentId === selectedGroupId).length}`}
                   </span>
                 </div>
               ) : (
@@ -2598,11 +2594,35 @@ function App() {
             <div className="flex items-center gap-2 shrink-0">
               {activeTab === 'pens' && selectedGroupId && (
                 <>
-                  {can('canAddAnimals') && <button onClick={() => openNewSheepModal()} className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-600 rounded-xl text-[10px] font-bold border border-orange-100 dark:bg-orange-900/20 whitespace-nowrap"><Dna size={12} /> {t.head} <Plus size={10} /></button>}
+                  {selectedPen && (
+                    <>
+                      {/* Edit Section Button */}
+                      {can('canEditPens') && (
+                        <button 
+                          onClick={() => { setEditingPen(selectedPen); setIsAddingGroup(false); setIsModalOpen(true); }}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-bold border border-indigo-100 hover:bg-indigo-150 transition dark:bg-indigo-900/20 dark:border-indigo-900/50 whitespace-nowrap"
+                          title="تعديل القسم"
+                        >
+                          <Edit size={12} /> تعديل
+                        </button>
+                      )}
+                      {/* Delete Section Button */}
+                      {can('canDeletePens', selectedPen.id) && (
+                        <button 
+                          onClick={() => handleDeletePen(selectedPen.id, false)}
+                          className="flex items-center justify-center p-1.5 bg-red-50 text-red-600 rounded-xl border border-red-105 hover:bg-red-150 transition dark:bg-red-900/20 dark:border-red-900/50"
+                          title="حذف القسم"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </>
+                  )}
+                  {can('canAddAnimals') && <button onClick={() => openNewSheepModal(selectedPenId || undefined)} className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-600 rounded-xl text-[10px] font-bold border border-orange-100 dark:bg-orange-900/20 whitespace-nowrap"><Dna size={12} /> {t.head} <Plus size={10} /></button>}
                   {can('canAddPens') && <button onClick={openAddSectionModal} className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-bold border border-blue-100 dark:bg-blue-900/20 whitespace-nowrap"><Warehouse size={12} /> قسم <Plus size={10} /></button>}
                   <button 
                     onClick={() => setIsChatOpen(true)} 
-                    className="relative flex items-center justify-center p-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 hover:bg-emerald-100 transition dark:bg-emerald-900/20 dark:border-emerald-900/50"
+                    className="relative flex items-center justify-center p-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 hover:bg-emerald-105 transition dark:bg-emerald-900/20 dark:border-emerald-900/50"
                     title="رسايل"
                   >
                     <MessageCircle size={16} />
@@ -2616,40 +2636,6 @@ function App() {
                     )}
                   </button>
                 </>
-              )}
-              {activeTab === 'sheepList' && selectedPen && (
-                <div className="flex items-center gap-2">
-                  <span className="bg-gray-100 text-gray-600 px-3 py-1.5 rounded-xl text-[10px] font-bold dark:bg-slate-800 dark:text-gray-400">
-                    {displayedSheep.length} {currentMetadata.headLabel}
-                  </span>
-                  {isOwner && can('canAddAnimals') && (
-                    <button 
-                      onClick={() => openNewSheepModal(selectedPen.id)} 
-                      className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-600 rounded-xl text-[10px] font-bold border border-orange-100 dark:bg-orange-900/20 whitespace-nowrap"
-                    >
-                      <Plus size={14} /> {t.head}
-                    </button>
-                  )}
-                   {/* Edit Section Button */}
-                  {can('canEditPens') && (
-                    <button 
-                      onClick={() => { setEditingPen(selectedPen); setIsAddingGroup(false); setIsModalOpen(true); }}
-                      className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-bold border border-indigo-100 hover:bg-indigo-100 transition dark:bg-indigo-900/20 dark:border-indigo-900/50 whitespace-nowrap"
-                      title="تعديل القسم"
-                    >
-                      <Edit size={12} /> تعديل
-                    </button>
-                  )}
-                  {can('canDeletePens', selectedPen.id) && (
-                    <button 
-                      onClick={() => handleDeletePen(selectedPen.id, false)}
-                      className="flex items-center justify-center p-1.5 bg-red-50 text-red-600 rounded-xl border border-red-100 hover:bg-red-100 transition dark:bg-red-900/20 dark:border-red-900/50"
-                      title="حذف القسم"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
               )}
             </div>
           </div>
@@ -2824,6 +2810,7 @@ function App() {
                                   type="button"
                                   onClick={() => {
                                     setSectionSearchQuery('');
+                                    setSelectedPenId(null);
                                     setIsSectionFilterDropdownOpen(false);
                                   }}
                                   className={`w-full text-right px-4 py-2.5 rounded-xl text-[10.5px] font-black transition-all ${
@@ -2840,6 +2827,7 @@ function App() {
                                     type="button"
                                     onClick={() => {
                                       setSectionSearchQuery(p.name);
+                                      setSelectedPenId(p.id);
                                       setIsSectionFilterDropdownOpen(false);
                                     }}
                                     className={`w-full text-right px-4 py-2.5 rounded-xl text-[10.5px] font-black transition-all ${
@@ -2874,7 +2862,23 @@ function App() {
                           .filter(pen => pen.name.includes(sectionSearchQuery))
                           .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
                           .map(pen => (
-                          <div key={pen.id} onClick={() => enterSheepList(pen.id)} className="flex-none w-32 h-40 snap-center bg-white/95 backdrop-blur-sm rounded-[2rem] p-3 shadow-lg border border-gray-100 cursor-pointer dark:bg-slate-900 dark:border-slate-800 flex flex-col items-center justify-between hover:scale-[1.03] transition-all group relative overflow-hidden">
+                          <div 
+                            key={pen.id} 
+                            onClick={() => {
+                              if (selectedPenId === pen.id) {
+                                setSelectedPenId(null);
+                                setSectionSearchQuery('');
+                              } else {
+                                setSelectedPenId(pen.id);
+                                setSectionSearchQuery(pen.name);
+                              }
+                            }} 
+                            className={`flex-none w-32 h-40 snap-center bg-white/95 backdrop-blur-sm rounded-[2rem] p-3 shadow-lg border cursor-pointer dark:bg-slate-900 flex flex-col items-center justify-between hover:scale-[1.03] transition-all group relative overflow-hidden ${
+                              selectedPenId === pen.id 
+                                ? 'border-[#795548] ring-2 ring-[#795548]/20 dark:border-orange-500 dark:ring-orange-500/20 bg-[#795548]/5 dark:bg-[#795548]/10' 
+                                : 'border-gray-100 dark:border-slate-800'
+                            }`}
+                          >
                             <div className="absolute top-0 right-0 w-8 h-8 bg-orange-500/5 rounded-bl-3xl" />
                             <div className="w-10 h-10 rounded-2xl bg-[#795548]/5 flex items-center justify-center text-[#795548] mb-1 group-hover:bg-[#795548] group-hover:text-white transition-colors dark:bg-orange-500/10 dark:text-orange-500">
                                <Warehouse size={20} />
@@ -2884,11 +2888,147 @@ function App() {
                                <span className="text-xl font-black text-[#795548] dark:text-orange-500">{allSheep.filter(s => s.penId === pen.id).length}</span>
                                <span className="text-[7px] text-gray-400 font-bold uppercase tracking-tighter">{t.head}</span>
                             </div>
-                            <div className="flex gap-1 w-full">
-                               <button onClick={(e) => { e.stopPropagation(); enterSheepList(pen.id); }} className="flex-1 bg-gray-50 text-gray-500 py-1.5 rounded-xl text-[9px] font-black dark:bg-slate-800 hover:bg-[#795548] hover:text-white transition-all border border-gray-100 dark:border-slate-700">التفاصيل</button>
+                            <div className="flex gap-1 w-full flex-1 items-end">
+                               <button 
+                                 onClick={(e) => { 
+                                   e.stopPropagation(); 
+                                   if (selectedPenId === pen.id) {
+                                     setSelectedPenId(null);
+                                     setSectionSearchQuery('');
+                                   } else {
+                                     setSelectedPenId(pen.id);
+                                     setSectionSearchQuery(pen.name);
+                                   }
+                                 }} 
+                                 className="flex-1 bg-gray-50 text-gray-500 py-1.5 rounded-xl text-[9px] font-black dark:bg-slate-800 hover:bg-[#795548] hover:text-white transition-all border border-gray-100 dark:border-slate-700"
+                               >
+                                 التفاصيل
+                               </button>
                             </div>
                           </div>
                         ))}
+                      </div>
+
+                      {/* Integrated Animal Filters & Listing Section */}
+                      <div className="mt-8 space-y-4 px-4 md:px-8">
+                        <div className="flex justify-between items-center mb-1">
+                          <h3 className="text-sm font-black text-[#3E2723] dark:text-gray-100 flex items-center gap-2">
+                            <span>{selectedPen ? `حيوانات قسم: ${selectedPen.name}` : 'كافة حيوانات الحظيرة'}</span>
+                            <span className="text-xs font-bold bg-[#795548]/10 text-[#795548] px-2 py-0.5 rounded-lg dark:bg-orange-500/10 dark:text-orange-400">
+                              {displayedSheep.length} {currentMetadata.headLabel}
+                            </span>
+                          </h3>
+                        </div>
+
+                        {/* Search & Filter Bar */}
+                        {displayedSheep.length > 0 && (
+                          <div className="bg-white/95 border border-gray-150/10 rounded-3xl p-4 shadow-md dark:bg-slate-900 dark:border-slate-800 grid grid-cols-2 md:grid-cols-4 gap-3 text-right">
+                            {/* Animal Number Search */}
+                            <div className="relative">
+                              <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
+                              <input
+                                type="text"
+                                placeholder="رقم الحيوان..."
+                                value={sheepSearchNumber}
+                                onChange={(e) => setSheepSearchNumber(e.target.value)}
+                                className="w-full pr-8 pl-3 py-2 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-2xl text-[11px] font-bold focus:ring-2 focus:ring-[#795548]/20 focus:border-[#795548] outline-none transition-all dark:text-white"
+                              />
+                            </div>
+
+                            {/* Animal Type Filter */}
+                            <div>
+                              <select
+                                value={sheepSearchType}
+                                onChange={(e) => setSheepSearchType(e.target.value)}
+                                className="w-full px-3 py-2 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-2xl text-[11px] font-bold focus:ring-2 focus:ring-[#795548]/20 focus:border-[#795548] outline-none transition-all dark:text-white cursor-pointer"
+                              >
+                                <option value="all">كل الأنواع</option>
+                                {Array.from(new Set(displayedSheep.map(s => s.type)))
+                                  .filter(Boolean)
+                                  .map(type => (
+                                    <option key={type} value={type}>{type}</option>
+                                  ))}
+                              </select>
+                            </div>
+
+                            {/* Tag Color Filter */}
+                            <div>
+                              <select
+                                value={sheepSearchColor}
+                                onChange={(e) => setSheepSearchColor(e.target.value)}
+                                className="w-full px-3 py-2 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-2xl text-[11px] font-bold focus:ring-2 focus:ring-[#795548]/20 focus:border-[#795548] outline-none transition-all dark:text-white cursor-pointer"
+                              >
+                                <option value="all">كل الألوان</option>
+                                {Array.from(new Set(displayedSheep.map(s => s.tagColor || 'none')))
+                                  .map((color: any) => (
+                                    <option key={color} value={color}>
+                                      {color === 'none' ? 'بدون لون' : (colorNames[color] || color)}
+                                    </option>
+                                  ))}
+                              </select>
+                            </div>
+
+                            {/* Age Classification Filter */}
+                            <div>
+                              <select
+                                value={sheepSearchAge}
+                                onChange={(e) => setSheepSearchAge(e.target.value)}
+                                className="w-full px-3 py-2 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-2xl text-[11px] font-bold focus:ring-2 focus:ring-[#795548]/20 focus:border-[#795548] outline-none transition-all dark:text-white cursor-pointer"
+                              >
+                                <option value="all">كل الأعمار</option>
+                                {Array.from(new Set(displayedSheep.map(s => getAnimalAgeLabel(s.birthDate, s.type, s.gender))))
+                                  .filter(Boolean)
+                                  .map(age => (
+                                    <option key={age} value={age}>{age}</option>
+                                  ))}
+                              </select>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Sheep Grid/Group Display */}
+                        <div className="bg-white/80 rounded-[2.5rem] shadow-sm border border-gray-100 p-6 dark:bg-slate-900">
+                          {displayedSheep.length > 0 ? (
+                            filteredSheepList.length > 0 ? (
+                              <div className={`grid ${ (selectedGroup?.animalType === 'chickens' || selectedGroup?.animalType === 'pigeons') ? 'grid-cols-1 md:grid-cols-2 gap-4' : 'grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3' }`}>
+                                {(selectedGroup?.animalType === 'chickens' || selectedGroup?.animalType === 'pigeons') ? (
+                                   Object.values(filteredSheepList.reduce((acc, s) => {
+                                      const key = `${s.type}-${s.tagColor || 'none'}`;
+                                      if (!acc[key]) acc[key] = { type: s.type, tagColor: s.tagColor, male: 0, female: 0 };
+                                      if (s.gender === 'male') acc[key].male++; else acc[key].female++;
+                                      return acc;
+                                    }, {} as any)).map((group: any, idx) => (
+                                      <div key={idx} className="bg-white border border-gray-100 rounded-2xl p-4 dark:bg-slate-900">
+                                         <div className="flex items-center justify-between mb-4">
+                                           <div className="flex items-center gap-3">
+                                             <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-sm" style={{ backgroundColor: group.tagColor || '#D7CCC8' }}><Dna size={18} className="text-white" /></div>
+                                             <h3 className="font-bold text-gray-800 dark:text-gray-100">{group.type}</h3>
+                                           </div>
+                                           <span className="text-xs font-black bg-[#795548] text-white px-2 py-1 rounded-lg">{group.male + group.female} {currentMetadata.headLabel}</span>
+                                         </div>
+                                         <div className="grid grid-cols-2 gap-2 text-center">
+                                           <div className="bg-blue-50/50 p-2 rounded-xl"><span className="text-[10px] block">ذكور</span><span className="font-black text-blue-700">{group.male}</span></div>
+                                           <div className="bg-pink-50/50 p-2 rounded-xl"><span className="text-[10px] block">إناث</span><span className="font-black text-pink-700">{group.female}</span></div>
+                                         </div>
+                                      </div>
+                                    ))
+                                 ) : (
+                                   filteredSheepList.map(sheep => renderSheepRow(sheep))
+                                 )}
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                                <Search size={40} className="stroke-[1.5] mb-2 opacity-55 text-orange-500" />
+                                <p className="font-bold text-xs">لا توجد نتائج تطابق الفلاتر المحددة</p>
+                              </div>
+                            )
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-16 text-gray-450 dark:text-gray-500">
+                              <Warehouse size={48} className="text-gray-300 dark:text-slate-700 mb-3" />
+                              <p className="font-black text-xs text-gray-450 dark:text-gray-400">{selectedPen ? 'هذا القسم فارغ، لا توجد به حيوانات حالياً' : 'الحظيرة فارغة، يرجى إضافة حيوانات للبدء'}</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {displayedPens.length > 0 && (() => {
@@ -3108,8 +3248,8 @@ function App() {
           </div>
         )}
 
-        {/* Sheep List View */}
-        {activeTab === 'sheepList' && selectedPen && (
+        {/* Sheep List View - Integrated into Barn view */}
+        {activeTab === 'sheepList' && false && selectedPen && (
           <div className="p-4 md:p-8 space-y-6 animate-fade-in h-[calc(100vh-64px)] overflow-y-auto">
              {/* Filter Bar */}
              {displayedSheep.length > 0 && (
