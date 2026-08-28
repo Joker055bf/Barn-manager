@@ -41,7 +41,7 @@ ghpages.publish(
   'dist',
   {
     repo: repoUrl,
-    branch: 'main',
+    branch: 'gh-pages',
     dotfiles: true,
     silent: false,
     message: 'Deploy to GitHub Pages [skip ci]',

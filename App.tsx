@@ -20,6 +20,7 @@ import { AuthScreen } from './components/AuthScreen';
 import { WorkerManageModal } from './components/WorkerManageModal';
 import { SwipeableBarnCard } from './components/SwipeableBarnCard';
 import { DeathsModal } from './components/DeathsModal';
+import { TypeAgeStatsModal } from './components/TypeAgeStatsModal';
 import { Pen, MedicalRecord, FeedItem, FeedLogEntry, Sheep, SheepType, ChatMessage, Expense, Sale, Death, User, WorkerPermissions, ActivityEntry, DEFAULT_WORKER_PERMISSIONS } from './types';
 import CustomAlert, { AlertType } from './components/CustomAlert';
 import { ReportType } from './components/ReportsModal';
@@ -718,6 +719,14 @@ function App() {
   const [isReorderPensOpen, setIsReorderPensOpen] = useState(false);
   const [isSectionFilterDropdownOpen, setIsSectionFilterDropdownOpen] = useState(false);
   const [isBarnFilterDropdownOpen, setIsBarnFilterDropdownOpen] = useState(false);
+  const [isTypeAgeStatsOpen, setIsTypeAgeStatsOpen] = useState(false);
+  
+  // Sheep search/filter states for Sheep List View
+  const [sheepSearchNumber, setSheepSearchNumber] = useState('');
+  const [sheepSearchType, setSheepSearchType] = useState('all');
+  const [sheepSearchColor, setSheepSearchColor] = useState('all');
+  const [sheepSearchAge, setSheepSearchAge] = useState('all');
+
   const [showMiscarriageInput, setShowMiscarriageInput] = useState(false);
   const [miscarriageReason, setMiscarriageReason] = useState('');
   const sectionFilterRef = useRef<HTMLDivElement>(null);
@@ -1131,7 +1140,7 @@ function App() {
       let restoredCount = 0;
       for (const penId of orphanedPenIds) {
         try {
-          const penRef = doc(db, 'farms', ownerId, 'pens', penId);
+          const penRef = doc(db, 'farms', ownerId as string, 'pens', penId as string);
           await setDoc(penRef, {
             id: penId,
             name: 'قسم مسترجع',
@@ -1187,7 +1196,7 @@ function App() {
       let restoredCount = 0;
       for (const penId of orphanedPenIds) {
         try {
-          const penRef = doc(db, 'farms', ownerId, 'pens', penId);
+          const penRef = doc(db, 'farms', ownerId as string, 'pens', penId as string);
           await setDoc(penRef, {
             id: penId,
             name: 'قسم مسترجع',
@@ -1224,6 +1233,14 @@ function App() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Reset sheep filters when section changes
+  useEffect(() => {
+    setSheepSearchNumber('');
+    setSheepSearchType('all');
+    setSheepSearchColor('all');
+    setSheepSearchAge('all');
+  }, [selectedPenId]);
 
   // Automatic Feed Deduction Trigger (Retroactive)
   useEffect(() => {
@@ -2327,6 +2344,30 @@ function App() {
       return numA - numB;
     });
 
+  const filteredSheepList = React.useMemo(() => {
+    return displayedSheep.filter(s => {
+      // 1. Filter by animal number
+      if (sheepSearchNumber && !s.serialNumber.toLowerCase().includes(sheepSearchNumber.toLowerCase())) {
+        return false;
+      }
+      // 2. Filter by type
+      if (sheepSearchType !== 'all' && s.type !== sheepSearchType) {
+        return false;
+      }
+      // 3. Filter by color
+      if (sheepSearchColor !== 'all') {
+        const sColor = s.tagColor || 'none';
+        if (sColor !== sheepSearchColor) return false;
+      }
+      // 4. Filter by age
+      if (sheepSearchAge !== 'all') {
+        const sAge = getAnimalAgeLabel(s.birthDate, s.type, s.gender);
+        if (sAge !== sheepSearchAge) return false;
+      }
+      return true;
+    });
+  }, [displayedSheep, sheepSearchNumber, sheepSearchType, sheepSearchColor, sheepSearchAge]);
+
   // Mortality & Available Pens
   const mortalityPenId = selectedGroupId ? `mortality:${selectedGroupId} ` : '';
   // Relaxed filter to catch any whitespace variations or format mismatches
@@ -2654,7 +2695,7 @@ function App() {
                      <button
                        type="button"
                        onClick={() => setIsBarnFilterDropdownOpen(!isBarnFilterDropdownOpen)}
-                       className="w-full pr-8 pl-8 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl text-[11px] font-bold outline-none focus:border-[#795548] focus:ring-1 focus:ring-[#795548] dark:text-white shadow-sm flex items-center justify-between text-right cursor-pointer text-gray-700 dark:text-gray-200"
+                       className="w-full pr-8 pl-8 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl text-[11px] font-bold outline-none focus:border-[#795548] focus:ring-1 focus:ring-[#795548] shadow-sm flex items-center justify-between text-right cursor-pointer text-gray-700 dark:text-gray-200"
                      >
                        <span>{barnSearchQuery || 'كل الحظائر'}</span>
                        <div className="text-gray-400 w-3 h-3 flex items-center justify-center text-[10px]">
@@ -2768,7 +2809,7 @@ function App() {
                           <button
                             type="button"
                             onClick={() => setIsSectionFilterDropdownOpen(!isSectionFilterDropdownOpen)}
-                            className="w-full pr-8 pl-8 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl text-[11px] font-bold outline-none focus:border-[#795548] focus:ring-1 focus:ring-[#795548] dark:text-white shadow-sm flex items-center justify-between text-right cursor-pointer text-gray-700 dark:text-gray-200"
+                            className="w-full pr-8 pl-8 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl text-[11px] font-bold outline-none focus:border-[#795548] focus:ring-1 focus:ring-[#795548] shadow-sm flex items-center justify-between text-right cursor-pointer text-gray-700 dark:text-gray-200"
                           >
                             <span>{sectionSearchQuery || 'كل الأقسام'}</span>
                             <div className="text-gray-400 w-3 h-3 flex items-center justify-center text-[10px]">
@@ -2876,8 +2917,20 @@ function App() {
                           <>
                              {can('canViewProduction') && (
                               <div className="mt-8 space-y-3 px-4 md:px-8">
-                                <h3 className="text-[10px] font-black text-[#3E2723] dark:text-gray-100 text-right uppercase tracking-[0.2em]">{t.typeStats}</h3>
-                                <div className="bg-white/90 rounded-[2rem] p-4 shadow-sm border border-gray-100 flex items-center justify-between gap-6 dark:bg-slate-900 dark:border-slate-800 backdrop-blur-md">
+                                <div className="flex justify-between items-center mb-1">
+                                  <h3 className="text-[10px] font-black text-[#3E2723] dark:text-gray-100 text-right uppercase tracking-[0.2em]">{t.typeStats}</h3>
+                                  <button 
+                                    onClick={() => setIsTypeAgeStatsOpen(true)}
+                                    className="text-[9px] font-black text-orange-600 hover:text-orange-850 select-none bg-orange-50 dark:bg-orange-950/20 px-2.5 py-1 rounded-xl border border-orange-100/50 dark:border-orange-900/20 cursor-pointer transition-colors active:scale-95"
+                                  >
+                                    عرض تفاصيل السن والأسنان
+                                  </button>
+                                </div>
+                                <div 
+                                  onDoubleClick={() => setIsTypeAgeStatsOpen(true)}
+                                  className="bg-white/90 rounded-[2rem] p-4 shadow-sm border border-gray-100 flex items-center justify-between gap-6 dark:bg-slate-900 dark:border-slate-800 backdrop-blur-md cursor-pointer hover:shadow-md transition-shadow"
+                                  title="انقر مزدوجاً لعرض تفاصيل الأسنان والأعمار"
+                                >
                                   <div className="flex-1 grid gap-2 max-h-24 overflow-y-auto pr-2 custom-scrollbar">
                                     {chartData.map((d, i) => (
                                       <div key={i} className="flex items-center gap-3 p-2 rounded-xl bg-gray-50/50 dark:bg-slate-800 justify-start transition-all hover:bg-gray-100/50">
@@ -3058,6 +3111,72 @@ function App() {
         {/* Sheep List View */}
         {activeTab === 'sheepList' && selectedPen && (
           <div className="p-4 md:p-8 space-y-6 animate-fade-in h-[calc(100vh-64px)] overflow-y-auto">
+             {/* Filter Bar */}
+             {displayedSheep.length > 0 && (
+               <div className="bg-white/95 border border-gray-150/10 rounded-3xl p-4 shadow-md dark:bg-slate-900 dark:border-slate-800 grid grid-cols-2 md:grid-cols-4 gap-3 text-right">
+                 {/* Animal Number Search */}
+                 <div className="relative">
+                   <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
+                   <input
+                     type="text"
+                     placeholder="رقم الحيوان..."
+                     value={sheepSearchNumber}
+                     onChange={(e) => setSheepSearchNumber(e.target.value)}
+                     className="w-full pr-8 pl-3 py-2 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-2xl text-[11px] font-bold focus:ring-2 focus:ring-[#795548]/20 focus:border-[#795548] outline-none transition-all dark:text-white"
+                   />
+                 </div>
+
+                 {/* Animal Type Filter */}
+                 <div>
+                   <select
+                     value={sheepSearchType}
+                     onChange={(e) => setSheepSearchType(e.target.value)}
+                     className="w-full px-3 py-2 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-2xl text-[11px] font-bold focus:ring-2 focus:ring-[#795548]/20 focus:border-[#795548] outline-none transition-all dark:text-white cursor-pointer"
+                   >
+                     <option value="all">كل الأنواع</option>
+                     {Array.from(new Set(displayedSheep.map(s => s.type)))
+                       .filter(Boolean)
+                       .map(type => (
+                         <option key={type} value={type}>{type}</option>
+                       ))}
+                   </select>
+                 </div>
+
+                 {/* Tag Color Filter */}
+                 <div>
+                   <select
+                     value={sheepSearchColor}
+                     onChange={(e) => setSheepSearchColor(e.target.value)}
+                     className="w-full px-3 py-2 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-2xl text-[11px] font-bold focus:ring-2 focus:ring-[#795548]/20 focus:border-[#795548] outline-none transition-all dark:text-white cursor-pointer"
+                   >
+                     <option value="all">كل الألوان</option>
+                     {Array.from(new Set(displayedSheep.map(s => s.tagColor || 'none')))
+                       .map((color: any) => (
+                         <option key={color} value={color}>
+                           {color === 'none' ? 'بدون لون' : (colorNames[color] || color)}
+                         </option>
+                       ))}
+                   </select>
+                 </div>
+
+                 {/* Age Classification Filter */}
+                 <div>
+                   <select
+                     value={sheepSearchAge}
+                     onChange={(e) => setSheepSearchAge(e.target.value)}
+                     className="w-full px-3 py-2 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-2xl text-[11px] font-bold focus:ring-2 focus:ring-[#795548]/20 focus:border-[#795548] outline-none transition-all dark:text-white cursor-pointer"
+                   >
+                     <option value="all">كل الأعمار</option>
+                     {Array.from(new Set(displayedSheep.map(s => getAnimalAgeLabel(s.birthDate, s.type, s.gender))))
+                       .filter(Boolean)
+                       .map(age => (
+                         <option key={age} value={age}>{age}</option>
+                       ))}
+                   </select>
+                 </div>
+               </div>
+             )}
+
              <div className="bg-white/80 rounded-[2.5rem] shadow-sm border border-gray-100 p-6 dark:bg-slate-900">
                 {displayedSheep.length > 0 ? (
                   <div className={`grid ${ (selectedGroup?.animalType === 'chickens' || selectedGroup?.animalType === 'pigeons') ? 'grid-cols-1 md:grid-cols-2 gap-4' : 'grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3' }`}>
@@ -4006,7 +4125,7 @@ function App() {
                       onClick={() => setWorkerActivityFilter(f.id as any)}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black whitespace-nowrap transition border ${workerActivityFilter === f.id ? 'bg-[#795548]/10 text-[#795548] border-[#795548]/30 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300 dark:bg-slate-800 dark:border-slate-700'}`}
                     >
-                      {f.icon && <f.icon size={12} className={f.color || ''} />}
+                      {f.icon && <f.icon size={12} className={(f as any).color || ''} />}
                       {f.label}
                     </button>
                   ))}
@@ -4134,6 +4253,12 @@ function App() {
           </div>
         </div>
       )}
+      <TypeAgeStatsModal 
+        isOpen={isTypeAgeStatsOpen}
+        onClose={() => setIsTypeAgeStatsOpen(false)}
+        sheep={barnSheep}
+      />
+
       <CustomAlert
         isOpen={alertConfig.isOpen}
         type={alertConfig.type}
