@@ -2840,52 +2840,71 @@ function App() {
                   <div className="flex-1 flex flex-col overflow-hidden">
                     <div className="flex-1 overflow-y-auto pb-40 pt-6">
                       {/* Section Filtering & Custom Reordering Controls */}
-                      <div className="flex items-center justify-between px-4 md:px-8 mb-4 gap-3" dir="rtl">
-                        {/* Search/Filter Sections Input */}
-                        <div className="relative flex-1">
-                          <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none z-10" />
-                          <input
-                            type="text"
-                            placeholder="بحث عن الأقسام..."
-                            value={sectionSearchQuery}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setSectionSearchQuery(val);
-                              if (selectedPenId) {
-                                setSelectedPenId(null);
-                              }
-                            }}
-                            className="w-full pr-8 pl-8 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl text-[11px] font-bold outline-none focus:border-[#795548] focus:ring-1 focus:ring-[#795548] shadow-sm text-right text-gray-700 dark:text-gray-200"
-                          />
-                          {sectionSearchQuery && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSectionSearchQuery('');
-                                setSelectedPenId(null);
+                      {!selectedPenId && (
+                        <div className="flex items-center justify-between px-4 md:px-8 mb-4 gap-3" dir="rtl">
+                          {/* Search/Filter Sections Input */}
+                          <div className="relative flex-1">
+                            <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none z-10" />
+                            <input
+                              type="text"
+                              placeholder="بحث عن الأقسام..."
+                              value={sectionSearchQuery}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setSectionSearchQuery(val);
+                                if (selectedPenId) {
+                                  setSelectedPenId(null);
+                                }
                               }}
-                              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-650 dark:hover:text-gray-250 text-[10px] font-bold w-4 h-4 flex items-center justify-center bg-gray-100 hover:bg-gray-200 dark:bg-slate-850 dark:hover:bg-slate-700 rounded-full"
+                              className="w-full pr-8 pl-8 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl text-[11px] font-bold outline-none focus:border-[#795548] focus:ring-1 focus:ring-[#795548] shadow-sm text-right text-gray-700 dark:text-gray-200"
+                            />
+                            {sectionSearchQuery && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSectionSearchQuery('');
+                                  setSelectedPenId(null);
+                                }}
+                                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-650 dark:hover:text-gray-250 text-[10px] font-bold w-4 h-4 flex items-center justify-center bg-gray-100 hover:bg-gray-200 dark:bg-slate-850 dark:hover:bg-slate-700 rounded-full"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Reorder Button */}
+                          {can('canReorderPens') && (
+                            <button
+                              onClick={() => setIsReorderPensOpen(true)}
+                              className="flex items-center gap-1 px-3 py-2 bg-[#795548]/10 text-[#795548] rounded-xl text-[10px] font-black hover:bg-[#795548] hover:text-white transition-all dark:bg-orange-500/10 dark:text-orange-400 whitespace-nowrap shadow-sm border border-[#795548]/5 dark:border-orange-500/10"
+                              title="إعادة ترتيب الأقسام"
                             >
-                              ✕
+                              <ArrowRightLeft size={12} className="rotate-90" />
+                              <span>ترتيب الأقسام</span>
                             </button>
                           )}
-                        </div>
 
-                        {/* Reorder Button */}
-                        {can('canReorderPens') && (
+                          {/* Animal Filter TOGGLE Button */}
                           <button
-                            onClick={() => setIsReorderPensOpen(true)}
-                            className="flex items-center gap-1 px-3 py-2 bg-[#795548]/10 text-[#795548] rounded-xl text-[10px] font-black hover:bg-[#795548] hover:text-white transition-all dark:bg-orange-500/10 dark:text-orange-400 whitespace-nowrap shadow-sm border border-[#795548]/5 dark:border-orange-500/10"
-                            title="إعادة ترتيب الأقسام"
+                            onClick={() => setIsAnimalFilterOpen(!isAnimalFilterOpen)}
+                            className={`flex items-center gap-1 px-3 py-2 rounded-xl text-[10px] font-black transition-all whitespace-nowrap shadow-sm border ${
+                              isAnimalFilterOpen || isAnimalSearchActive
+                                ? 'bg-[#795548] text-white border-[#795548] dark:bg-orange-600 dark:border-orange-600'
+                                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-slate-800 dark:text-gray-200 dark:border-slate-700'
+                            }`}
+                            title="بحث وتصفية الحيوانات"
                           >
-                            <ArrowRightLeft size={12} className="rotate-90" />
-                            <span>ترتيب الأقسام</span>
+                            <Filter size={12} />
+                            <span>تصفية الحيوانات</span>
+                            {isAnimalSearchActive && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse inline-block mr-0.5" />
+                            )}
                           </button>
-                        )}
-                      </div>
+                        </div>
+                      )}
 
 
-                      {!selectedPenId && (
+                      {!selectedPenId && isAnimalFilterOpen && (
                         <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm rounded-[2rem] p-5 shadow-sm border border-gray-100 dark:border-slate-800 mx-4 md:mx-8 mb-6 mt-2" dir="rtl">
                           <h4 className="text-[10px] font-black text-gray-400 mb-3">البحث والتصفية في الحظيرة</h4>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-right">
@@ -2964,6 +2983,7 @@ function App() {
                                 setSheepSearchType('all');
                                 setSheepSearchColor('all');
                                 setSheepSearchAge('all');
+                                setIsAnimalFilterOpen(false);
                               }}
                               className="px-5 py-1.5 bg-gray-105 hover:bg-gray-200 text-gray-650 rounded-xl text-[10px] font-black transition dark:bg-slate-850 dark:hover:bg-slate-700 cursor-pointer"
                             >
@@ -2976,6 +2996,7 @@ function App() {
                                 setSheepSearchType(tempSearchType);
                                 setSheepSearchColor(tempSearchColor);
                                 setSheepSearchAge(tempSearchAge);
+                                setIsAnimalFilterOpen(false);
                               }}
                               className="px-5 py-1.5 bg-[#795548] hover:bg-[#5E3F35] text-white rounded-xl text-[10px] font-black transition dark:bg-orange-600 dark:hover:bg-orange-700 cursor-pointer shadow-sm"
                             >

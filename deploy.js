@@ -45,7 +45,7 @@ console.log('\n🚀 Deploying to GitHub Pages...\n');
 ghpages.publish(
   'dist',
   {
-    repo: repoUrl,
+    ...(ghToken ? { repo: repoUrl } : {}),
     branch: 'gh-pages',
     dotfiles: true,
     silent: false,
