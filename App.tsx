@@ -2820,129 +2820,102 @@ function App() {
 
                     <div className="flex-1 overflow-y-auto pb-40 pt-6">
                       {/* Section Filtering & Custom Reordering Controls */}
+                      <div className="flex items-center justify-between px-4 md:px-8 mb-4 gap-3" dir="rtl">
+                        {/* Search/Filter Sections Input */}
+                        <div className="relative flex-1">
+                          <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none z-10" />
+                          <input
+                            type="text"
+                            placeholder="بحث عن الأقسام..."
+                            value={sectionSearchQuery}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setSectionSearchQuery(val);
+                              if (selectedPenId) {
+                                setSelectedPenId(null);
+                              }
+                            }}
+                            className="w-full pr-8 pl-8 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl text-[11px] font-bold outline-none focus:border-[#795548] focus:ring-1 focus:ring-[#795548] shadow-sm text-right text-gray-700 dark:text-gray-200"
+                          />
+                          {sectionSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSectionSearchQuery('');
+                                setSelectedPenId(null);
+                              }}
+                              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-650 dark:hover:text-gray-250 text-[10px] font-bold w-4 h-4 flex items-center justify-center bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-full"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Reorder Button */}
+                        {can('canReorderPens') && (
+                          <button
+                            onClick={() => setIsReorderPensOpen(true)}
+                            className="flex items-center gap-1 px-3 py-2 bg-[#795548]/10 text-[#795548] rounded-xl text-[10px] font-black hover:bg-[#795548] hover:text-white transition-all dark:bg-orange-500/10 dark:text-orange-400 whitespace-nowrap shadow-sm border border-[#795548]/5 dark:border-orange-500/10"
+                            title="إعادة ترتيب الأقسام"
+                          >
+                            <ArrowRightLeft size={12} className="rotate-90" />
+                            <span>ترتيب الأقسام</span>
+                          </button>
+                        )}
+                      </div>
+
                       {!selectedPenId && (
-                        <>
-                          <div className="flex items-center justify-between px-4 md:px-8 mb-4 gap-3" dir="rtl">
-                            {/* Search/Filter Sections Input */}
-                            <div className="relative flex-1" ref={sectionFilterRef}>
-                              <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none z-10" />
-                              <button
-                                type="button"
-                                onClick={() => setIsSectionFilterDropdownOpen(!isSectionFilterDropdownOpen)}
-                                className="w-full pr-8 pl-8 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl text-[11px] font-bold outline-none focus:border-[#795548] focus:ring-1 focus:ring-[#795548] shadow-sm flex items-center justify-between text-right cursor-pointer text-gray-700 dark:text-gray-200"
-                              >
-                                <span>{sectionSearchQuery || 'كل الأقسام'}</span>
-                                <div className="text-gray-400 w-3 h-3 flex items-center justify-center text-[10px]">
-                                  ▼
-                                </div>
-                              </button>
-
-                              {isSectionFilterDropdownOpen && (
-                                <div className="absolute top-full right-0 left-0 mt-1.5 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl shadow-2xl z-50 max-h-48 overflow-y-auto custom-scrollbar animate-scale-in">
-                                  <div className="p-2 space-y-1">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setSectionSearchQuery('');
-                                        setSelectedPenId(null);
-                                        setIsSectionFilterDropdownOpen(false);
-                                      }}
-                                      className={`w-full text-right px-4 py-2.5 rounded-xl text-[10.5px] font-black transition-all ${
-                                        sectionSearchQuery === ''
-                                          ? 'bg-[#795548] text-white shadow-md'
-                                          : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800'
-                                      }`}
-                                    >
-                                      كل الأقسام
-                                    </button>
-                                    {displayedPens.map((p) => (
-                                      <button
-                                        key={p.id}
-                                        type="button"
-                                        onClick={() => {
-                                          setSectionSearchQuery(p.name);
-                                          setSelectedPenId(p.id);
-                                          setIsSectionFilterDropdownOpen(false);
-                                        }}
-                                        className={`w-full text-right px-4 py-2.5 rounded-xl text-[10.5px] font-black transition-all ${
-                                          sectionSearchQuery === p.name
-                                            ? 'bg-[#795548] text-white shadow-md'
-                                            : 'text-gray-750 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800'
-                                        }`}
-                                      >
-                                        {p.name}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Reorder Button */}
-                            {can('canReorderPens') && (
-                              <button
-                                onClick={() => setIsReorderPensOpen(true)}
-                                className="flex items-center gap-1 px-3 py-2 bg-[#795548]/10 text-[#795548] rounded-xl text-[10px] font-black hover:bg-[#795548] hover:text-white transition-all dark:bg-orange-500/10 dark:text-orange-400 whitespace-nowrap shadow-sm border border-[#795548]/5 dark:border-orange-500/10"
-                                title="إعادة ترتيب الأقسام"
-                              >
-                                <ArrowRightLeft size={12} className="rotate-90" />
-                                <span>ترتيب الأقسام</span>
-                              </button>
-                            )}
-                          </div>
-
-                          <div className="flex overflow-x-auto snap-x gap-4 no-scrollbar pb-6 px-4 md:px-8">
-                            {displayedPens
-                              .filter(pen => pen.name.includes(sectionSearchQuery))
-                              .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-                              .map(pen => (
-                              <div 
-                                key={pen.id} 
-                                onClick={() => {
-                                  if (selectedPenId === pen.id) {
-                                    setSelectedPenId(null);
-                                    setSectionSearchQuery('');
-                                  } else {
-                                    setSelectedPenId(pen.id);
-                                    setSectionSearchQuery(pen.name);
-                                  }
-                                }} 
-                                className={`flex-none w-32 h-40 snap-center bg-white/95 backdrop-blur-sm rounded-[2rem] p-3 shadow-lg border cursor-pointer dark:bg-slate-900 flex flex-col items-center justify-between hover:scale-[1.03] transition-all group relative overflow-hidden ${
-                                  selectedPenId === pen.id 
-                                    ? 'border-[#795548] ring-2 ring-[#795548]/20 dark:border-orange-500 dark:ring-orange-500/20 bg-[#795548]/5 dark:bg-[#795548]/10' 
-                                    : 'border-gray-100 dark:border-slate-800'
-                                 }`}
-                              >
-                                <div className="absolute top-0 right-0 w-8 h-8 bg-orange-500/5 rounded-bl-3xl" />
-                                <div className="w-10 h-10 rounded-2xl bg-[#795548]/5 flex items-center justify-center text-[#795548] mb-1 group-hover:bg-[#795548] group-hover:text-white transition-colors dark:bg-orange-500/10 dark:text-orange-500">
-                                   <Warehouse size={20} />
-                                </div>
-                                <h3 className="font-black text-[11px] text-[#3E2723] dark:text-gray-100 text-center truncate w-full px-1 mb-1">{pen.name}</h3>
-                                <div className="flex items-center gap-1 mb-2">
-                                   <span className="text-xl font-black text-[#795548] dark:text-orange-500">{allSheep.filter(s => s.penId === pen.id).length}</span>
-                                   <span className="text-[7px] text-gray-400 font-bold uppercase tracking-tighter">{t.head}</span>
-                                </div>
-                                <div className="flex gap-1 w-full flex-1 items-end">
-                                   <button 
-                                     onClick={(e) => { 
-                                       e.stopPropagation(); 
-                                       if (selectedPenId === pen.id) {
-                                         setSelectedPenId(null);
-                                         setSectionSearchQuery('');
-                                       } else {
-                                         setSelectedPenId(pen.id);
-                                         setSectionSearchQuery(pen.name);
-                                       }
-                                     }} 
-                                     className="flex-1 bg-gray-50 text-gray-500 py-1.5 rounded-xl text-[9px] font-black dark:bg-slate-800 hover:bg-[#795548] hover:text-white transition-all border border-gray-100 dark:border-slate-700"
-                                   >
-                                     التفاصيل
-                                   </button>
-                                </div>
+                        <div className="flex overflow-x-auto snap-x gap-4 no-scrollbar pb-6 px-4 md:px-8">
+                          {displayedPens
+                            .filter(pen => pen.name.includes(sectionSearchQuery))
+                            .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+                            .map(pen => (
+                            <div 
+                              key={pen.id} 
+                              onClick={() => {
+                                if (selectedPenId === pen.id) {
+                                  setSelectedPenId(null);
+                                  setSectionSearchQuery('');
+                                } else {
+                                  setSelectedPenId(pen.id);
+                                  setSectionSearchQuery(pen.name);
+                                }
+                              }} 
+                              className={`flex-none w-32 h-40 snap-center bg-white/95 backdrop-blur-sm rounded-[2rem] p-3 shadow-lg border cursor-pointer dark:bg-slate-900 flex flex-col items-center justify-between hover:scale-[1.03] transition-all group relative overflow-hidden ${
+                                selectedPenId === pen.id 
+                                  ? 'border-[#795548] ring-2 ring-[#795548]/20 dark:border-orange-500 dark:ring-orange-500/20 bg-[#795548]/5 dark:bg-[#795548]/10' 
+                                  : 'border-gray-100 dark:border-slate-800'
+                               }`}
+                            >
+                              <div className="absolute top-0 right-0 w-8 h-8 bg-orange-500/5 rounded-bl-3xl" />
+                              <div className="w-10 h-10 rounded-2xl bg-[#795548]/5 flex items-center justify-center text-[#795548] mb-1 group-hover:bg-[#795548] group-hover:text-white transition-colors dark:bg-orange-500/10 dark:text-orange-500">
+                                 <Warehouse size={20} />
                               </div>
-                            ))}
-                          </div>
-                        </>
+                              <h3 className="font-black text-[11px] text-[#3E2723] dark:text-gray-100 text-center truncate w-full px-1 mb-1">{pen.name}</h3>
+                              <div className="flex items-center gap-1 mb-2">
+                                 <span className="text-xl font-black text-[#795548] dark:text-orange-500">{allSheep.filter(s => s.penId === pen.id).length}</span>
+                                 <span className="text-[7px] text-gray-400 font-bold uppercase tracking-tighter">{t.head}</span>
+                              </div>
+                              <div className="flex gap-1 w-full flex-1 items-end">
+                                 <button 
+                                   onClick={(e) => { 
+                                     e.stopPropagation(); 
+                                     if (selectedPenId === pen.id) {
+                                       setSelectedPenId(null);
+                                       setSectionSearchQuery('');
+                                     } else {
+                                       setSelectedPenId(pen.id);
+                                       setSectionSearchQuery(pen.name);
+                                     }
+                                   }} 
+                                   className="flex-1 bg-gray-50 text-gray-500 py-1.5 rounded-xl text-[9px] font-black dark:bg-slate-800 hover:bg-[#795548] hover:text-white transition-all border border-gray-100 dark:border-slate-700"
+                                 >
+                                   التفاصيل
+                                 </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       )}
 
                       {/* Integrated Animal Filters & Listing Section */}
