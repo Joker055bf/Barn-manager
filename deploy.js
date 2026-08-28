@@ -25,9 +25,14 @@ if (!ghToken) {
 }
 
 // Clear gh-pages cache
-const cacheDir = path.join(os.tmpdir(), '.cache', 'gh-pages');
-if (existsSync(cacheDir)) {
-  try { rmSync(cacheDir, { recursive: true, force: true }); } catch { }
+const cacheDirs = [
+  path.join(os.tmpdir(), '.cache', 'gh-pages'),
+  path.join(__dirname, 'node_modules', '.cache', 'gh-pages')
+];
+for (const cacheDir of cacheDirs) {
+  if (existsSync(cacheDir)) {
+    try { rmSync(cacheDir, { recursive: true, force: true }); } catch { }
+  }
 }
 
 // Build the repo URL
