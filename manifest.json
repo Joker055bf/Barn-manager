@@ -1,0 +1,18 @@
+{
+  "short_name": "راعي",
+  "name": "Rai - مدير الحظائر",
+  "description": "تطبيق متكامل لإدارة حظائر الأغنام ومتابعة القطيع مع مستشار ذكي مدعوم بالذكاء الاصطناعي.",
+  "icons": [
+    {
+      "src": "/assets/logo.jpg",
+      "type": "image/jpeg",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#3E2723",
+  "theme_color": "#3E2723",
+  "display": "standalone",
+  "orientation": "portrait"
+}
