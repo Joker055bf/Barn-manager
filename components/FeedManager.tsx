@@ -30,6 +30,31 @@ export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, curre
       const updatedItems = [...items];
       updatedItems[existingIndex] = newItem;
       onUpdate(updatedItems);
+      return;
+    }
+
+    // Check if an item with the same name and category already exists
+    const duplicateIndex = items.findIndex(
+      i => i.name.trim().toLowerCase() === newItem.name.trim().toLowerCase() && 
+           i.category === newItem.category
+    );
+
+    if (duplicateIndex >= 0) {
+      const updatedItems = [...items];
+      const existingItem = updatedItems[duplicateIndex];
+      const mergedQty = existingItem.quantity + newItem.quantity;
+      const newLogs = [...(newItem.logs || []), ...(existingItem.logs || [])].slice(0, 50);
+
+      updatedItems[duplicateIndex] = {
+        ...existingItem,
+        quantity: mergedQty,
+        consumptionMethod: newItem.consumptionMethod,
+        dailyConsumption: newItem.dailyConsumption,
+        variedDailyConsumption: newItem.variedDailyConsumption,
+        lastUpdated: new Date().toISOString(),
+        logs: newLogs
+      };
+      onUpdate(updatedItems);
     } else {
       onUpdate([...items, newItem]);
     }
