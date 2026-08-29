@@ -2070,15 +2070,16 @@ function App() {
     }
   }, [reproductionConfirmState]);
 
-  const renderSheepRow = (sheep: Sheep, _showPenName = true) => {
+  const renderSheepRow = (sheep: Sheep, showPenName = true) => {
     const pen = pens.find(p => p.id === sheep.penId);
+    const shouldShowPen = showPenName && !selectedPenId;
     return (
       <div
         key={sheep.id}
         onClick={() => setViewingSheep(sheep)}
         className={`relative rounded-3xl p-4 flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group aspect-square sm:aspect-auto ${sheep.gender === 'male' ? 'bg-blue-50/30' : 'bg-pink-50/30'} border border-gray-100 hover-glow dark:border-slate-800 dark:bg-slate-900 premium-shadow`}
       >
-        {pen && (
+        {shouldShowPen && pen && (
           <span className="text-[10px] font-black text-gray-500 truncate w-full text-center">
             {pen.name}
           </span>
