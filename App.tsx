@@ -2684,6 +2684,24 @@ function App() {
                     </>
                   )}
                   {can('canAddPens') && !selectedPenId && <button onClick={openAddSectionModal} className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-bold border border-blue-100 dark:bg-blue-900/20 whitespace-nowrap"><Warehouse size={12} /> قسم <Plus size={10} /></button>}
+                  {can('canAddAnimals') && !selectedPenId && <button onClick={() => openNewSheepModal(undefined)} className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-600 rounded-xl text-[10px] font-bold border border-orange-100 dark:bg-orange-900/20 whitespace-nowrap"><Dna size={12} /> {t.head} <Plus size={10} /></button>}
+                  {!selectedPenId && (
+                    <button 
+                      onClick={() => setIsChatOpen(true)} 
+                      className="relative flex items-center justify-center p-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 hover:bg-emerald-105 transition dark:bg-emerald-900/20 dark:border-emerald-900/50"
+                      title="رسايل"
+                    >
+                      <MessageCircle size={16} />
+                      {unreadChatCount > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 text-white text-[9px] items-center justify-center font-bold">
+                            {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                          </span>
+                        </span>
+                      )}
+                    </button>
+                  )}
                 </>
               )}
             </div>
