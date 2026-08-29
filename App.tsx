@@ -735,6 +735,7 @@ function App() {
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
   const [isMedicalModalOpen, setIsMedicalModalOpen] = useState(false);
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
+  const [productionStatsInitialType, setProductionStatsInitialType] = useState<string | null>(null);
   const [isDashboardOpen, setIsDashboardOpen] = useState(false);
   const [sectionSearchQuery, setSectionSearchQuery] = useState('');
   const [barnSearchQuery, setBarnSearchQuery] = useState('');
@@ -2069,26 +2070,37 @@ function App() {
     }
   }, [reproductionConfirmState]);
 
-  const renderSheepRow = (sheep: Sheep) => (
-    <div
-      key={sheep.id}
-      onClick={() => setViewingSheep(sheep)}
-      className={`relative rounded-3xl p-4 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer group aspect-square sm:aspect-auto ${sheep.gender === 'male' ? 'bg-blue-50/30' : 'bg-pink-50/30'} border border-gray-100 hover-glow dark:border-slate-800 dark:bg-slate-900 premium-shadow`}
-    >
+  const renderSheepRow = (sheep: Sheep, _showPenName = true) => {
+    const pen = pens.find(p => p.id === sheep.penId);
+    return (
       <div
-        className={`px-4 py-2 rounded-2xl flex items-center justify-center shadow-md text-white min-w-[70px] ${sheep.tagColor ? '' : (sheep.gender === 'male' ? 'bg-blue-500' : 'bg-emerald-500')} `}
-        style={{ backgroundColor: sheep.tagColor || undefined }}
+        key={sheep.id}
+        onClick={() => setViewingSheep(sheep)}
+        className={`relative rounded-3xl p-4 flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group aspect-square sm:aspect-auto ${sheep.gender === 'male' ? 'bg-blue-50/30' : 'bg-pink-50/30'} border border-gray-100 hover-glow dark:border-slate-800 dark:bg-slate-900 premium-shadow`}
       >
-        <span className="font-black text-xl tracking-tighter">{sheep.serialNumber}</span>
+        {pen && (
+          <span className="text-[10px] font-black text-gray-500 truncate w-full text-center">
+            {pen.name}
+          </span>
+        )}
+
+        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-lg bg-gray-150/60 dark:bg-slate-800 text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+          {sheep.type}
+        </span>
+
+        <div
+          className={`px-4 py-2 rounded-2xl flex items-center justify-center shadow-md text-white min-w-[70px] ${sheep.tagColor ? '' : (sheep.gender === 'male' ? 'bg-blue-500' : 'bg-emerald-500')} `}
+          style={{ backgroundColor: sheep.tagColor || undefined }}
+        >
+          <span className="font-black text-xl tracking-tighter">{sheep.serialNumber}</span>
+        </div>
+
+        {hasPendingVaccines(sheep) && (
+          <div className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse shadow-sm"></div>
+        )}
       </div>
-
-      <span className={`text-sm font-black uppercase tracking-wider ${sheep.gender === 'male' ? 'text-blue-600' : 'text-pink-600'} `}>{sheep.type}</span>
-
-      {hasPendingVaccines(sheep) && (
-        <div className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse shadow-sm"></div>
-      )}
-    </div>
-  );
+    );
+  };
 
   const calculateDetailedAge = (dateStr: string) => {
     if (!dateStr) return '';
@@ -2671,23 +2683,7 @@ function App() {
                       )}
                     </>
                   )}
-                  {can('canAddAnimals') && <button onClick={() => openNewSheepModal(selectedPenId || undefined)} className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-600 rounded-xl text-[10px] font-bold border border-orange-100 dark:bg-orange-900/20 whitespace-nowrap"><Dna size={12} /> {t.head} <Plus size={10} /></button>}
                   {can('canAddPens') && !selectedPenId && <button onClick={openAddSectionModal} className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-bold border border-blue-100 dark:bg-blue-900/20 whitespace-nowrap"><Warehouse size={12} /> قسم <Plus size={10} /></button>}
-                  <button 
-                    onClick={() => setIsChatOpen(true)} 
-                    className="relative flex items-center justify-center p-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 hover:bg-emerald-105 transition dark:bg-emerald-900/20 dark:border-emerald-900/50"
-                    title="رسايل"
-                  >
-                    <MessageCircle size={16} />
-                    {unreadChatCount > 0 && (
-                      <span className="absolute -top-1 -right-1 flex h-4 w-4">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 text-white text-[9px] items-center justify-center font-bold">
-                          {unreadChatCount > 9 ? '9+' : unreadChatCount}
-                        </span>
-                      </span>
-                    )}
-                  </button>
                 </>
               )}
             </div>
@@ -2885,21 +2881,42 @@ function App() {
                           )}
 
                           {/* Animal Filter TOGGLE Button */}
-                          <button
-                            onClick={() => setIsAnimalFilterOpen(!isAnimalFilterOpen)}
-                            className={`flex items-center gap-1 px-3 py-2 rounded-xl text-[10px] font-black transition-all whitespace-nowrap shadow-sm border ${
-                              isAnimalFilterOpen || isAnimalSearchActive
-                                ? 'bg-[#795548] text-white border-[#795548] dark:bg-orange-600 dark:border-orange-600'
-                                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-slate-800 dark:text-gray-200 dark:border-slate-700'
-                            }`}
-                            title="بحث وتصفية الحيوانات"
-                          >
-                            <Filter size={12} />
-                            <span>تصفية الحيوانات</span>
+                          <div className="flex items-center gap-2">
                             {isAnimalSearchActive && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse inline-block mr-0.5" />
+                              <button
+                                onClick={() => {
+                                  setTempSearchNumber('');
+                                  setTempSearchType('all');
+                                  setTempSearchColor('all');
+                                  setTempSearchAge('all');
+                                  setSheepSearchNumber('');
+                                  setSheepSearchType('all');
+                                  setSheepSearchColor('all');
+                                  setSheepSearchAge('all');
+                                  setIsAnimalFilterOpen(false);
+                                }}
+                                className="flex items-center gap-1 px-3 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl text-[10px] font-black transition dark:bg-red-950/20 dark:text-red-400 cursor-pointer shadow-sm border border-red-100 dark:border-red-900/20 whitespace-nowrap animate-fade-in"
+                              >
+                                <X size={12} />
+                                <span>إلغاء التصفية</span>
+                              </button>
                             )}
-                          </button>
+                            <button
+                              onClick={() => setIsAnimalFilterOpen(!isAnimalFilterOpen)}
+                              className={`flex items-center gap-1 px-3 py-2 rounded-xl text-[10px] font-black transition-all whitespace-nowrap shadow-sm border ${
+                                isAnimalFilterOpen || isAnimalSearchActive
+                                  ? 'bg-[#795548] text-white border-[#795548] dark:bg-orange-600 dark:border-orange-600'
+                                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-slate-800 dark:text-gray-200 dark:border-slate-700'
+                              }`}
+                              title="بحث وتصفية الحيوانات"
+                            >
+                              <Filter size={12} />
+                              <span>تصفية الحيوانات</span>
+                              {isAnimalSearchActive && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#E53935] animate-pulse inline-block mr-0.5" />
+                              )}
+                            </button>
+                          </div>
                         </div>
                       )}
 
@@ -3072,6 +3089,24 @@ function App() {
                                   {filteredSheepList.length} رأس
                                 </span>
                               </h3>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setTempSearchNumber('');
+                                  setTempSearchType('all');
+                                  setTempSearchColor('all');
+                                  setTempSearchAge('all');
+                                  setSheepSearchNumber('');
+                                  setSheepSearchType('all');
+                                  setSheepSearchColor('all');
+                                  setSheepSearchAge('all');
+                                  setIsAnimalFilterOpen(false);
+                                }}
+                                className="flex items-center gap-1 px-3 py-1 bg-red-50 text-red-655 hover:bg-red-100 text-[10px] font-black rounded-xl transition dark:bg-red-950/20 dark:text-red-400 cursor-pointer shadow-sm border border-red-104 dark:border-red-900/20"
+                              >
+                                <X size={12} />
+                                <span>إلغاء التصفية</span>
+                              </button>
                             </div>
 
                             {filteredSheepList.length > 0 ? (
@@ -3098,7 +3133,7 @@ function App() {
                                       </div>
                                     )))
                                   : (
-                                   filteredSheepList.map(sheep => renderSheepRow(sheep))
+                                   filteredSheepList.map(sheep => renderSheepRow(sheep, true))
                                  )}
                               </div>
                             ) : (
@@ -3181,15 +3216,15 @@ function App() {
                                   <h3 className="text-[10px] font-black text-[#3E2723] dark:text-gray-100 text-right uppercase tracking-[0.2em]">{t.typeStats}</h3>
                                   <button 
                                     onClick={() => setIsTypeAgeStatsOpen(true)}
-                                    className="text-[9px] font-black text-orange-600 hover:text-orange-850 select-none bg-orange-50 dark:bg-orange-950/20 px-2.5 py-1 rounded-xl border border-orange-100/50 dark:border-orange-900/20 cursor-pointer transition-colors active:scale-95"
+                                    className="text-[9px] font-black text-[#5E3F35] hover:text-orange-850 select-none bg-orange-50 dark:bg-orange-950/20 px-2.5 py-1 rounded-xl border border-orange-100/50 dark:border-orange-900/20 cursor-pointer transition-colors active:scale-95"
                                   >
-                                    عرض تفاصيل السن والأسنان
+                                    عرض تفاصيل الأعمار
                                   </button>
                                 </div>
                                 <div 
                                   onDoubleClick={() => setIsTypeAgeStatsOpen(true)}
                                   className="bg-white/90 rounded-[2rem] p-4 shadow-sm border border-gray-100 flex items-center justify-between gap-6 dark:bg-slate-900 dark:border-slate-800 backdrop-blur-md cursor-pointer hover:shadow-md transition-shadow"
-                                  title="انقر مزدوجاً لعرض تفاصيل الأسنان والأعمار"
+                                  title="انقر مزدوجاً لعرض تفاصيل الأعمار"
                                 >
                                   <div className="flex-1 grid gap-2 max-h-24 overflow-y-auto pr-2 custom-scrollbar">
                                     {chartData.map((d, i) => (
@@ -3515,6 +3550,7 @@ function App() {
                   { id: 'excluded', label: 'المستبعدة', icon: Skull, color: 'text-red-600 bg-red-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsDeathsModalOpen(true); } },
                   { id: 'production', label: 'سجل الإنتاج', icon: BarChart3, color: 'text-purple-600 bg-purple-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsStatsModalOpen(true); } },
                   { id: 'workers', label: 'إدارة العمال', icon: Users, color: 'text-[#795548] bg-[#795548]/10', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsWorkerManageOpen(true); } },
+                  { id: 'chat', label: 'المحادثات', icon: MessageCircle, color: 'text-emerald-600 bg-emerald-50', onClick: () => { setIsDashboardOpen(false); setIsChatOpen(true); } },
                 ].map(item => (
                   <button 
                     key={item.id}
@@ -3991,6 +4027,7 @@ function App() {
         isOpen={isStatsModalOpen}
         onClose={() => {
           setIsStatsModalOpen(false);
+          setProductionStatsInitialType(null);
           if (returnToDashboard) {
             setIsDashboardOpen(true);
             setReturnToDashboard(false);
@@ -3998,6 +4035,7 @@ function App() {
         }}
         allSheep={selectedGroupId ? barnSheep : allSheep}
         pens={selectedGroupId ? pens.filter(p => p.parentId === selectedGroupId || p.id === selectedGroupId) : pens}
+        initialType={productionStatsInitialType}
       />
       <ReportsModal
         isOpen={isReportsModalOpen}
@@ -4528,6 +4566,11 @@ function App() {
         isOpen={isTypeAgeStatsOpen}
         onClose={() => setIsTypeAgeStatsOpen(false)}
         sheep={barnSheep}
+        onSelectBreed={(breed) => {
+          setIsTypeAgeStatsOpen(false);
+          setProductionStatsInitialType(breed);
+          setIsStatsModalOpen(true);
+        }}
       />
 
       <CustomAlert

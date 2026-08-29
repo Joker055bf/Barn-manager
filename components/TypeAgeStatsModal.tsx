@@ -7,9 +7,10 @@ interface TypeAgeStatsModalProps {
     isOpen: boolean;
     onClose: () => void;
     sheep: Sheep[];
+    onSelectBreed?: (breed: string) => void;
 }
 
-export const TypeAgeStatsModal: React.FC<TypeAgeStatsModalProps> = ({ isOpen, onClose, sheep }) => {
+export const TypeAgeStatsModal: React.FC<TypeAgeStatsModalProps> = ({ isOpen, onClose, sheep, onSelectBreed }) => {
     const statsByType = useMemo(() => {
         // Group sheep by type/breed
         const grouped: Record<string, { total: number; ageCounts: Record<string, number>; orderedCategories: string[] }> = {};
@@ -54,10 +55,7 @@ export const TypeAgeStatsModal: React.FC<TypeAgeStatsModalProps> = ({ isOpen, on
                                 <Trophy size={22} className="text-orange-200" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-black tracking-tight">تفاصيل الأعمار والأسنان</h2>
-                                <p className="text-orange-100/60 text-[9px] font-black mt-0.5 uppercase tracking-wider leading-none">
-                                    Age & Teeth Classification Breakdown
-                                </p>
+                                <h2 className="text-xl font-black tracking-tight">تفاصيل الأعمار</h2>
                             </div>
                         </div>
                         <button 
@@ -79,7 +77,11 @@ export const TypeAgeStatsModal: React.FC<TypeAgeStatsModalProps> = ({ isOpen, on
                             const activeCategories = orderedCategories.filter(cat => ageCounts[cat] > 0);
 
                             return (
-                                <div key={breed} className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm dark:bg-slate-800 dark:border-slate-700/50 space-y-4">
+                                <div 
+                                    key={breed} 
+                                    onClick={() => onSelectBreed?.(breed)}
+                                    className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm dark:bg-slate-800 dark:border-slate-700/50 space-y-4 cursor-pointer hover:scale-[1.01] hover:border-orange-250 dark:hover:border-orange-500/30 transition-all"
+                                >
                                     {/* Breed Name & Total */}
                                     <div className="flex justify-between items-center pb-2 border-b border-gray-50 dark:border-slate-700/50">
                                         <h3 className="text-base font-black text-gray-800 dark:text-gray-100 flex items-center gap-2">
@@ -123,7 +125,7 @@ export const TypeAgeStatsModal: React.FC<TypeAgeStatsModalProps> = ({ isOpen, on
                 
                 {/* Footer info/legend */}
                 <div className="bg-gray-50 dark:bg-slate-900/30 py-3 px-6 text-center text-[10px] font-bold text-gray-400 dark:text-slate-500 border-t border-gray-100 dark:border-slate-800 shrink-0">
-                    * يتم احتساب وتصنيف السن تلقائياً ومطابقته لعلامات أسنان الحلال.
+                    * يتم احتساب وتصنيف السن تلقائياً.
                 </div>
             </div>
         </div>

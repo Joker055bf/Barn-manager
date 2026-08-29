@@ -13,6 +13,7 @@ interface ProductionStatsProps {
     pens: Pen[];
     ownerId?: string | null;
     onLogActivity?: (action: string, detail: string) => Promise<void>;
+    initialType?: string | null;
 }
 
 // Check if child (<= 6 months) - Used to filter mothers
@@ -91,7 +92,7 @@ const StatSection = ({ title, total, theme, children }: { title: string, total: 
 };
 
 
-export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClose, allSheep, pens, ownerId, onLogActivity }) => {
+export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClose, allSheep, pens, ownerId, onLogActivity, initialType }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedType, setSelectedType] = useState<string | null>(null);
     const [selectedMotherForDetails, setSelectedMotherForDetails] = useState<any | null>(null);
@@ -103,13 +104,13 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
     useEffect(() => {
         if (isOpen) {
             setSearchTerm('');
-            setSelectedType(null);
+            setSelectedType(initialType || null);
             setSelectedMotherForDetails(null);
             setSelectedAgeClassBreakdown(null);
             setIsMothersOpen(false);
             setViewingRegistryAnimal(null);
         }
-    }, [isOpen]);
+    }, [isOpen, initialType]);
 
     // Filter active sheep (exclude mortality/sold)
     const activeSheep = useMemo(() => {
@@ -258,7 +259,7 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
                         <h2 className="text-sm font-black text-gray-800 flex items-center gap-1.5 dark:text-gray-100">
                             <Activity className="text-emerald-600" size={16} />
                             <span>سجل الإنتاج والإحصائيات</span>
-                            {selectedType && <span className="text-[9px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded-lg dark:bg-emerald-950/20 dark:text-emerald-400 font-black font-bold">({selectedType})</span>}
+                            {selectedType && <span className="text-[9px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded-lg dark:bg-emerald-950/20 dark:text-emerald-400 font-black">({selectedType})</span>}
                         </h2>
                     </div>
                     <button onClick={onClose} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-full transition dark:hover:bg-red-900/20">
