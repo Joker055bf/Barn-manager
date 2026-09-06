@@ -2999,10 +2999,68 @@ function App() {
                                 className="w-full px-2 py-1.5 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-xl text-[10px] font-bold focus:ring-1 focus:ring-[#795548] focus:border-[#795548] outline-none transition-all dark:text-white cursor-pointer"
                               >
                                 <option value="all">كل الأعمار</option>
-                                {Array.from(new Set(displayedSheep.map(s => getAnimalAgeLabel(s.birthDate, s.type, s.gender)))).filter(Boolean).map(age => (
-                                  <option key={age} value={age}>{age}</option>
-                                ))}
+                                {(() => {
+                                  const ageMasterOrder = [
+                                    'طفل', 'حوار', 'مخلول', 'صوص', 'زغلول', 'صوص البط', 'فرخ', 'فـريخ',
+                                    'جذع', 'مفرود', 'بط فتي', 'شـاب', 'عتريس', 'بشارة',
+                                    'ثني', 'لِقي',
+                                    'رباع', 'حِقّ',
+                                    'سداس', 'سديس',
+                                    'تام', 'جامع', 'بازل', 'مخلف', 'هرش', 'فاطر'
+                                  ];
+                                  const availableAges = Array.from(new Set(displayedSheep.map(s => getAnimalAgeLabel(s.birthDate, s.type, s.gender)))).filter(Boolean) as string[];
+                                  return availableAges.sort((a: string, b: string) => {
+                                    const indexA = ageMasterOrder.findIndex(item => a.includes(item) || item.includes(a));
+                                    const indexB = ageMasterOrder.findIndex(item => b.includes(item) || item.includes(b));
+                                    return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
+                                  }).map((age: string) => (
+                                    <option key={age} value={age}>{age}</option>
+                                  ));
+                                })()}
                               </select>
+                            </div>
+
+                            {/* Search by Gender - Radio Dots */}
+                            <div className="col-span-2 sm:col-span-1">
+                              <label className="block text-[8px] font-black text-gray-400 mb-1">الجنس</label>
+                              <div className="flex items-center gap-1 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 p-1 rounded-xl">
+                                <button
+                                  type="button"
+                                  onClick={() => setTempSearchGender('all')}
+                                  className={`flex-1 py-1 px-1.5 rounded-lg text-[9px] font-bold flex items-center justify-center gap-1 transition-all ${
+                                    tempSearchGender === 'all'
+                                      ? 'bg-[#795548] text-white shadow-xs dark:bg-orange-600'
+                                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700/50'
+                                  }`}
+                                >
+                                  <span className={`w-2 h-2 rounded-full border ${tempSearchGender === 'all' ? 'bg-white border-white ring-1 ring-white/50' : 'border-gray-400'}`} />
+                                  <span>الكل</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setTempSearchGender('male')}
+                                  className={`flex-1 py-1 px-1.5 rounded-lg text-[9px] font-bold flex items-center justify-center gap-1 transition-all ${
+                                    tempSearchGender === 'male'
+                                      ? 'bg-blue-600 text-white shadow-xs'
+                                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700/50'
+                                  }`}
+                                >
+                                  <span className={`w-2 h-2 rounded-full border ${tempSearchGender === 'male' ? 'bg-white border-white ring-1 ring-white/50' : 'border-blue-400'}`} />
+                                  <span>ذكر</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setTempSearchGender('female')}
+                                  className={`flex-1 py-1 px-1.5 rounded-lg text-[9px] font-bold flex items-center justify-center gap-1 transition-all ${
+                                    tempSearchGender === 'female'
+                                      ? 'bg-pink-600 text-white shadow-xs'
+                                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700/50'
+                                  }`}
+                                >
+                                  <span className={`w-2 h-2 rounded-full border ${tempSearchGender === 'female' ? 'bg-white border-white ring-1 ring-white/50' : 'border-pink-400'}`} />
+                                  <span>أنثى</span>
+                                </button>
+                              </div>
                             </div>
                           </div>
 
@@ -3014,13 +3072,15 @@ function App() {
                                 setTempSearchType('all');
                                 setTempSearchColor('all');
                                 setTempSearchAge('all');
+                                setTempSearchGender('all');
                                 setSheepSearchNumber('');
                                 setSheepSearchType('all');
                                 setSheepSearchColor('all');
                                 setSheepSearchAge('all');
+                                setSheepSearchGender('all');
                                 setIsAnimalFilterOpen(false);
                               }}
-                              className="px-5 py-1.5 bg-gray-105 hover:bg-gray-200 text-gray-650 rounded-xl text-[10px] font-black transition dark:bg-slate-850 dark:hover:bg-slate-700 cursor-pointer"
+                              className="px-5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-[10px] font-black transition dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-gray-300 cursor-pointer"
                             >
                               الغاء
                             </button>
@@ -3031,6 +3091,7 @@ function App() {
                                 setSheepSearchType(tempSearchType);
                                 setSheepSearchColor(tempSearchColor);
                                 setSheepSearchAge(tempSearchAge);
+                                setSheepSearchGender(tempSearchGender);
                                 setIsAnimalFilterOpen(false);
                               }}
                               className="px-5 py-1.5 bg-[#795548] hover:bg-[#5E3F35] text-white rounded-xl text-[10px] font-black transition dark:bg-orange-600 dark:hover:bg-orange-700 cursor-pointer shadow-sm"
