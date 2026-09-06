@@ -759,6 +759,8 @@ function App() {
   const [miscarriageReason, setMiscarriageReason] = useState('');
   const sectionFilterRef = useRef<HTMLDivElement>(null);
   const barnFilterRef = useRef<HTMLDivElement>(null);
+  const colorFilterRef = useRef<HTMLDivElement>(null);
+  const [isColorDropdownOpen, setIsColorDropdownOpen] = useState(false);
 
   const [isReportsModalOpen, setIsReportsModalOpen] = useState(false);
   const [reportsInitialTab, setReportsInitialTab] = useState<ReportType>('overview');
@@ -1248,7 +1250,7 @@ function App() {
     restorePens();
   }, [ownerId, pens, rawSheep]);
 
-  // Click outside for custom section & barn filter dropdowns
+  // Click outside for custom section & barn & color filter dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (sectionFilterRef.current && !sectionFilterRef.current.contains(event.target as Node)) {
@@ -1256,6 +1258,9 @@ function App() {
       }
       if (barnFilterRef.current && !barnFilterRef.current.contains(event.target as Node)) {
         setIsBarnFilterDropdownOpen(false);
+      }
+      if (colorFilterRef.current && !colorFilterRef.current.contains(event.target as Node)) {
+        setIsColorDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -2085,9 +2090,14 @@ function App() {
           </span>
         )}
 
-        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-lg bg-gray-150/60 dark:bg-slate-800 text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-          {sheep.type}
-        </span>
+        <div className="flex items-center gap-1.5 flex-wrap justify-center">
+          <span className="text-[9px] font-black px-1.5 py-0.5 rounded-lg bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+            {sheep.type}
+          </span>
+          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-lg ${sheep.gender === 'male' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300'}`}>
+            {sheep.gender === 'male' ? 'ذكر' : 'أنثى'}
+          </span>
+        </div>
 
         <div
           className={`px-4 py-2 rounded-2xl flex items-center justify-center shadow-md text-white min-w-[70px] ${sheep.tagColor ? '' : (sheep.gender === 'male' ? 'bg-blue-500' : 'bg-emerald-500')} `}
@@ -2901,25 +2911,7 @@ function App() {
 
                           {/* Animal Filter TOGGLE Button */}
                           <div className="flex items-center gap-2">
-                            {isAnimalSearchActive && (
-                              <button
-                                onClick={() => {
-                                  setTempSearchNumber('');
-                                  setTempSearchType('all');
-                                  setTempSearchColor('all');
-                                  setTempSearchAge('all');
-                                  setSheepSearchNumber('');
-                                  setSheepSearchType('all');
-                                  setSheepSearchColor('all');
-                                  setSheepSearchAge('all');
-                                  setIsAnimalFilterOpen(false);
-                                }}
-                                className="flex items-center gap-1 px-3 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl text-[10px] font-black transition dark:bg-red-950/20 dark:text-red-400 cursor-pointer shadow-sm border border-red-100 dark:border-red-900/20 whitespace-nowrap animate-fade-in"
-                              >
-                                <X size={12} />
-                                <span>إلغاء التصفية</span>
-                              </button>
-                            )}
+
                             <button
                               onClick={() => setIsAnimalFilterOpen(!isAnimalFilterOpen)}
                               className={`flex items-center gap-1 px-3 py-2 rounded-xl text-[10px] font-black transition-all whitespace-nowrap shadow-sm border ${
