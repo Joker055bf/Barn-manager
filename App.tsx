@@ -749,10 +749,12 @@ function App() {
   const [sheepSearchType, setSheepSearchType] = useState('all');
   const [sheepSearchColor, setSheepSearchColor] = useState('all');
   const [sheepSearchAge, setSheepSearchAge] = useState('all');
+  const [sheepSearchGender, setSheepSearchGender] = useState('all');
   const [tempSearchNumber, setTempSearchNumber] = useState('');
   const [tempSearchType, setTempSearchType] = useState('all');
   const [tempSearchColor, setTempSearchColor] = useState('all');
   const [tempSearchAge, setTempSearchAge] = useState('all');
+  const [tempSearchGender, setTempSearchGender] = useState('all');
   const [isAnimalFilterOpen, setIsAnimalFilterOpen] = useState(false);
 
   const [showMiscarriageInput, setShowMiscarriageInput] = useState(false);
@@ -2386,9 +2388,10 @@ function App() {
       sheepSearchNumber !== '' ||
       sheepSearchType !== 'all' ||
       sheepSearchColor !== 'all' ||
-      sheepSearchAge !== 'all'
+      sheepSearchAge !== 'all' ||
+      sheepSearchGender !== 'all'
     );
-  }, [sheepSearchNumber, sheepSearchType, sheepSearchColor, sheepSearchAge]);
+  }, [sheepSearchNumber, sheepSearchType, sheepSearchColor, sheepSearchAge, sheepSearchGender]);
   const displayedSheep = (selectedPenId
     ? allSheep.filter(s => s.penId === selectedPenId)
     : selectedGroupId
@@ -2427,9 +2430,13 @@ function App() {
         const sAge = getAnimalAgeLabel(s.birthDate, s.type, s.gender);
         if (sAge !== sheepSearchAge) return false;
       }
+      // 5. Filter by gender
+      if (sheepSearchGender !== 'all' && s.gender !== sheepSearchGender) {
+        return false;
+      }
       return true;
     });
-  }, [displayedSheep, sheepSearchNumber, sheepSearchType, sheepSearchColor, sheepSearchAge]);
+  }, [displayedSheep, sheepSearchNumber, sheepSearchType, sheepSearchColor, sheepSearchAge, sheepSearchGender]);
 
   // Mortality & Available Pens
   const mortalityPenId = selectedGroupId ? `mortality:${selectedGroupId} ` : '';
