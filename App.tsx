@@ -2090,11 +2090,11 @@ function App() {
           </span>
         )}
 
-        <div className="flex items-center gap-1.5 flex-wrap justify-center">
-          <span className="text-[9px] font-black px-1.5 py-0.5 rounded-lg bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+        <div className="flex items-center justify-center gap-1 whitespace-nowrap w-full px-1">
+          <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-400 shrink-0">
             {sheep.type}
           </span>
-          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-lg ${sheep.gender === 'male' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300'}`}>
+          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md shrink-0 ${sheep.gender === 'male' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300'}`}>
             {sheep.gender === 'male' ? 'ذكر' : 'أنثى'}
           </span>
         </div>
@@ -3093,13 +3093,15 @@ function App() {
                       {!selectedPenId && isAnimalSearchActive && (
                         <div className="px-4 md:px-8 pb-10">
                           <div className="bg-white/80 rounded-[2.5rem] shadow-sm border border-gray-100 p-6 dark:bg-slate-900 animate-slide-up">
-                            <div className="flex justify-between items-center mb-4" dir="rtl">
-                              <h3 className="text-sm font-black text-[#3E2723] dark:text-gray-100 flex items-center gap-2">
-                                <span>نتائج البحث عن الحيوان</span>
-                                <span className="text-xs font-bold bg-[#795548]/10 text-[#795548] px-2 py-0.5 rounded-lg dark:bg-orange-500/10 dark:text-orange-400">
+                            <div className="flex flex-wrap items-center justify-between gap-3 mb-4" dir="rtl">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="text-sm font-black text-[#3E2723] dark:text-gray-100 whitespace-nowrap">
+                                  نتائج البحث عن الحيوان
+                                </h3>
+                                <span className="inline-flex items-center gap-1 text-xs font-bold bg-[#795548]/10 text-[#795548] px-2.5 py-1 rounded-xl dark:bg-orange-500/10 dark:text-orange-400 whitespace-nowrap shrink-0">
                                   {filteredSheepList.length} رأس
                                 </span>
-                              </h3>
+                              </div>
                               <button
                                 type="button"
                                 onClick={() => {
@@ -3113,9 +3115,9 @@ function App() {
                                   setSheepSearchAge('all');
                                   setIsAnimalFilterOpen(false);
                                 }}
-                                className="flex items-center gap-1 px-3 py-1 bg-red-50 text-red-655 hover:bg-red-100 text-[10px] font-black rounded-xl transition dark:bg-red-950/20 dark:text-red-400 cursor-pointer shadow-sm border border-red-104 dark:border-red-900/20"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-xl transition dark:bg-red-950/40 dark:text-red-400 cursor-pointer shadow-sm border border-red-100 dark:border-red-900/30 whitespace-nowrap shrink-0 active:scale-95"
                               >
-                                <X size={12} />
+                                <X size={14} />
                                 <span>إلغاء التصفية</span>
                               </button>
                             </div>
