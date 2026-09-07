@@ -562,8 +562,8 @@ export const SheepModal: React.FC<SheepModalProps> = ({
               <div className="space-y-3">
                 {/* Single Row for the Four Inputs */}
                 <div className="grid grid-cols-12 gap-1.5 items-end">
-                  {/* Type (النوع) - col-span-4 */}
-                  <div className="col-span-4 space-y-1">
+                  {/* Type (النوع) - col-span-3 */}
+                  <div className="col-span-3 space-y-1">
                     <CustomSelect
                       label="النوع"
                       value={type}
@@ -664,24 +664,42 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                 {/* Row 3: الجنس */}
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-right mb-1">الجنس</label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center gap-1.5 bg-gray-50/70 dark:bg-slate-800/70 border border-gray-200/80 dark:border-slate-700 p-1 rounded-2xl shadow-xs">
                     {/* Male Button */}
-                    <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all h-[36px] flex items-center justify-center gap-2 ${gender === 'male' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-200 bg-white dark:bg-slate-800 dark:border-slate-700 hover:border-[#795548]'}`}>
-                      <input type="radio" name="gender" value="male" checked={gender === 'male'} onChange={() => setGender('male')} className="hidden" />
-                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${gender === 'male' ? 'border-[#795548] bg-[#795548] text-white' : 'border-gray-300 dark:border-slate-650'}`}>
-                        {gender === 'male' && <Check size={10} strokeWidth={3} />}
-                      </div>
-                      <span className={`font-bold text-xs ${gender === 'male' ? 'text-[#795548]' : 'text-gray-600 dark:text-gray-300'}`}>{t.male}</span>
-                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setGender('male')}
+                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                        gender === 'male'
+                          ? 'bg-[#795548] text-white shadow-sm dark:bg-orange-600 font-black'
+                          : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700/50'
+                      }`}
+                    >
+                      <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center transition-all ${
+                        gender === 'male' ? 'border-white bg-white/20' : 'border-gray-400'
+                      }`}>
+                        {gender === 'male' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </span>
+                      <span>{t.male}</span>
+                    </button>
 
                     {/* Female Button */}
-                    <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all h-[36px] flex items-center justify-center gap-2 ${gender === 'female' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-200 bg-white dark:bg-slate-800 dark:border-slate-700 hover:border-[#795548]'}`}>
-                      <input type="radio" name="gender" value="female" checked={gender === 'female'} onChange={() => setGender('female')} className="hidden" />
-                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${gender === 'female' ? 'border-[#795548] bg-[#795548] text-white' : 'border-gray-300'}`}>
-                        {gender === 'female' && <Check size={10} strokeWidth={3} />}
-                      </div>
-                      <span className={`font-bold text-xs ${gender === 'female' ? 'text-[#795548]' : 'text-gray-600 dark:text-gray-300'}`}>{t.female}</span>
-                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setGender('female')}
+                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                        gender === 'female'
+                          ? 'bg-[#795548] text-white shadow-sm dark:bg-orange-600 font-black'
+                          : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700/50'
+                      }`}
+                    >
+                      <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center transition-all ${
+                        gender === 'female' ? 'border-white bg-white/20' : 'border-gray-400'
+                      }`}>
+                        {gender === 'female' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </span>
+                      <span>{t.female}</span>
+                    </button>
                   </div>
                 </div>
               </div>

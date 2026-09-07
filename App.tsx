@@ -3057,14 +3057,14 @@ function App() {
                                     { value: '#F59E0B', label: 'برتقالي', color: '#F59E0B' },
                                     { value: '#8B5CF6', label: 'بنفسجي', color: '#8B5CF6' },
                                     { value: '#6366F1', label: 'نيلي', color: '#6366F1' },
-                                    { value: 'none', label: 'بدون لون', color: 'none' }
+                                    
                                   ];
-                                  const extraColors = Array.from(new Set(displayedSheep.map(s => s.tagColor || 'none'))) as string[];
+                                  const extraColors = Array.from(new Set(displayedSheep.map(s => s.tagColor).filter(c => c && c !== 'none'))) as string[];
                                   extraColors.forEach(c => {
                                     if (c && !baseColors.some(bc => bc.value === c)) {
                                       baseColors.push({
                                         value: c,
-                                        label: c === 'none' ? 'بدون لون' : (colorNames[c] || c),
+                                        label: colorNames[c] || c,
                                         color: c
                                       });
                                     }
@@ -3635,7 +3635,7 @@ function App() {
                      {Array.from(new Set(displayedSheep.map(s => s.tagColor || 'none')))
                        .map((color: any) => (
                          <option key={color} value={color}>
-                           {color === 'none' ? 'بدون لون' : (colorNames[color] || color)}
+                           {colorNames[color] || color}
                          </option>
                        ))}
                    </select>

@@ -43,12 +43,23 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
     // Update position when opened for dropdown variant
     useEffect(() => {
         if (isOpen && buttonRef.current && variant === 'dropdown') {
-            const rect = buttonRef.current.getBoundingClientRect();
-            setDropdownPos({
-                top: rect.bottom + window.scrollY + 4,
-                right: window.innerWidth - (rect.right + window.scrollX),
-                width: Math.max(rect.width, 160)
-            });
+            const updatePos = () => {
+                if (buttonRef.current) {
+                    const rect = buttonRef.current.getBoundingClientRect();
+                    setDropdownPos({
+                        top: rect.bottom + 4,
+                        right: window.innerWidth - rect.right,
+                        width: Math.max(rect.width, 160)
+                    });
+                }
+            };
+            updatePos();
+            window.addEventListener('scroll', updatePos, true);
+            window.addEventListener('resize', updatePos);
+            return () => {
+                window.removeEventListener('scroll', updatePos, true);
+                window.removeEventListener('resize', updatePos);
+            };
         }
     }, [isOpen, variant]);
 
@@ -161,7 +172,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
             <div 
                 dir={dir}
                 style={{
-                    position: 'absolute',
+                    position: 'fixed',
                     top: `${dropdownPos.top}px`,
                     right: `${dropdownPos.right}px`,
                     minWidth: `${dropdownPos.width}px`
