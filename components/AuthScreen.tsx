@@ -184,6 +184,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ users, isLoading, onLogi
                   type="button"
                   onClick={() => {
                     setRecoveryError('');
+                    if (!loginPassword) {
+                      setRecoveryError('يرجى إدخال كلمة المرور الحالية أولاً');
+                      return;
+                    }
                     const ownerUser = users.find(u => u.role === 'owner');
                     if (!ownerUser) {
                       setRecoveryError('لم يتم العثور على حساب المالك');
@@ -236,6 +240,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ users, isLoading, onLogi
                   type="button"
                   onClick={() => {
                     setRecoveryError('');
+                    if (!inputEmail.trim()) {
+                      setRecoveryError('يرجى إدخال البريد الإلكتروني المسجل');
+                      return;
+                    }
                     const ownerUser = users.find(u => u.role === 'owner');
                     if (!ownerUser) {
                       setRecoveryError('لم يتم العثور على حساب المالك');
@@ -245,7 +253,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ users, isLoading, onLogi
                       setRecoveryError('لا يوجد بريد إلكتروني مسجل لحساب المالك.');
                       return;
                     }
-                    if (inputEmail.trim().toLowerCase() === ownerUser.email.toLowerCase()) {
+                    if (inputEmail.trim().toLowerCase() === ownerUser.email.trim().toLowerCase()) {
                       setRecoveryMode('changePassword');
                       setNewValue('');
                       setInputEmail('');

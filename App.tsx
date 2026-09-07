@@ -23,6 +23,7 @@ import { DeathsModal } from './components/DeathsModal';
 import { TypeAgeStatsModal } from './components/TypeAgeStatsModal';
 import { Pen, MedicalRecord, FeedItem, FeedLogEntry, Sheep, SheepType, ChatMessage, Expense, Sale, Death, User, WorkerPermissions, ActivityEntry, DEFAULT_WORKER_PERMISSIONS } from './types';
 import CustomAlert, { AlertType } from './components/CustomAlert';
+import { CustomSelect, Option } from './components/CustomSelect';
 import { ReportType } from './components/ReportsModal';
 import { getAnimalMetadata, calculateVaccineDueDate, getAnimalAgeLabel, generateId } from './utils/animalHelpers';
 import { Capacitor } from '@capacitor/core';
@@ -125,9 +126,25 @@ function App() {
   };
 
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
+  const lastLogTimestampMsRef = useRef<number>(0);
+  const timestampSubSeqRef = useRef<number>(0);
 
-  const logActivity = async (action: string, detail: string, serialNumber?: string, tagColor?: string, changes?: string[]) => {
+  const logActivity = async (action: string, detail: string, serialNumber?: string | number, tagColor?: string, changes?: string[]) => {
     if (!currentUser || !ownerId) return;
+
+    const nowMs = Date.now();
+    if (nowMs === lastLogTimestampMsRef.current) {
+      timestampSubSeqRef.current += 1;
+    } else {
+      lastLogTimestampMsRef.current = nowMs;
+      timestampSubSeqRef.current = 0;
+    }
+
+    const baseIso = new Date(nowMs).toISOString();
+    const uniqueTimestamp = timestampSubSeqRef.current > 0
+      ? `${baseIso.replace('Z', '')}.${String(timestampSubSeqRef.current).padStart(3, '0')}Z`
+      : baseIso;
+
     const entry: ActivityEntry = JSON.parse(JSON.stringify({
       id: generateId(),
       userId: currentUser.id,
@@ -135,8 +152,8 @@ function App() {
       userRole: currentUser.role,
       action,
       detail,
-      timestamp: new Date().toISOString(),
-      serialNumber: serialNumber || null,
+      timestamp: uniqueTimestamp,
+      serialNumber: serialNumber !== undefined && serialNumber !== null ? String(serialNumber) : null,
       tagColor: tagColor || null,
       changes: changes || null
     }));
@@ -661,25 +678,44 @@ function App() {
   const getBarnRelevantLogs = React.useCallback((barnId: string | null) => {
     if (!barnId) return activityLog;
     return activityLog.filter(log => {
-      // 1. If it has a serialNumber, check if that sheep belongs to the current barn/group
+      // 1. Farm-wide activities (inventory, feed, general management) are always relevant
+      const isFarmWide = log.action.includes('مخزون') ||
+                         log.action.includes('أعلاف') ||
+                         log.action.includes('حبوب') ||
+                         log.action.includes('صنف') ||
+                         log.action.includes('تحديث الاستهلاك') ||
+                         log.action.includes('إضافة مخزون') ||
+                         log.action.includes('إدارة العمال');
+      if (isFarmWide) return true;
+
+      // 2. If it has a serialNumber, check if that sheep belongs or belonged to current barn/group
       if (log.serialNumber) {
-        const s = rawSheep.find(sheep => (sheep.serialNumber === log.serialNumber && sheep.tagColor === (log.tagColor || undefined)) || sheep.serialNumber === log.serialNumber || sheep.id === log.serialNumber);
+        const s = rawSheep.find(sheep => 
+          (String(sheep.serialNumber) === String(log.serialNumber) && sheep.tagColor === (log.tagColor || undefined)) || 
+          String(sheep.serialNumber) === String(log.serialNumber) || 
+          sheep.id === log.serialNumber
+        );
         if (s) {
           const pen = pens.find(p => p.id === s.penId);
-          return (
+          if (
             pen?.parentId === barnId ||
             pen?.id === barnId ||
-            (s.penId.startsWith('mortality:') && s.penId.includes(barnId))
-          );
+            (s.penId && s.penId.includes(barnId))
+          ) {
+            return true;
+          }
+          if (s.movementHistory?.some(m => m.fromPenId === barnId || m.toPenId === barnId || m.fromPenName?.includes(barnId) || m.toPenName?.includes(barnId))) {
+            return true;
+          }
         }
       }
       
-      // 2. If it's a pen-specific action or log detail contains pen name of current group
+      // 3. If it's a pen-specific action or log detail contains pen name of current group
       const groupPens = pens.filter(p => p.parentId === barnId || p.id === barnId);
       const hasGroupPenName = groupPens.some(p => log.detail?.includes(p.name) || log.action?.includes(p.name));
       if (hasGroupPenName) return true;
 
-      // 3. Fallback: if the detail/action contains the group name itself
+      // 4. Fallback: if the detail/action contains the group name itself
       const currentGroup = pens.find(p => p.id === barnId);
       if (currentGroup && (log.detail?.includes(currentGroup.name) || log.action?.includes(currentGroup.name))) {
         return true;
@@ -1124,11 +1160,12 @@ function App() {
     // 5. Activity Log Sync
     const activityRef = query(
       collection(db, 'farms', ownerId, 'activity'),
+      orderBy('timestamp', 'desc'),
       limit(200)
     );
     unsubscribes.push(onSnapshot(activityRef, (snapshot) => {
       const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ActivityEntry));
-      setActivityLog(logs.sort((a, b) => b.timestamp.localeCompare(a.timestamp)));
+      setActivityLog(logs.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || '')));
     }));
 
     // 6. Users Sync moved to its own effect above for better reliability
@@ -1775,8 +1812,32 @@ function App() {
         const sourceName = sourcePen?.name || 'قسم غير معروف';
         const targetPenName = pens.find(p => p.id === targetPenId)?.name || (targetPenId.includes('mortality') ? 'المستبعدة' : 'قسم جديد');
 
+        const toMoveIds = toMove.map(s => s.id);
+        const isTargetExclusion = targetPenId.includes('mortality');
+
+        // Optimistically update rawSheep state in real-time
+        setRawSheep(prev => prev.map(s => {
+          if (toMoveIds.includes(s.id)) {
+            const moveEntry = {
+              fromPenId: s.penId,
+              toPenId: targetPenId,
+              fromPenName: sourceName,
+              toPenName: targetPenName,
+              movedBy: currentUser?.name || 'غير معروف',
+              date: new Date().toISOString().split('T')[0]
+            };
+            return {
+              ...s,
+              penId: targetPenId,
+              notes: finalReason && isTargetExclusion ? finalReason : s.notes,
+              exclusionDate: isTargetExclusion ? new Date().toISOString() : (s.exclusionDate || null),
+              movementHistory: [...(s.movementHistory || []), moveEntry]
+            };
+          }
+          return s;
+        }));
+
         for (const s of toMove) {
-          const isTargetExclusion = targetPenId.includes('mortality');
           const moveEntry = {
             fromPenId: s.penId,
             toPenId: targetPenId,
@@ -1795,7 +1856,7 @@ function App() {
           });
         }
         if (targetPenId.includes('mortality')) {
-          logActivity('استبعاد حيوان', `تم استبعاد ${toMove.length} رأس. السبب: ${finalReason || 'غير محدد'}`);
+          logActivity('استبعاد حيوان', `تم استبعاد ${toMove.length} رأس من [${sourceName}] إلى [${targetPenName}]. السبب: ${finalReason || 'غير محدد'}`);
           if (finalReason && finalReason.startsWith('بيع - بقيمة')) {
             const saleAmountMatch = finalReason.match(/بيع - بقيمة (\d+(?:\.\d+)?) ريال/);
             if (saleAmountMatch) {
@@ -1821,7 +1882,8 @@ function App() {
         }
         setBatchAction(null);
       } else if (selectedSheepForAction) {
-        const sourcePen = pens.find(p => p.id === (selectedPenId || selectedSheepForAction.penId));
+        const actualSourcePenId = selectedSheepForAction.penId || selectedPenId;
+        const sourcePen = pens.find(p => p.id === actualSourcePenId);
         const sourceName = sourcePen?.name || 'قسم غير معروف';
         const isExcl = targetPenId.includes('mortality') || pens.find(p => p.id === targetPenId)?.isExclusion;
         const targetPenName = pens.find(p => p.id === targetPenId)?.name || (targetPenId.includes('mortality') ? 'المستبعدة' : 'قسم جديد');
@@ -1836,6 +1898,21 @@ function App() {
         };
         const updatedHistory = [...(selectedSheepForAction.movementHistory || []), moveEntry];
 
+        // Optimistically update rawSheep in local state immediately
+        const targetId = selectedSheepForAction.id;
+        setRawSheep(prev => prev.map(s => {
+          if (s.id === targetId) {
+            return {
+              ...s,
+              penId: targetPenId,
+              notes: finalReason && targetPenId.includes('mortality') ? finalReason : s.notes,
+              exclusionDate: isExcl ? new Date().toISOString() : (s.exclusionDate || null),
+              movementHistory: updatedHistory
+            };
+          }
+          return s;
+        }));
+
         await updateDoc(doc(db, 'farms', ownerId, 'sheep', selectedSheepForAction.id), {
           penId: targetPenId,
           notes: finalReason && targetPenId.includes('mortality') ? finalReason : selectedSheepForAction.notes,
@@ -1843,7 +1920,7 @@ function App() {
           movementHistory: updatedHistory
         });
         if (isExcl) {
-          logActivity('استبعاد حيوان', `تم استبعاد #${selectedSheepForAction.serialNumber}. السبب: ${finalReason || 'غير محدد'}`, selectedSheepForAction.serialNumber, selectedSheepForAction.tagColor);
+          logActivity('استبعاد حيوان', `تم نقل #${selectedSheepForAction.serialNumber} من [${sourceName}] إلى [${targetPenName}]. السبب: ${finalReason || 'غير محدد'}`, selectedSheepForAction.serialNumber, selectedSheepForAction.tagColor);
           if (finalReason && finalReason.startsWith('بيع - بقيمة')) {
             const saleAmountMatch = finalReason.match(/بيع - بقيمة (\d+(?:\.\d+)?) ريال/);
             if (saleAmountMatch) {
@@ -2036,13 +2113,15 @@ function App() {
                 exclusionDate: new Date().toISOString()
               });
             }
+            logActivity('استبعاد حيوان', `تم بيع واستبعاد ${sheepToSell.length} رأس من نوع (${type}). السبب: ${reason || 'تم البيع'}`);
           } else {
-            const sheep = sheepToSell as Sheep;
+            const sheep = sheepToSell as unknown as Sheep;
             await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), {
               penId: targetMortalityPenId,
               notes: reason || 'تم البيع',
               exclusionDate: new Date().toISOString()
             });
+            logActivity('استبعاد حيوان', `تم بيع واستبعاد #${sheep.serialNumber} (${sheep.type}). السبب: ${reason || 'تم البيع'}`, sheep.serialNumber, sheep.tagColor);
           }
 
           // Update localized state if needed (optional since Firebase listener will handle it)
@@ -2960,64 +3039,81 @@ function App() {
 
                             {/* Search by Color */}
                             <div>
-                              <label className="block text-[8px] font-black text-gray-400 mb-1">اللون</label>
-                              <select
+                              <CustomSelect
+                                label="اللون"
+                                modalTitle="كل الألوان"
                                 value={tempSearchColor}
-                                onChange={(e) => setTempSearchColor(e.target.value)}
-                                className="w-full px-2 py-1.5 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-xl text-[10px] font-bold focus:ring-1 focus:ring-[#795548] focus:border-[#795548] outline-none transition-all dark:text-white cursor-pointer"
-                              >
-                                <option value="all">كل الألوان</option>
-                                {Array.from(new Set(displayedSheep.map(s => s.tagColor || 'none'))).map((color: any) => (
-                                  <option key={color} value={color}>
-                                    {color === 'none' ? 'بدون لون' : (colorNames[color] || color)}
-                                  </option>
-                                ))}
-                              </select>
+                                onChange={(val) => setTempSearchColor(val)}
+                                textSize="text-xs"
+                                placeholder="كل الألوان"
+                                options={(() => {
+                                  const baseColors: Option[] = [
+                                    { value: 'all', label: 'كل الألوان' },
+                                    { value: '#10B981', label: 'أخضر', color: '#10B981' },
+                                    { value: '#3B82F6', label: 'أزرق', color: '#3B82F6' },
+                                    { value: '#EC4899', label: 'وردي', color: '#EC4899' },
+                                    { value: '#EF4444', label: 'أحمر', color: '#EF4444' },
+                                    { value: '#FACC15', label: 'أصفر', color: '#FACC15' },
+                                    { value: '#F59E0B', label: 'برتقالي', color: '#F59E0B' },
+                                    { value: '#8B5CF6', label: 'بنفسجي', color: '#8B5CF6' },
+                                    { value: '#6366F1', label: 'نيلي', color: '#6366F1' },
+                                    { value: 'none', label: 'بدون لون', color: 'none' }
+                                  ];
+                                  const extraColors = Array.from(new Set(displayedSheep.map(s => s.tagColor || 'none'))) as string[];
+                                  extraColors.forEach(c => {
+                                    if (c && !baseColors.some(bc => bc.value === c)) {
+                                      baseColors.push({
+                                        value: c,
+                                        label: c === 'none' ? 'بدون لون' : (colorNames[c] || c),
+                                        color: c
+                                      });
+                                    }
+                                  });
+                                  return baseColors;
+                                })()}
+                              />
                             </div>
 
                             {/* Search by Type */}
                             <div>
-                              <label className="block text-[8px] font-black text-gray-400 mb-1">النوع</label>
-                              <select
+                              <CustomSelect
+                                label="النوع"
+                                modalTitle="كل الأنواع"
                                 value={tempSearchType}
-                                onChange={(e) => setTempSearchType(e.target.value)}
-                                className="w-full px-2 py-1.5 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-xl text-[10px] font-bold focus:ring-1 focus:ring-[#795548] focus:border-[#795548] outline-none transition-all dark:text-white cursor-pointer"
-                              >
-                                <option value="all">كل الأنواع</option>
-                                {Array.from(new Set(displayedSheep.map(s => s.type))).filter(Boolean).map(t => (
-                                  <option key={t} value={t}>{t}</option>
-                                ))}
-                              </select>
+                                onChange={(val) => setTempSearchType(val)}
+                                textSize="text-xs"
+                                placeholder="كل الأنواع"
+                                options={(() => {
+                                  const defaultTypes = ['حري', 'نعيمي', 'نجدي', 'سواكني', 'ماعز', 'أخرى'];
+                                  const presentTypes = displayedSheep.map(s => s.type).filter(Boolean);
+                                  const allTypes = Array.from(new Set([...defaultTypes, ...presentTypes]));
+                                  return [
+                                    { value: 'all', label: 'كل الأنواع' },
+                                    ...allTypes.map(t => ({ value: t, label: t }))
+                                  ];
+                                })()}
+                              />
                             </div>
 
                             {/* Search by Age */}
                             <div>
-                              <label className="block text-[8px] font-black text-gray-400 mb-1">العمر</label>
-                              <select
+                              <CustomSelect
+                                label="العمر"
+                                modalTitle="كل الأعمار"
                                 value={tempSearchAge}
-                                onChange={(e) => setTempSearchAge(e.target.value)}
-                                className="w-full px-2 py-1.5 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-xl text-[10px] font-bold focus:ring-1 focus:ring-[#795548] focus:border-[#795548] outline-none transition-all dark:text-white cursor-pointer"
-                              >
-                                <option value="all">كل الأعمار</option>
-                                {(() => {
-                                  const ageMasterOrder = [
-                                    'طفل', 'حوار', 'مخلول', 'صوص', 'زغلول', 'صوص البط', 'فرخ', 'فـريخ',
-                                    'جذع', 'مفرود', 'بط فتي', 'شـاب', 'عتريس', 'بشارة',
-                                    'ثني', 'لِقي',
-                                    'رباع', 'حِقّ',
-                                    'سداس', 'سديس',
-                                    'تام', 'جامع', 'بازل', 'مخلف', 'هرش', 'فاطر'
+                                onChange={(val) => setTempSearchAge(val)}
+                                textSize="text-xs"
+                                placeholder="كل الأعمار"
+                                options={(() => {
+                                  const defaultAges = ['طفل', 'جذع', 'ثني', 'رباع', 'سداس', 'تام'];
+                                  const presentAges = displayedSheep.map(s => getAnimalAgeLabel(s.birthDate, s.type, s.gender)).filter(Boolean);
+                                  const allAges = Array.from(new Set([...defaultAges, ...presentAges]));
+                                  return [
+                                    { value: 'all', label: 'كل الأعمار' },
+                                    ...allAges.map(a => ({ value: a, label: a }))
                                   ];
-                                  const availableAges = Array.from(new Set(displayedSheep.map(s => getAnimalAgeLabel(s.birthDate, s.type, s.gender)))).filter(Boolean) as string[];
-                                  return availableAges.sort((a: string, b: string) => {
-                                    const indexA = ageMasterOrder.findIndex(item => a.includes(item) || item.includes(a));
-                                    const indexB = ageMasterOrder.findIndex(item => b.includes(item) || item.includes(b));
-                                    return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
-                                  }).map((age: string) => (
-                                    <option key={age} value={age}>{age}</option>
-                                  ));
                                 })()}
-                              </select>
+                              />
                             </div>
 
                             {/* Search by Gender - Radio Dots */}
@@ -3427,24 +3523,23 @@ function App() {
                                                    {can('canViewActivity') && <div><span className="text-gray-400">القائم بالعمل: </span>{log.userName}</div>}
                                                    <div><span className="text-gray-400">الإجراء: </span>{log.action}</div>
                                                    <div><span className="text-gray-400">التفاصيل: </span>{log.detail || 'تحديث بيانات'}</div>
-                                                    {(() => {
-                                                      const s = log.serialNumber ? (allSheep.find(s => s.serialNumber === log.serialNumber && s.tagColor === (log.tagColor || undefined)) || allSheep.find(s => s.serialNumber === log.serialNumber)) : null;
-                                                      const tagCol = log.tagColor || s?.tagColor;
-                                                      if (!tagCol) return null;
-                                                      return (
-                                                        <div className="flex items-center justify-start gap-1.5">
-                                                          <span className="text-gray-400">لون الشارة: </span>
-                                                          <span className="inline-flex items-center gap-1.5">
-                                                            <span 
-                                                              className="w-2 h-2 rounded-full inline-block border border-white dark:border-slate-900 shadow-sm shrink-0" 
-                                                              style={{ backgroundColor: tagCol }}
-                                                            />
-                                                            {colorNames[tagCol] || 'ملون'}
-                                                          </span>
-                                                        </div>
-                                                      );
-                                                    })()}
-                                                   
+                                                   {(() => {
+                                                     const s = log.serialNumber ? (allSheep.find(s => s.serialNumber === log.serialNumber && s.tagColor === (log.tagColor || undefined)) || allSheep.find(s => s.serialNumber === log.serialNumber)) : null;
+                                                     const tagCol = log.tagColor || s?.tagColor;
+                                                     if (!tagCol) return null;
+                                                     return (
+                                                       <div className="flex items-center justify-start gap-1.5">
+                                                         <span className="text-gray-400">لون الشارة: </span>
+                                                         <span className="inline-flex items-center gap-1.5">
+                                                           <span 
+                                                             className="w-2 h-2 rounded-full inline-block border border-white dark:border-slate-900 shadow-sm shrink-0" 
+                                                             style={{ backgroundColor: tagCol }}
+                                                           />
+                                                           {colorNames[tagCol] || 'ملون'}
+                                                         </span>
+                                                       </div>
+                                                     );
+                                                   })()}
                                                    <div><span className="text-gray-400">التاريخ: </span>{new Date(log.timestamp).toLocaleString('ar-EG', { numberingSystem: 'latn' })}</div>
                                                  </div>
                                                )}
@@ -4027,8 +4122,8 @@ function App() {
                   </div>
                 );
 
-                return allEvents.map((event) => (
-                  <div key={event.id} className="flex flex-col bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
+                return allEvents.map((event, idx) => (
+                  <div key={`${event.id}_${idx}`} className="flex flex-col bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
                     <div className="flex items-start justify-between w-full">
                        {/* Icon and Titles */}
                        <div className="flex items-start gap-4">
@@ -4203,6 +4298,8 @@ function App() {
           if (selectedSheepForAction && ownerId) {
             try {
               await updateDoc(doc(db, 'farms', ownerId, 'sheep', selectedSheepForAction.id), { status });
+              const statusAr = status === 'healthy' ? 'سليم' : (status === 'sick' ? 'مريض' : 'تحت العلاج');
+              logActivity('تحديث الحالة الصحية', `تم تحديث الحالة الصحية للحيوان #${selectedSheepForAction.serialNumber} إلى (${statusAr})`, selectedSheepForAction.serialNumber, selectedSheepForAction.tagColor);
             } catch (e) {
               console.error('Error updating sheep status:', e);
             }
@@ -4351,6 +4448,15 @@ function App() {
                             
                             await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), updates);
                             setViewingSheep(prev => prev ? { ...prev, ...updates } : undefined);
+                            
+                            if (nextStatus === 'pregnant') {
+                              logActivity('تأكيد حمل', `تم تسجيل حالة حمل للحيوان #${sheep.serialNumber}`, sheep.serialNumber, sheep.tagColor);
+                            } else if (nextStatus === 'mother') {
+                              logActivity('تأكيد ولادة', `تم تسجيل ولادة للحيوان #${sheep.serialNumber}`, sheep.serialNumber, sheep.tagColor);
+                            } else if (nextStatus === 'empty') {
+                              logActivity('فطام / إنهاء حضانة', `تم إنهاء حضانة ونقل الأنثى #${sheep.serialNumber} للحالة العادية`, sheep.serialNumber, sheep.tagColor);
+                            }
+
                             closeReproductionConfirmModal();
                           } catch (e) { console.error(e); }
                         }}

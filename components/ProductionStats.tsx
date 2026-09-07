@@ -615,7 +615,11 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({ isOpen, onClos
                   if (!ownerId) return;
                   try {
                     await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheepId), updates);
-                    
+                    if (onLogActivity) {
+                      const s = allSheep.find(x => x.id === sheepId);
+                      const statusAr = updates.reproductionStatus === 'pregnant' ? 'مضرع' : (updates.reproductionStatus === 'mother' ? 'أم مرضعة' : 'غير مضرع');
+                      await onLogActivity('تحديث حالة الإنجاب', `تم تغيير حالة التكاثر للحيوان #${s?.serialNumber || sheepId} إلى (${statusAr})`);
+                    }
                     // Keep localized state up to date so active tabs refresh
                     setViewingRegistryAnimal(prev => prev ? { ...prev, ...updates } : null);
                   } catch (e) {

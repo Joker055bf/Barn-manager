@@ -84,29 +84,28 @@ export const TypeAgeStatsModal: React.FC<TypeAgeStatsModalProps> = ({ isOpen, on
                                 >
                                     {/* Breed Name & Total */}
                                     <div className="flex justify-between items-center pb-2 border-b border-gray-50 dark:border-slate-700/50">
-                                        <h3 className="text-base font-black text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                                            <span className="w-2.5 h-2.5 rounded-full bg-orange-600 dark:bg-orange-500" />
+                                        <h3 className="text-sm font-black text-gray-800 dark:text-gray-100 flex items-center gap-2">
                                             {breed}
                                         </h3>
-                                        <span className="text-[11px] font-black bg-[#795548]/10 text-[#795548] px-3 py-1 rounded-full dark:bg-orange-500/10 dark:text-orange-400">
+                                        <span className="text-[10px] font-black bg-[#795548]/10 text-[#795548] px-2.5 py-0.5 rounded-full dark:bg-orange-500/10 dark:text-orange-400">
                                             العدد الإجمالي: {total} رأس
                                         </span>
                                     </div>
 
                                     {/* Age Breakdown Grid */}
-                                    <div className="grid grid-cols-3 gap-3">
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                                         {activeCategories.map((category) => (
                                             <div 
                                                 key={category} 
-                                                className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100 flex flex-col items-center justify-center text-center dark:bg-slate-900/60 dark:border-slate-700/30 transition-transform hover:scale-[1.02]"
+                                                className="bg-gray-50/70 p-2 py-1.5 rounded-xl border border-gray-100 flex flex-col items-center justify-center text-center dark:bg-slate-900/60 dark:border-slate-700/30 transition-transform hover:scale-[1.02]"
                                             >
-                                                <span className="text-[10px] font-bold text-gray-400 dark:text-slate-500 mb-1">
+                                                <span className="text-[9px] font-bold text-gray-400 dark:text-slate-500 mb-0.5">
                                                     {category}
                                                 </span>
-                                                <span className="text-xl font-black text-[#3E2723] dark:text-orange-200">
+                                                <span className="text-base font-black text-[#3E2723] dark:text-orange-200 leading-tight">
                                                     {ageCounts[category]}
                                                 </span>
-                                                <span className="text-[8px] font-black text-gray-300 dark:text-slate-600 mt-0.5">
+                                                <span className="text-[7.5px] font-bold text-gray-400 dark:text-slate-500">
                                                     رأس
                                                 </span>
                                             </div>

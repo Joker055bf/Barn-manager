@@ -39,16 +39,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const [isSavingProfile, setIsSavingProfile] = useState(false);
     const [isTestingNotifications, setIsTestingNotifications] = useState(false);
     
-    // FCM Advanced Settings States
+    // FCM & Gemini Advanced Settings States
     const [showAdvancedFcm, setShowAdvancedFcm] = useState(false);
     const [customVapidKey, setCustomVapidKey] = useState('');
     const [customApiKey, setCustomApiKey] = useState('');
+    const [customGeminiApiKey, setCustomGeminiApiKey] = useState('');
     const [isSavingFcm, setIsSavingFcm] = useState(false);
 
     useEffect(() => {
         if (isOpen && currentUser) {
             setCustomVapidKey(currentUser.vapidKey || safeStorage.getItem('rai_vapid_key') || '');
             setCustomApiKey(currentUser.firebaseApiKey || safeStorage.getItem('rai_firebase_api_key') || '');
+            setCustomGeminiApiKey(safeStorage.getItem('rai_gemini_api_key') || '');
         }
     }, [isOpen, currentUser]);
 
@@ -69,6 +71,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 safeStorage.setItem('rai_vapid_key', customVapidKey.trim());
             } else {
                 safeStorage.removeItem('rai_vapid_key');
+            }
+
+            if (customGeminiApiKey.trim()) {
+                safeStorage.setItem('rai_gemini_api_key', customGeminiApiKey.trim());
+            } else {
+                safeStorage.removeItem('rai_gemini_api_key');
             }
 
             await onUpdateProfile(currentUser.name, undefined, undefined, undefined, customVapidKey.trim() || '', newApiKey || '');
@@ -791,8 +799,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                                 />
                                                 <p className="text-[9px] text-gray-400 leading-normal text-right font-medium">
                                                     {language === 'en'
-                                                        ? 'Leave empty to use the default API key. If the default key is restricted in GCP, create a new API key in GCP Console -> APIs & Services -> Credentials -> Create API Key, and paste it here.'
-                                                        : 'اتركه فارغاً للاعتماد على المفتاح الافتراضي للمشروع. إذا كان الافتراضي مقيداً في GCP، قم بإنشاء مفتاح جديد في Google Cloud Console -> APIs & Services -> Credentials -> Create API Key، وضعه هنا.'}
+                                                        ? 'Leave empty to use the default API key. If default is restricted, enter custom key here.'
+                                                        : 'اتركه فارغاً للاعتماد على المفتاح الافتراضي للمشروع. يمكن إضافة مفتاح مخصص هنا.'}
                                                 </p>
                                                 <div className="text-[9px] font-bold text-gray-400 text-right mt-1">
                                                     {language === 'en' ? 'Currently active key: ' : 'المفتاح المفعل حالياً: '}

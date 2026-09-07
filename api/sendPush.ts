@@ -117,6 +117,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
+  if (!getApps().length) {
+    return res.status(500).json({
+      error: 'Firebase Admin SDK not initialized',
+      details: 'Missing or invalid FIREBASE_PROJECT_ID / FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY environment variables.'
+    });
+  }
+
   try {
     const message = {
       notification: {

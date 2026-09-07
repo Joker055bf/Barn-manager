@@ -569,6 +569,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                       value={type}
                       onChange={(val) => setType(val as SheepType)}
                       textSize="text-xs"
+                      variant="dropdown"
                       options={Object.values(SheepType)
                         .filter(t => {
                           const birdTypes = [SheepType.CHICKEN, SheepType.PIGEON, SheepType.DUCK, SheepType.GUINEA_FOWL, SheepType.TURKEY, SheepType.QUAIL];
@@ -589,57 +590,21 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                     />
                   </div>
 
-                  {/* Tag Color (الشارة) - col-span-2 */}
-                  <div className="col-span-2 space-y-1">
-                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-center mb-1">الشارة</label>
-                    <div className="relative w-full">
-                      <input
-                        ref={colorInputRef}
-                        type="text"
-                        required
-                        value={tagColor}
-                        onChange={() => { }}
-                        className="absolute inset-0 w-full h-full opacity-0 z-0 cursor-pointer pointer-events-none"
-                        tabIndex={-1}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowColorPicker(!showColorPicker)}
-                        className="w-full h-[36px] px-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl hover:bg-[#fcfbf4] hover:border-[#795548] dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-1 shadow-sm group cursor-pointer"
-                      >
-                        {tagColor ? (
-                          <div className="w-4 h-4 rounded-full border border-gray-200 dark:border-slate-600 shadow-sm ring-1 ring-white dark:ring-slate-900" style={{ backgroundColor: tagColor }} />
-                        ) : (
-                          <div className="w-4 h-4 rounded-full border border-gray-300 dark:border-slate-600 group-hover:border-[#795548]" />
-                        )}
-                      </button>
-
-                      {showColorPicker && (
-                        <div className="absolute right-0 top-full mt-1 z-20 bg-white dark:bg-slate-850 border border-gray-100 dark:border-slate-700 shadow-xl rounded-xl p-2 grid grid-cols-4 gap-x-1 gap-y-2 w-[168px] animate-scale-in">
-                          {Object.entries(colorNames).map(([c, name]) => (
-                            <div key={c} className="flex flex-col items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => { setTagColor(c); setColor(c); setShowColorPicker(false); }}
-                                className={`w-6 h-6 rounded-full border transition hover:scale-110 hover:shadow-md cursor-pointer ${tagColor === c ? 'ring-2 ring-offset-2 ring-[#795548]' : 'border-gray-100 dark:border-slate-750'}`}
-                                style={{ backgroundColor: c }}
-                                title={name}
-                              />
-                              <span className="text-[8px] font-bold text-gray-500 dark:text-gray-400 text-center leading-none select-none">
-                                {name}
-                              </span>
-                            </div>
-                          ))}
-                          <button
-                            type="button"
-                            onClick={() => { setTagColor(''); setColor(''); setShowColorPicker(false); }}
-                            className="w-full col-span-4 text-[10px] text-red-500 py-1 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg font-bold transition-colors cursor-pointer mt-1"
-                          >
-                            إزالة
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                  {/* Tag Color (الشارة) - col-span-3 */}
+                  <div className="col-span-3 space-y-1">
+                    <CustomSelect
+                      label="الشارة"
+                      value={tagColor}
+                      onChange={(val) => { setTagColor(val); setColor(val); }}
+                      textSize="text-xs"
+                      placeholder="الشارة"
+                      variant="dropdown"
+                      options={Object.entries(colorNames).map(([c, name]) => ({
+                        value: c,
+                        label: name,
+                        color: c
+                      }))}
+                    />
                   </div>
 
                   {/* Serial Number (الرقم) - col-span-3 */}

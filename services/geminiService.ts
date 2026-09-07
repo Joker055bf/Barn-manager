@@ -1,9 +1,21 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { safeStorage } from "../utils/storage";
 
 const getClient = () => {
-  const apiKey = process.env.API_KEY;
+  let apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey && typeof window !== 'undefined') {
+    try {
+      const savedKey = safeStorage.getItem('rai_gemini_api_key');
+      if (savedKey && savedKey.trim()) {
+        apiKey = savedKey.trim();
+      }
+    } catch (e) {
+      console.warn("Failed to retrieve custom Gemini API key from storage:", e);
+    }
+  }
+
   if (!apiKey) {
-    console.error("API Key is missing");
+    console.error("Gemini API Key is missing");
     return null;
   }
   return new GoogleGenAI({ apiKey });

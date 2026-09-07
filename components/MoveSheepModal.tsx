@@ -92,6 +92,8 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
     };
   }, [isDropdownOpen]);
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   // Reset state when modal is closed
   useEffect(() => {
     if (!isOpen) {
@@ -99,12 +101,15 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
       setExclusionType('');
       setReason('');
       setSaleAmount('');
+      setIsSubmitting(false);
     }
   }, [isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     if (targetPenId) {
+      setIsSubmitting(true);
       const isExclusion = targetPenId.includes('mortality');
       let finalReason = undefined;
       if (isExclusion) {
@@ -123,6 +128,7 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
       setExclusionType('');
       setReason('');
       setSaleAmount('');
+      setIsSubmitting(false);
     }
   };
 
