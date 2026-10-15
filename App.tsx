@@ -3741,8 +3741,8 @@ function App() {
                 ))}
               </div>
 
-              {/* Recent Worker Activities Card (Timeline Style) */}
-              <div className="bg-white border border-[#EFECE6] rounded-[2rem] p-5 shadow-sm space-y-4 dark:bg-slate-900 dark:border-slate-800">
+              {/* Recent Worker Activities Card (Timeline Style) - Only for owner */}
+              {isOwner && <div className="bg-white border border-[#EFECE6] rounded-[2rem] p-5 shadow-sm space-y-4 dark:bg-slate-900 dark:border-slate-800">
                 <div className="flex items-center justify-between">
                   <button 
                     onClick={async () => { 
@@ -3857,7 +3857,7 @@ function App() {
                     });
                   })()}
                 </div>
-              </div>
+              </div>}
 
             </div>
           </div>
