@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { User, WorkerPermissions, DEFAULT_WORKER_PERMISSIONS, Pen } from '../types';
 import {
   X, UserPlus, Trash2, Eye, EyeOff, ChevronDown, ChevronUp,
-  Dna, ShieldCheck, Wallet, Wheat, FileText, Warehouse, Skull, ArrowRightLeft, Edit3, Check, Shield, History, Activity, Lock, Camera, Users
+  Dna, ShieldCheck, Wallet, Wheat, FileText, Warehouse, Skull, ArrowRightLeft, Edit3, Check, Shield, History, Activity, Lock, Camera
 } from 'lucide-react';
 
 const isValidAvatar = (av?: string) => !!av && (av.startsWith('data:') || av.startsWith('http') || av.startsWith('/'));
@@ -11,7 +11,7 @@ interface WorkerManageModalProps {
   isOpen: boolean;
   onClose: () => void;
   users: User[];
-  onAddWorker: (username: string, password: string, name: string, permissions: WorkerPermissions, settingsPin: string, accessiblePens: string[], avatar?: string, permissionsPerBarn?: { [barnId: string]: WorkerPermissions }) => void;
+  onAddWorker: (username: string, password: string, name: string, permissions: WorkerPermissions, settingsPin: string, accessiblePens: string[], avatar?: string, permissionsPerBarn?: { [barnId: string]: WorkerPermissions }) => Promise<void>;
   onUpdateWorker: (userId: string, permissions: WorkerPermissions, accessiblePens: string[], avatar?: string, permissionsPerBarn?: { [barnId: string]: WorkerPermissions }) => void;
   onDeleteWorker: (userId: string) => void;
   pens: Pen[];
@@ -76,7 +76,6 @@ const PERMISSION_LABELS: { key: keyof WorkerPermissions; label: string; icon: an
   { key: 'canViewDeaths',    label: 'عرض المستبعدة',      icon: Skull,          color: 'text-rose-600 bg-rose-50' },
   { key: 'canAddDeath',      label: 'القيام بالاستبعاد',  icon: Skull,          color: 'text-rose-700 bg-rose-100' },
   { key: 'canViewProduction', label: 'عرض سجل الإنتاج',   icon: Activity,       color: 'text-purple-600 bg-purple-50' },
-  { key: 'canViewActivity',  label: 'عرض سجل العمال',     icon: Users,          color: 'text-blue-500 bg-blue-50' },
   { key: 'canViewEvents',    label: 'عرض سجل الأحداث',     icon: History,        color: 'text-pink-500 bg-pink-50' },
   { key: 'canReorderPens',   label: 'إعادة ترتيب الأقسام', icon: ArrowRightLeft, color: 'text-orange-600 bg-orange-50' },
   { key: 'canAddPens',       label: 'إضافة قسم',          icon: Warehouse,      color: 'text-emerald-600 bg-emerald-50' },
@@ -143,6 +142,7 @@ export const WorkerManageModal: React.FC<WorkerManageModalProps> = ({
   const [selectedConfigBarnId, setSelectedConfigBarnId] = useState<string | 'global'>('global');
 
   const [addError, setAddError] = useState('');
+  const [isAddingWorker, setIsAddingWorker] = useState(false);
   
   // Expanded & editing worker states
   const [expandedWorker, setExpandedWorker] = useState<string | null>(null);
@@ -215,7 +215,7 @@ export const WorkerManageModal: React.FC<WorkerManageModalProps> = ({
     reader.readAsDataURL(file);
   };
 
-  const handleAddWorker = (e: React.FormEvent) => {
+  const handleAddWorker = async (e: React.FormEvent) => {
     e.preventDefault();
     setAddError('');
     if (!newName.trim() || !newUsername.trim() || !newPassword || !newSettingsPin) {
@@ -231,27 +231,31 @@ export const WorkerManageModal: React.FC<WorkerManageModalProps> = ({
       return;
     }
     
-    onAddWorker(
-      newUsername.trim().toLowerCase(), 
-      newPassword, 
-      newName.trim(), 
-      { ...newPerms }, 
-      newSettingsPin, 
-      newAccessiblePens, 
-      newAvatar,
-      newPermsPerBarn
-    );
+    setIsAddingWorker(true);
+    try {
+      await onAddWorker(
+        newUsername.trim().toLowerCase(),
+        newPassword,
+        newName.trim(),
+        { ...newPerms },
+        newSettingsPin,
+        newAccessiblePens,
+        newAvatar,
+        newPermsPerBarn
+      );
 
-    if (onShowAlert) onShowAlert('success', 'تمت الإضافة', 'تمت إضافة حساب العامل بنجاح.');
-    
-    // Reset form
-    setNewName(''); setNewUsername(''); setNewPassword(''); setNewSettingsPin('');
-    setNewPerms({ ...DEFAULT_WORKER_PERMISSIONS });
-    setNewAccessiblePens([]);
-    setNewAvatar('');
-    setNewPermsPerBarn({});
-    setSelectedConfigBarnId('global');
-    setShowAddForm(false);
+      setNewName(''); setNewUsername(''); setNewPassword(''); setNewSettingsPin('');
+      setNewPerms({ ...DEFAULT_WORKER_PERMISSIONS });
+      setNewAccessiblePens([]);
+      setNewAvatar('');
+      setNewPermsPerBarn({});
+      setSelectedConfigBarnId('global');
+      setShowAddForm(false);
+    } catch (error) {
+      setAddError(error instanceof Error ? error.message : 'تعذر إضافة حساب العامل. حاول مجدداً.');
+    } finally {
+      setIsAddingWorker(false);
+    }
   };
 
   // Helpers for editing worker
@@ -545,10 +549,11 @@ export const WorkerManageModal: React.FC<WorkerManageModalProps> = ({
 
               <button
                 type="submit"
-                className="w-full bg-[#795548] hover:bg-[#5D4037] text-white py-3.5 rounded-xl font-black text-[10px] transition-all shadow-xl premium-shadow flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 uppercase tracking-widest cursor-pointer"
+                disabled={isAddingWorker}
+                className="w-full bg-[#795548] hover:bg-[#5D4037] text-white py-3.5 rounded-xl font-black text-[10px] transition-all shadow-xl premium-shadow flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 uppercase tracking-widest cursor-pointer disabled:opacity-60 disabled:cursor-wait"
               >
                 <Check size={18} />
-                تثبيت وإضافة العامل
+                {isAddingWorker ? 'جارٍ إضافة العامل...' : 'تثبيت وإضافة العامل'}
               </button>
             </form>
           )}

@@ -111,6 +111,7 @@ function App() {
   const can = (permission: keyof WorkerPermissions, specificPenId?: string | null) => {
     if (isOwner) return true;
     if (!currentUser) return false;
+    if (permission === 'canViewActivity') return false;
     let targetBarnId = specificPenId || selectedGroupId;
     if (targetBarnId && targetBarnId.startsWith('mortality:')) {
       targetBarnId = targetBarnId.replace('mortality:', '');
@@ -528,19 +529,23 @@ function App() {
     avatar?: string, 
     permissionsPerBarn?: { [barnId: string]: WorkerPermissions }
   ) => {
-    if (!ownerId) return;
+    if (!isOwner || !ownerId) {
+      throw new Error('يجب تسجيل الدخول بحساب المالك لإضافة عامل.');
+    }
     
     // Check if username already exists globally to prevent message leaks / duplicates
+    const normalizedUsername = username.trim().toLowerCase();
+    let usernameAlreadyExists: boolean;
     try {
-      const normalizedUsername = username.trim().toLowerCase();
       const q = query(collection(db, 'users'), where('username', '==', normalizedUsername));
       const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        showAlert('error', 'اسم المستخدم غير متاح', 'اسم المستخدم هذا محجوز مسبقاً! يرجى اختيار اسم آخر لتجنب تداخل الحسابات.');
-        return;
-      }
+      usernameAlreadyExists = !querySnapshot.empty;
     } catch (checkError: any) {
       console.error('Check Duplicate Username Error:', checkError);
+      throw new Error('تعذر التحقق من اسم المستخدم. تحقق من الاتصال ثم حاول مجدداً.');
+    }
+    if (usernameAlreadyExists) {
+      throw new Error('اسم المستخدم مستخدم بالفعل. اختر اسماً آخر.');
     }
 
     const workerId = generateId();
@@ -564,7 +569,7 @@ function App() {
       showAlert('success', 'تمت الإضافة', `تم تسجيل العامل ${name} بنجاح`);
     } catch (e: any) {
       console.error('Register Worker Error:', e);
-      showAlert('error', 'خطأ', 'فشل في إضافة العامل: ' + e.message);
+      throw new Error('فشل حفظ حساب العامل. تحقق من اتصال الإنترنت وصلاحيات Firebase ثم حاول مجدداً.');
     }
   };
 
@@ -1095,12 +1100,15 @@ function App() {
   }, [currentUser?.id]);
 
   useEffect(() => {
-    // If we're already logged in as a worker, we only need to sync our own owner's users
-    // But for the Login screen, we need to fetch all potentially available accounts
     let usersRef: any = collection(db, 'users');
     
-    // If logged in as owner, we only care about our own workers
-    if (currentUser && isOwner) {
+    // The login screen needs global lookup; signed-in users only need their farm's accounts.
+    if (currentUser && !ownerId) {
+      setUsers([]);
+      setIsLoadingUsers(false);
+      return;
+    }
+    if (currentUser) {
        usersRef = query(collection(db, 'users'), where('ownerId', '==', ownerId));
     }
 
@@ -3727,7 +3735,7 @@ function App() {
                   { id: 'production', label: 'سجل الإنتاج', icon: BarChart3, color: 'text-purple-600 bg-purple-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsStatsModalOpen(true); } },
                   { id: 'workers', label: 'إدارة العمال', icon: Users, color: 'text-[#795548] bg-[#795548]/10', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsWorkerManageOpen(true); } },
                   { id: 'chat', label: 'المحادثات', icon: MessageCircle, color: 'text-emerald-600 bg-emerald-50', onClick: () => { setIsDashboardOpen(false); setIsChatOpen(true); } },
-                ].map(item => (
+                ].filter(item => isOwner || item.id !== 'workers').map(item => (
                   <button 
                     key={item.id}
                     onClick={item.onClick}
@@ -4503,7 +4511,7 @@ function App() {
       />
 
       <WorkerManageModal
-        isOpen={isWorkerManageOpen}
+        isOpen={isWorkerManageOpen && isOwner}
         onClose={() => {
           setIsWorkerManageOpen(false);
           if (returnToDashboard) {
