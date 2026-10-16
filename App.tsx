@@ -580,6 +580,8 @@ function App() {
     avatar?: string, 
     permissionsPerBarn?: { [barnId: string]: WorkerPermissions }
   ) => {
+    if (!isOwner) return;
+
     try {
       await updateDoc(doc(db, 'users', userId), { 
         permissions, 
@@ -594,6 +596,8 @@ function App() {
   };
 
   const handleDeleteWorker = async (userId: string) => {
+    if (!isOwner) return;
+
     try {
       await deleteDoc(doc(db, 'users', userId));
       logActivity('إدارة العمال', `تم حذف حساب عامل`);
@@ -3733,7 +3737,7 @@ function App() {
                   { id: 'finance', label: 'المصاريف', icon: Wallet, color: 'text-green-600 bg-green-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setReportsInitialTab('financial'); setIsReportsModalOpen(true); } },
                   { id: 'excluded', label: 'المستبعدة', icon: Skull, color: 'text-red-600 bg-red-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsDeathsModalOpen(true); } },
                   { id: 'production', label: 'سجل الإنتاج', icon: BarChart3, color: 'text-purple-600 bg-purple-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsStatsModalOpen(true); } },
-                  { id: 'workers', label: 'إدارة العمال', icon: Users, color: 'text-[#795548] bg-[#795548]/10', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsWorkerManageOpen(true); } },
+                  { id: 'workers', label: 'إدارة العمال', icon: Users, color: 'text-[#795548] bg-[#795548]/10', onClick: () => { if (!isOwner) return; setIsDashboardOpen(false); setReturnToDashboard(true); setIsWorkerManageOpen(true); } },
                   { id: 'chat', label: 'المحادثات', icon: MessageCircle, color: 'text-emerald-600 bg-emerald-50', onClick: () => { setIsDashboardOpen(false); setIsChatOpen(true); } },
                 ].filter(item => isOwner || item.id !== 'workers').map(item => (
                   <button 
@@ -4510,23 +4514,25 @@ function App() {
         onTestNotifications={handleTestNotifications}
       />
 
-      <WorkerManageModal
-        isOpen={isWorkerManageOpen && isOwner}
-        onClose={() => {
-          setIsWorkerManageOpen(false);
-          if (returnToDashboard) {
-            setIsDashboardOpen(true);
-            setReturnToDashboard(false);
-          }
-        }}
-        users={users}
-        onAddWorker={handleRegisterWorker}
-        onUpdateWorker={handleUpdateWorkerPermissions}
-        onDeleteWorker={handleDeleteWorker}
-        pens={pens}
-        onShowAlert={showAlert}
-        onShowConfirm={showConfirm}
-      />
+      {isOwner && (
+        <WorkerManageModal
+          isOpen={isWorkerManageOpen}
+          onClose={() => {
+            setIsWorkerManageOpen(false);
+            if (returnToDashboard) {
+              setIsDashboardOpen(true);
+              setReturnToDashboard(false);
+            }
+          }}
+          users={users}
+          onAddWorker={handleRegisterWorker}
+          onUpdateWorker={handleUpdateWorkerPermissions}
+          onDeleteWorker={handleDeleteWorker}
+          pens={pens}
+          onShowAlert={showAlert}
+          onShowConfirm={showConfirm}
+        />
+      )}
 
       <DeathsModal
         isOpen={isDeathsModalOpen}
