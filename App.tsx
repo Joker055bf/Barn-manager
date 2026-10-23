@@ -840,6 +840,9 @@ function App() {
   const [batchAction, setBatchAction] = useState<{ type: string, action: 'move' | 'vaccinate' } | null>(null);
   // Bulk move from filter results
   const [bulkMoveFilteredIds, setBulkMoveFilteredIds] = useState<string[] | null>(null);
+  // Bulk select mode (manual selection from filter results)
+  const [isBulkSelectMode, setIsBulkSelectMode] = useState(false);
+  const [selectedBulkIds, setSelectedBulkIds] = useState<Set<string>>(new Set());
 
   // Modal for Deceased Sheep
   const [isDeathsModalOpen, setIsDeathsModalOpen] = useState(false);
@@ -2196,12 +2199,40 @@ function App() {
   const renderSheepRow = (sheep: Sheep, showPenName = true) => {
     const pen = pens.find(p => p.id === sheep.penId);
     const shouldShowPen = showPenName && !selectedPenId;
+    const isSelected = selectedBulkIds.has(sheep.id);
+    const handleCardClick = () => {
+      if (isBulkSelectMode) {
+        setSelectedBulkIds(prev => {
+          const next = new Set(prev);
+          if (next.has(sheep.id)) next.delete(sheep.id);
+          else next.add(sheep.id);
+          return next;
+        });
+      } else {
+        setViewingSheep(sheep);
+      }
+    };
     return (
       <div
         key={sheep.id}
-        onClick={() => setViewingSheep(sheep)}
-        className={`relative rounded-3xl p-4 flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group aspect-square sm:aspect-auto ${sheep.gender === 'male' ? 'bg-blue-50/30' : 'bg-pink-50/30'} border border-gray-100 hover-glow dark:border-slate-800 dark:bg-slate-900 premium-shadow`}
+        onClick={handleCardClick}
+        className={`relative rounded-3xl p-4 flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group aspect-square sm:aspect-auto border hover-glow dark:border-slate-800 premium-shadow ${
+          isBulkSelectMode
+            ? isSelected
+              ? 'bg-[#795548]/15 border-[#795548] ring-2 ring-[#795548]/40 dark:bg-orange-900/20 dark:border-orange-500'
+              : 'bg-gray-50/60 border-gray-200 opacity-70 dark:bg-slate-900'
+            : sheep.gender === 'male' ? 'bg-blue-50/30 border-gray-100 dark:bg-slate-900' : 'bg-pink-50/30 border-gray-100 dark:bg-slate-900'
+        }`}
       >
+        {/* Selection checkmark overlay */}
+        {isBulkSelectMode && (
+          <div className={`absolute top-2 left-2 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+            isSelected ? 'bg-[#795548] border-[#795548]' : 'bg-white border-gray-300 dark:bg-slate-800'
+          }`}>
+            {isSelected && <Check size={11} strokeWidth={3} className="text-white" />}
+          </div>
+        )}
+
         {shouldShowPen && pen && (
           <span className="text-[10px] font-black text-gray-500 truncate w-full text-center">
             {pen.name}
@@ -2553,6 +2584,7 @@ function App() {
       return true;
     });
   }, [displayedSheep, sheepSearchNumber, sheepSearchType, sheepSearchColor, sheepSearchAge, sheepSearchGender]);
+  const selectedFilteredSheep = filteredSheepList.filter(s => selectedBulkIds.has(s.id));
 
   // Mortality & Available Pens
   const mortalityPenId = selectedGroupId ? `mortality:${selectedGroupId} ` : '';
@@ -3304,20 +3336,6 @@ function App() {
                                 </span>
                               </div>
                               <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                                {/* زر النقل الجماعي */}
-                                {filteredSheepList.length > 0 && can('canMoveAnimals') && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setBulkMoveFilteredIds(filteredSheepList.map(s => s.id));
-                                      setIsMoveModalOpen(true);
-                                    }}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#795548]/10 hover:bg-[#795548]/20 text-[#795548] dark:text-orange-400 text-xs font-bold rounded-xl transition cursor-pointer shadow-sm border border-[#795548]/20 dark:border-orange-800/30 whitespace-nowrap active:scale-95"
-                                  >
-                                    <ArrowRightLeft size={13} />
-                                    <span>نقل جماعي</span>
-                                  </button>
-                                )}
                                 {/* زر إلغاء التصفية */}
                                 <button
                                   type="button"
@@ -3331,18 +3349,65 @@ function App() {
                                     setSheepSearchColor('all');
                                     setSheepSearchAge('all');
                                     setIsAnimalFilterOpen(false);
+                                    setIsBulkSelectMode(false);
+                                    setSelectedBulkIds(new Set());
                                   }}
                                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-xl transition dark:bg-red-950/40 dark:text-red-400 cursor-pointer shadow-sm border border-red-100 dark:border-red-900/30 whitespace-nowrap shrink-0 active:scale-95"
                                 >
                                   <X size={14} />
                                   <span>إلغاء التصفية</span>
                                 </button>
+                                {isBulkSelectMode ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setIsBulkSelectMode(false);
+                                        setSelectedBulkIds(new Set());
+                                      }}
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 dark:bg-slate-800 dark:text-gray-300 text-xs font-bold rounded-xl transition whitespace-nowrap active:scale-95"
+                                    >
+                                      <X size={14} />
+                                      <span>إلغاء التحديد</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={selectedFilteredSheep.length === 0}
+                                      onClick={() => {
+                                        setBulkMoveFilteredIds(selectedFilteredSheep.map(s => s.id));
+                                        setIsMoveModalOpen(true);
+                                      }}
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#795548]/10 hover:bg-[#795548]/20 disabled:opacity-50 disabled:cursor-not-allowed text-[#795548] dark:text-orange-400 text-xs font-bold rounded-xl transition cursor-pointer shadow-sm border border-[#795548]/20 dark:border-orange-800/30 whitespace-nowrap active:scale-95"
+                                    >
+                                      <ArrowRightLeft size={13} />
+                                      <span>نقل المحدد ({selectedFilteredSheep.length})</span>
+                                    </button>
+                                  </>
+                                ) : filteredSheepList.length > 0 && can('canMoveAnimals') && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedBulkIds(new Set());
+                                      setIsBulkSelectMode(true);
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#795548]/10 hover:bg-[#795548]/20 text-[#795548] dark:text-orange-400 text-xs font-bold rounded-xl transition cursor-pointer shadow-sm border border-[#795548]/20 dark:border-orange-800/30 whitespace-nowrap active:scale-95"
+                                  >
+                                    <ArrowRightLeft size={13} />
+                                    <span>نقل جماعي</span>
+                                  </button>
+                                )}
                               </div>
                             </div>
 
+                            {isBulkSelectMode && (
+                              <p className="mb-4 text-xs font-bold text-gray-500 dark:text-gray-400">
+                                اختر الحيوانات التي تريد نقلها، ثم اضغط «نقل المحدد».
+                              </p>
+                            )}
+
                             {filteredSheepList.length > 0 ? (
                               <div className={`grid ${ (selectedGroup?.animalType === 'chickens' || selectedGroup?.animalType === 'pigeons') ? 'grid-cols-1 md:grid-cols-2 gap-4' : 'grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3' }`}>
-                                {(selectedGroup?.animalType === 'chickens' || selectedGroup?.animalType === 'pigeons') ? (
+                                {(selectedGroup?.animalType === 'chickens' || selectedGroup?.animalType === 'pigeons') && !isBulkSelectMode ? (
                                    Object.values(filteredSheepList.reduce((acc, s) => {
                                       const key = `${s.type}-${s.tagColor || 'none'}`;
                                       if (!acc[key]) acc[key] = { type: s.type, tagColor: s.tagColor, male: 0, female: 0 };
@@ -4365,7 +4430,14 @@ function App() {
       />
       <MoveSheepModal
         isOpen={isMoveModalOpen}
-        onClose={() => setIsMoveModalOpen(false)}
+        onClose={() => {
+          setIsMoveModalOpen(false);
+          if (bulkMoveFilteredIds) {
+            setBulkMoveFilteredIds(null);
+            setIsBulkSelectMode(false);
+            setSelectedBulkIds(new Set());
+          }
+        }}
         onMove={(targetPenId, reason) => handleMoveSheep(targetPenId, undefined, undefined, reason)}
         currentPenId={selectedPenId || ''}
         availablePens={availablePensForMove}
