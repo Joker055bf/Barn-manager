@@ -838,6 +838,8 @@ function App() {
 
   // Batch Action State
   const [batchAction, setBatchAction] = useState<{ type: string, action: 'move' | 'vaccinate' } | null>(null);
+  // Bulk move from filter results
+  const [bulkMoveFilteredIds, setBulkMoveFilteredIds] = useState<string[] | null>(null);
 
   // Modal for Deceased Sheep
   const [isDeathsModalOpen, setIsDeathsModalOpen] = useState(false);
@@ -1810,7 +1812,30 @@ function App() {
     }
 
     try {
-      if (batchAction && batchAction.action === 'move') {
+      if (bulkMoveFilteredIds && bulkMoveFilteredIds.length > 0) {
+        // Bulk move from filter results
+        const toMove = allSheep.filter(s => bulkMoveFilteredIds.includes(s.id));
+        if (toMove.length === 0) { setBulkMoveFilteredIds(null); return; }
+        const sourcePen = pens.find(p => p.id === selectedPenId);
+        const sourceName = sourcePen?.name || 'قسم غير معروف';
+        const targetPenName = pens.find(p => p.id === targetPenId)?.name || (targetPenId.includes('mortality') ? 'المستبعدة' : 'قسم جديد');
+        const isTargetExclusion = targetPenId.includes('mortality');
+        const toMoveIds = toMove.map(s => s.id);
+        setRawSheep(prev => prev.map(s => {
+          if (toMoveIds.includes(s.id)) {
+            const moveEntry = { fromPenId: s.penId, toPenId: targetPenId, fromPenName: sourceName, toPenName: targetPenName, movedBy: currentUser?.name || 'غير معروف', date: new Date().toISOString().split('T')[0] };
+            return { ...s, penId: targetPenId, notes: finalReason && isTargetExclusion ? finalReason : s.notes, exclusionDate: isTargetExclusion ? new Date().toISOString() : (s.exclusionDate || null), movementHistory: [...(s.movementHistory || []), moveEntry] };
+          }
+          return s;
+        }));
+        for (const s of toMove) {
+          const moveEntry = { fromPenId: s.penId, toPenId: targetPenId, fromPenName: sourceName, toPenName: targetPenName, movedBy: currentUser?.name || 'غير معروف', date: new Date().toISOString().split('T')[0] };
+          await updateDoc(doc(db, 'farms', ownerId, 'sheep', s.id), { penId: targetPenId, notes: finalReason && isTargetExclusion ? finalReason : s.notes, exclusionDate: isTargetExclusion ? new Date().toISOString() : (s.exclusionDate || null), movementHistory: [...(s.movementHistory || []), moveEntry] });
+        }
+        logActivity(isTargetExclusion ? 'استبعاد حيوان' : 'نقل جماعي', `تم نقل ${toMove.length} رأس من [${sourceName}] إلى [${targetPenName}]${finalReason ? `. السبب: ${finalReason}` : ''}`);
+        showAlert('success', 'تم النقل', `تم نقل ${toMove.length} رأس بنجاح إلى ${targetPenName}`);
+        setBulkMoveFilteredIds(null);
+      } else if (batchAction && batchAction.action === 'move') {
         const typeToMove = batchAction.type;
         const candidates = allSheep.filter(s =>
           s.penId === selectedPenId &&
@@ -3278,24 +3303,41 @@ function App() {
                                   {filteredSheepList.length} رأس
                                 </span>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setTempSearchNumber('');
-                                  setTempSearchType('all');
-                                  setTempSearchColor('all');
-                                  setTempSearchAge('all');
-                                  setSheepSearchNumber('');
-                                  setSheepSearchType('all');
-                                  setSheepSearchColor('all');
-                                  setSheepSearchAge('all');
-                                  setIsAnimalFilterOpen(false);
-                                }}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-xl transition dark:bg-red-950/40 dark:text-red-400 cursor-pointer shadow-sm border border-red-100 dark:border-red-900/30 whitespace-nowrap shrink-0 active:scale-95"
-                              >
-                                <X size={14} />
-                                <span>إلغاء التصفية</span>
-                              </button>
+                              <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                                {/* زر النقل الجماعي */}
+                                {filteredSheepList.length > 0 && can('canMoveAnimals') && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setBulkMoveFilteredIds(filteredSheepList.map(s => s.id));
+                                      setIsMoveModalOpen(true);
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#795548]/10 hover:bg-[#795548]/20 text-[#795548] dark:text-orange-400 text-xs font-bold rounded-xl transition cursor-pointer shadow-sm border border-[#795548]/20 dark:border-orange-800/30 whitespace-nowrap active:scale-95"
+                                  >
+                                    <ArrowRightLeft size={13} />
+                                    <span>نقل جماعي</span>
+                                  </button>
+                                )}
+                                {/* زر إلغاء التصفية */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setTempSearchNumber('');
+                                    setTempSearchType('all');
+                                    setTempSearchColor('all');
+                                    setTempSearchAge('all');
+                                    setSheepSearchNumber('');
+                                    setSheepSearchType('all');
+                                    setSheepSearchColor('all');
+                                    setSheepSearchAge('all');
+                                    setIsAnimalFilterOpen(false);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-xl transition dark:bg-red-950/40 dark:text-red-400 cursor-pointer shadow-sm border border-red-100 dark:border-red-900/30 whitespace-nowrap shrink-0 active:scale-95"
+                                >
+                                  <X size={14} />
+                                  <span>إلغاء التصفية</span>
+                                </button>
+                              </div>
                             </div>
 
                             {filteredSheepList.length > 0 ? (
