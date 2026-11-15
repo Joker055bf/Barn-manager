@@ -14,40 +14,40 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
+// Resolved against this worker's scope so it works at a domain root and under a GitHub Pages subpath.
+const APP_URL = self.registration.scope;
+const ICON_URL = new URL('assets/logo.jpg', APP_URL).href;
+
 messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
-  
-  // Set App Badge if supported
   if ('setAppBadge' in navigator) {
-    navigator.setAppBadge(1).catch(console.error);
+    navigator.setAppBadge(1).catch(() => {});
   }
 
-  const notificationTitle = payload.notification?.title || 'رسالة جديدة';
-  const notificationOptions = {
-    body: payload.notification?.body || 'لديك رسالة جديدة في مدير الحظائر',
-    icon: '/vite.svg',
-    badge: '/vite.svg',
+  // Messages with a `notification` block are already displayed by the FCM SDK;
+  // showing them again here produced every notification twice.
+  if (payload.notification) return;
+
+  const data = payload.data || {};
+  self.registration.showNotification(data.title || 'رسالة جديدة', {
+    body: data.body || 'لديك رسالة جديدة في مدير الحظائر',
+    icon: ICON_URL,
+    badge: ICON_URL,
     dir: 'rtl',
     vibrate: [200, 100, 200]
-  };
-
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  });
 });
 
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
   event.waitUntil(
-    clients.matchAll({ type: 'window' }).then(windowClients => {
-      // Check if there is already a window/tab open with the target URL
-      for (var i = 0; i < windowClients.length; i++) {
-        var client = windowClients[i];
-        if (client.url.indexOf('/') !== -1 && 'focus' in client) {
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+      for (const client of windowClients) {
+        if (client.url.startsWith(APP_URL) && 'focus' in client) {
           return client.focus();
         }
       }
-      // If not, then open the target URL in a new window/tab.
       if (clients.openWindow) {
-        return clients.openWindow('/');
+        return clients.openWindow(APP_URL);
       }
     })
   );
