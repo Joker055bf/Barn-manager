@@ -4,7 +4,14 @@
 
 body {
   font-family: 'Tajawal', sans-serif;
-  background-color: #fcfbf4;
+}
+
+html {
+  background-color: #FCFBF4;
+}
+
+html.dark {
+  background-color: #020617;
 }
 
 /* Custom Scrollbar */

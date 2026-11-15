@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { DollarSign, Save, Calendar, Tag, Trash2, PlusCircle, Wallet, Share2, ChevronDown, ChevronUp, X, FileText } from 'lucide-react';
 import { Expense, Sheep } from '../types';
 
+import { tr } from '../constants/i18n';
+
 interface ExpensesManagerProps {
     penId: string;
     expenses: Expense[];
@@ -93,18 +95,18 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ penId, expense
     };
 
     const handleDelete = (id: string) => {
-        if (confirm('هل أنت متأكد من حذف هذا السجل؟')) {
+        if (confirm(tr("هل أنت متأكد من حذف هذا السجل؟"))) {
             onUpdate(expenses.filter(e => e.id !== id));
         }
     };
 
     const categoryLabels = {
-        feed: { label: 'مصروف', color: 'bg-red-100 text-red-700' },
-        medical: { label: 'مصروف', color: 'bg-red-100 text-red-700' },
-        maintenance: { label: 'مصروف', color: 'bg-red-100 text-red-700' },
-        labor: { label: 'مصروف', color: 'bg-red-100 text-red-700' },
-        other: { label: 'مصروف', color: 'bg-red-100 text-red-700' },
-        sales: { label: 'مبيعات', color: 'bg-green-100 text-green-700 border border-green-200' }
+        feed: { label: tr("مصروف"), color: 'bg-red-100 text-red-700' },
+        medical: { label: tr("مصروف"), color: 'bg-red-100 text-red-700' },
+        maintenance: { label: tr("مصروف"), color: 'bg-red-100 text-red-700' },
+        labor: { label: tr("مصروف"), color: 'bg-red-100 text-red-700' },
+        other: { label: tr("مصروف"), color: 'bg-red-100 text-red-700' },
+        sales: { label: tr("مبيعات"), color: 'bg-green-100 text-green-700 border border-green-200' }
     };
 
     return (
@@ -117,28 +119,28 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ penId, expense
                         <Wallet className="text-emerald-600 w-8 h-8" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold text-gray-800">السجل المالي</h2>
-                        <p className="text-gray-500 text-sm">تتبع المصاريف والمبيعات</p>
+                        <h2 className="text-xl font-bold text-gray-800">{tr("السجل المالي")}</h2>
+                        <p className="text-gray-500 text-sm">{tr("تتبع المصاريف والمبيعات")}</p>
                     </div>
                 </div>
 
                 <div className="flex gap-6 text-center">
                     <div>
-                        <p className="text-xs text-gray-500 mb-1">إجمالي المصاريف</p>
+                        <p className="text-xs text-gray-500 mb-1">{tr("إجمالي المصاريف")}</p>
                         <p className="text-lg font-bold text-red-600" dir="ltr">
                             {totalExpenses.toLocaleString()} <span className="text-xs text-gray-400">SAR</span>
                         </p>
                     </div>
                     <div className="w-px bg-gray-200"></div>
                     <div>
-                        <p className="text-xs text-gray-500 mb-1">إجمالي المبيعات</p>
+                        <p className="text-xs text-gray-500 mb-1">{tr("إجمالي المبيعات")}</p>
                         <p className="text-lg font-bold text-green-600" dir="ltr">
                             {totalSales.toLocaleString()} <span className="text-xs text-gray-400">SAR</span>
                         </p>
                     </div>
                     <div className="w-px bg-gray-200"></div>
                     <div>
-                        <p className="text-xs text-gray-500 mb-1">الصافي</p>
+                        <p className="text-xs text-gray-500 mb-1">{tr("الصافي")}</p>
                         <p className={`text-xl font-black ${netResult >= 0 ? 'text-green-700' : 'text-red-700'}`} dir="ltr">
                             {netResult.toLocaleString()} <span className="text-xs text-gray-400">SAR</span>
                         </p>
@@ -156,34 +158,34 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ penId, expense
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="flex gap-3 items-start">
                                 <div className="w-1/3">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">نوع العملية</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">{tr("نوع العملية")}</label>
                                     <div className="flex bg-gray-100 p-1 rounded-xl">
                                         <button
                                             type="button"
                                             onClick={() => setTransactionType('expense')}
                                             className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${transactionType === 'expense' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}
                                         >
-                                            شراء
+                                            {tr("شراء")}
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setTransactionType('sale')}
                                             className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${transactionType === 'sale' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}
                                         >
-                                            بيع
+                                            {tr("بيع")}
                                         </button>
                                     </div>
                                 </div>
                                 <div className="flex-1">
                                     {transactionType === 'expense' ? (
                                         <>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">عنوان المصروف</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">{tr("عنوان المصروف")}</label>
                                             <input
                                                 type="text"
                                                 required
                                                 value={title}
                                                 onChange={e => setTitle(e.target.value)}
-                                                placeholder="مثال: شراء شعير، إصلاح سياج..."
+                                                placeholder={tr("مثال: شراء شعير، إصلاح سياج...")}
                                                 className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
                                             />
                                         </>
@@ -193,7 +195,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ penId, expense
                                             {!(animalType === 'chickens' || animalType === 'pigeons') ? (
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                        رقم الحيوان <span className="text-red-500">*</span>
+                                                        {tr("رقم الحيوان")} <span className="text-red-500">*</span>
                                                     </label>
                                                     <select
                                                         required
@@ -201,15 +203,15 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ penId, expense
                                                         onChange={e => setRelatedAnimalId(e.target.value)}
                                                         className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm bg-white"
                                                     >
-                                                        <option value="">اختر رقم الحيوان...</option>
+                                                        <option value="">{tr("اختر رقم الحيوان...")}</option>
                                                         {animals.length > 0 ? (
                                                             animals.map(animal => (
                                                                 <option key={animal.id} value={animal.serialNumber}>
-                                                                    #{animal.serialNumber} - {animal.type}
+                                                                    #{animal.serialNumber} - {tr(animal.type)}
                                                                 </option>
                                                             ))
                                                         ) : (
-                                                            <option value="" disabled>لا توجد حيوانات</option>
+                                                            <option value="" disabled>{tr("لا توجد حيوانات")}</option>
                                                         )}
                                                     </select>
                                                 </div>
@@ -217,14 +219,14 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ penId, expense
                                                 // For Poultry Sales: Show Count, Type, Gender in Header
                                                 <div className="flex gap-2">
                                                     <div className="flex-1">
-                                                        <label className="block text-sm font-medium text-gray-700 mb-1">النوع</label>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-1">{tr("النوع")}</label>
                                                         <select
                                                             required
                                                             value={relatedAnimalId}
                                                             onChange={e => setRelatedAnimalId(e.target.value)}
                                                             className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm bg-white"
                                                         >
-                                                            <option value="">نوع...</option>
+                                                            <option value="">{tr("نوع...")}</option>
                                                             {uniqueTypes.map(type => (
                                                                 <option key={type} value={type}>{type}</option>
                                                             ))}
@@ -233,27 +235,27 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ penId, expense
                                                     {relatedAnimalId && (
                                                         <>
                                                             <div className="flex-1">
-                                                                <label className="block text-sm font-medium text-gray-700 mb-1">الجنس</label>
+                                                                <label className="block text-sm font-medium text-gray-700 mb-1">{tr("الجنس")}</label>
                                                                 <div className="flex bg-gray-100 p-1 rounded-xl">
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => setGender('male')}
                                                                         className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${gender === 'male' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}
                                                                     >
-                                                                        ذ
+                                                                        {tr("ذ")}
                                                                     </button>
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => setGender('female')}
                                                                         className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${gender === 'female' ? 'bg-white text-pink-600 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}
                                                                     >
-                                                                        أ
+                                                                        {tr("أ")}
                                                                     </button>
                                                                 </div>
                                                             </div>
                                                             <div className="flex-1">
                                                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                                    العدد
+                                                                    {tr("العدد")}
                                                                 </label>
                                                                 <input
                                                                     type="number"
@@ -280,7 +282,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ penId, expense
 
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">المبلغ (ريال)</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">{tr("المبلغ (ريال)")}</label>
                                     <input
                                         type="number"
                                         required
@@ -293,7 +295,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ penId, expense
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">التاريخ</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">{tr("التاريخ")}</label>
                                     <input
                                         type="date"
                                         required
@@ -320,7 +322,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ penId, expense
                             )}
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">ملاحظات (اختياري)</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{tr("ملاحظات (اختياري)")}</label>
                                 <textarea
                                     value={notes}
                                     onChange={e => setNotes(e.target.value)}
@@ -330,7 +332,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ penId, expense
                             </div>
 
                             <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl transition shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
-                                <Save size={18} /> حفظ
+                                <Save size={18} /> {tr("حفظ")}
                             </button>
                         </form>
                     </div>
@@ -346,8 +348,8 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ penId, expense
                             <div className="bg-red-100 p-4 rounded-full text-red-600 group-hover:scale-110 transition-transform">
                                 <FileText size={32} />
                             </div>
-                            <h3 className="font-bold text-gray-800 text-lg">سجل المصاريف</h3>
-                            <p className="text-sm text-gray-400">{penRecords.filter(e => e.category !== 'sales').length} عملية مسجلة</p>
+                            <h3 className="font-bold text-gray-800 text-lg">{tr("سجل المصاريف")}</h3>
+                            <p className="text-sm text-gray-400">{penRecords.filter(e => e.category !== 'sales').length} {tr("عملية مسجلة")}</p>
                         </button>
 
                         <button
@@ -357,8 +359,8 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ penId, expense
                             <div className="bg-green-100 p-4 rounded-full text-green-600 group-hover:scale-110 transition-transform">
                                 <Wallet size={32} />
                             </div>
-                            <h3 className="font-bold text-gray-800 text-lg">سجل المبيعات</h3>
-                            <p className="text-sm text-gray-400">{penRecords.filter(e => e.category === 'sales').length} عملية مسجلة</p>
+                            <h3 className="font-bold text-gray-800 text-lg">{tr("سجل المبيعات")}</h3>
+                            <p className="text-sm text-gray-400">{penRecords.filter(e => e.category === 'sales').length} {tr("عملية مسجلة")}</p>
                         </button>
                     </div>
                 </div>
@@ -369,7 +371,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ penId, expense
                         <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
                             <div className="p-6 border-b border-gray-100 flex items-center justify-between">
                                 <h3 className="text-xl font-bold text-gray-800">
-                                    {viewLog === 'expenses' ? 'سجل المصاريف' : 'سجل المبيعات'}
+                                    {viewLog === 'expenses' ? tr("سجل المصاريف") : tr("سجل المبيعات")}
                                 </h3>
                                 <button
                                     onClick={() => setViewLog(null)}
@@ -400,7 +402,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ penId, expense
                                         <div className="bg-gray-50 p-6 rounded-full mb-4">
                                             {viewLog === 'expenses' ? <FileText size={40} /> : <Wallet size={40} />}
                                         </div>
-                                        <p>لا توجد سجلات {viewLog === 'expenses' ? 'مصاريف' : 'مبيعات'}</p>
+                                        <p>{tr("لا توجد سجلات")} {viewLog === 'expenses' ? tr("مصاريف") : tr("مبيعات")}</p>
                                     </div>
                                 )}
                             </div>
@@ -440,7 +442,7 @@ ${expense.notes ? `ملاحظات: ${expense.notes}` : ''}
         if (navigator.share) {
             try {
                 await navigator.share({
-                    title: 'سجل مالي',
+                    title: tr("سجل مالي"),
                     text: text,
                 });
             } catch (err) {
@@ -448,7 +450,7 @@ ${expense.notes ? `ملاحظات: ${expense.notes}` : ''}
             }
         } else {
             // Fallback
-            alert('تم نسخ النص:\n' + text);
+            alert(tr("تم نسخ النص:\n") + text);
             navigator.clipboard.writeText(text);
         }
     };
@@ -499,7 +501,7 @@ ${expense.notes ? `ملاحظات: ${expense.notes}` : ''}
                         {/* Info Block */}
                         <div className="space-y-2 text-sm text-gray-600">
                             <div className="flex items-center gap-2">
-                                <span className="text-gray-400 w-16 text-xs">التاريخ:</span>
+                                <span className="text-gray-400 w-16 text-xs">{tr("التاريخ:")}</span>
                                 <span className="font-medium">
                                     {expense.date ? (expense.date.includes('T') ? expense.date.split('T')[0] : expense.date) : ''}
                                 </span>
@@ -510,21 +512,21 @@ ${expense.notes ? `ملاحظات: ${expense.notes}` : ''}
                                     {(animalType === 'chickens' || animalType === 'pigeons') ? (
                                         <>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-gray-400 w-16 text-xs">النوع:</span>
+                                                <span className="text-gray-400 w-16 text-xs">{tr("النوع:")}</span>
                                                 <span className="font-medium">{expense.relatedAnimalId || '-'}</span>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-gray-400 w-16 text-xs">الجنس:</span>
-                                                <span className="font-medium">{expense.gender === 'male' ? 'ذكر' : expense.gender === 'female' ? 'أنثى' : '-'}</span>
+                                                <span className="text-gray-400 w-16 text-xs">{tr("الجنس:")}</span>
+                                                <span className="font-medium">{expense.gender === 'male' ? tr("ذكر") : expense.gender === 'female' ? tr("أنثى") : '-'}</span>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-gray-400 w-16 text-xs">العدد:</span>
+                                                <span className="text-gray-400 w-16 text-xs">{tr("العدد:")}</span>
                                                 <span className="font-medium">{expense.quantity || '-'}</span>
                                             </div>
                                         </>
                                     ) : (
                                         <div className="flex items-center gap-2">
-                                            <span className="text-gray-400 w-16 text-xs">رقم الحيوان:</span>
+                                            <span className="text-gray-400 w-16 text-xs">{tr("رقم الحيوان:")}</span>
                                             <span className="font-bold text-emerald-700 bg-emerald-50 px-2 rounded">#{expense.relatedAnimalId}</span>
                                         </div>
                                     )}
@@ -533,7 +535,7 @@ ${expense.notes ? `ملاحظات: ${expense.notes}` : ''}
 
                             {expense.notes && (
                                 <div className="flex items-start gap-2">
-                                    <span className="text-gray-400 w-16 text-xs mt-1">ملاحظات:</span>
+                                    <span className="text-gray-400 w-16 text-xs mt-1">{tr("ملاحظات:")}</span>
                                     <p className="flex-1 bg-white p-2 rounded border border-gray-100 text-xs leading-relaxed">{expense.notes}</p>
                                 </div>
                             )}
@@ -545,13 +547,13 @@ ${expense.notes ? `ملاحظات: ${expense.notes}` : ''}
                                 onClick={handleShare}
                                 className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition text-sm font-bold"
                             >
-                                <Share2 size={16} /> مشاركة السجل
+                                <Share2 size={16} /> {tr("مشاركة السجل")}
                             </button>
                             <button
                                 onClick={(e) => { e.stopPropagation(); onDelete(expense.id); }}
                                 className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition text-sm font-bold"
                             >
-                                <Trash2 size={16} /> حذف
+                                <Trash2 size={16} /> {tr("حذف")}
                             </button>
                         </div>
                     </div>

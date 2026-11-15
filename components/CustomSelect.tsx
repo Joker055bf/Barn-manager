@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, X, Check } from 'lucide-react';
 
+import { tr } from '../constants/i18n';
+
 export interface Option {
     value: string;
     label: string;
@@ -29,7 +31,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
     value,
     onChange,
     options,
-    placeholder = 'اختر',
+    placeholder = tr('اختر'),
     className = '',
     dir = 'rtl',
     required = false,
@@ -90,7 +92,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
             >
                 {/* Modal Header */}
                 <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between">
-                    <h3 className="text-xl font-black text-white text-right tracking-tight">
+                    <h3 className="text-xl font-black text-white text-start tracking-tight">
                         {titleText}
                     </h3>
                     <button
@@ -134,7 +136,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                                         />
                                     )}
                                     <span className="text-base font-bold tracking-wide">
-                                        {option.label}
+                                        {tr(option.label)}
                                     </span>
                                 </div>
 
@@ -156,7 +158,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
 
                     {options.length === 0 && (
                         <div className="p-6 text-center text-sm font-bold text-gray-400">
-                            لا توجد خيارات متاحة
+                            {tr("لا توجد خيارات متاحة")}
                         </div>
                     )}
                 </div>
@@ -177,7 +179,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                     right: `${dropdownPos.right}px`,
                     minWidth: `${dropdownPos.width}px`
                 }}
-                className="bg-white dark:bg-slate-800 border border-gray-150 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden py-1.5 z-[99999] max-h-60 overflow-y-auto custom-scrollbar animate-scale-in"
+                className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden py-1.5 z-[99999] max-h-60 overflow-y-auto custom-scrollbar animate-scale-in"
                 onClick={(e) => e.stopPropagation()}
             >
                 {options.map((option) => {
@@ -195,7 +197,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                             }}
                             className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs font-bold transition-all cursor-pointer ${
                                 isSelected
-                                    ? 'bg-[#795548] text-white'
+                                    ? 'bg-brand-500 text-white'
                                     : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-700'
                             }`}
                         >
@@ -206,7 +208,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                                         style={{ backgroundColor: option.color === 'none' ? '#6B7280' : option.color }}
                                     />
                                 )}
-                                <span className="truncate">{option.label}</span>
+                                <span className="truncate">{tr(option.label)}</span>
                             </div>
                             {isSelected && <Check size={14} className="shrink-0 text-white" />}
                         </button>
@@ -220,7 +222,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         <div className={`space-y-1 ${className}`} dir={dir}>
             {label && (
                 <label className={`font-bold text-gray-700 dark:text-gray-300 block mb-1 ${
-                    textSize === 'text-xs' ? 'text-[10px] text-center' : 'text-xs text-right'
+                    textSize === 'text-xs' ? 'text-[10px] text-center' : 'text-xs text-start'
                 }`}>
                     {label} {required && <span className="text-red-500">*</span>}
                 </label>
@@ -231,7 +233,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                 ref={buttonRef}
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className={`w-full bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 focus:ring-2 focus:ring-[#795548] focus:border-[#795548] outline-none transition-all font-bold flex items-center justify-between shadow-sm cursor-pointer ${
+                className={`w-full bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all font-bold flex items-center justify-between shadow-sm cursor-pointer ${
                     textSize === 'text-xs' 
                         ? 'px-2.5 h-[36px] rounded-xl text-xs' 
                         : 'px-4 py-3.5 rounded-2xl text-sm'
@@ -248,7 +250,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                         {selectedOption ? selectedOption.label : placeholder}
                     </span>
                 </div>
-                <ChevronDown size={textSize === 'text-xs' ? 14 : 18} className="text-gray-400 shrink-0 ml-1" />
+                <ChevronDown size={textSize === 'text-xs' ? 14 : 18} className="text-gray-400 shrink-0 me-1" />
             </button>
 
             {/* Render Popup via React Portal directly onto document.body */}

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { X, ArrowRightLeft, ChevronDown } from 'lucide-react';
 import { Pen } from '../types';
 
+import { tr } from '../constants/i18n';
+
 interface MovePenModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -20,9 +22,9 @@ export const MovePenModal: React.FC<MovePenModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full shadow-2xl">
-        <h2 className="text-xl font-bold mb-4">نقل القسم</h2>
-        <p className="text-gray-500 mb-6">هذا المكون غير مستخدم حالياً.</p>
-        <button onClick={onClose} className="w-full bg-purple-600 text-white py-3 rounded-2xl">إغلاق</button>
+        <h2 className="text-xl font-bold mb-4">{tr("نقل القسم")}</h2>
+        <p className="text-gray-500 mb-6">{tr("هذا المكون غير مستخدم حالياً.")}</p>
+        <button onClick={onClose} className="w-full bg-purple-600 text-white py-3 rounded-2xl">{tr("إغلاق")}</button>
       </div>
     </div>
   );
@@ -148,13 +150,13 @@ export const MovePenModal: React.FC<MovePenModalProps> = ({
 
 
 
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-700 rounded-2xl shadow-xl z-50 max-h-40 overflow-y-auto custom-scrollbar overflow-hidden">
+                    <div className="absolute top-full end-0 start-0 mt-2 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-700 rounded-2xl shadow-xl z-50 max-h-40 overflow-y-auto custom-scrollbar overflow-hidden">
                       {validTargets.map(g => (
                         <button
                           key={g.id}
                           type="button"
                           onClick={() => { setSelectedTargetGroupId(g.id); setIsTargetGroupSelectOpen(false); }}
-                          className={`w-full text-right px-4 py-3 text-sm hover:bg-gray-50 dark:hover:bg-slate-800 border-b border-gray-50 dark:border-slate-800 transition ${selectedTargetGroupId === g.id ? 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 font-bold' : 'text-gray-700 dark:text-gray-300'}`}
+                          className={`w-full text-start px-4 py-3 text-sm hover:bg-gray-50 dark:hover:bg-slate-800 border-b border-gray-50 dark:border-slate-800 transition ${selectedTargetGroupId === g.id ? 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 font-bold' : 'text-gray-700 dark:text-gray-300'}`}
                         >
                           <span className="font-bold">{g.name}</span>
                         </button>

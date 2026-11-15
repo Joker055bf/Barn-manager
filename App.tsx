@@ -1,30 +1,30 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import {
   Plus, Search, MoreVertical, LayoutGrid, Calendar, ChevronLeft, ArrowRight, Star, Dna, Settings, Check, X, Filter, Target,
   Warehouse, Wheat, ShieldCheck, Activity, Wallet, Eye, Edit, Trash2, Syringe, ArrowRightLeft, Skull, FileText, LayoutDashboard, MoreHorizontal, LogOut, Users, Shield, History, Share2, Banknote, BarChart3, Baby, HeartPulse, MessageCircle, ArrowUp, ArrowDown, RefreshCw
 } from 'lucide-react';
-import { ChatModal } from './components/ChatModal';
+
 import { PenModal } from './components/PenModal';
 import { SheepModal } from './components/SheepModal';
 import { MoveSheepModal } from './components/MoveSheepModal';
 import { MedicalModal } from './components/MedicalModal';
 import { VaccinationGuide } from './components/VaccinationGuide';
-import { ProductionStats } from './components/ProductionStats';
+
 import { ReorderPensModal } from './components/ReorderPensModal';
 import { FeedManager } from './components/FeedManager';
 import { FinanceManager } from './components/FinanceManager';
 import { SheepStatsModal } from './components/SheepStatsModal';
-import { ReportsModal } from './components/ReportsModal';
-import { SettingsModal } from './components/SettingsModal';
+
+
 import { AuthScreen } from './components/AuthScreen';
-import { WorkerManageModal } from './components/WorkerManageModal';
+
 import { SwipeableBarnCard } from './components/SwipeableBarnCard';
 import { DeathsModal } from './components/DeathsModal';
 import { TypeAgeStatsModal } from './components/TypeAgeStatsModal';
 import { Pen, MedicalRecord, FeedItem, FeedLogEntry, Sheep, SheepType, ChatMessage, Expense, Sale, Death, User, WorkerPermissions, ActivityEntry, DEFAULT_WORKER_PERMISSIONS } from './types';
 import CustomAlert, { AlertType } from './components/CustomAlert';
 import { CustomSelect, Option } from './components/CustomSelect';
-import { ReportType } from './components/ReportsModal';
+import type { ReportType } from './components/ReportsModal';
 import { getAnimalMetadata, calculateVaccineDueDate, getAnimalAgeLabel, generateId } from './utils/animalHelpers';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
@@ -41,27 +41,39 @@ const colorNames: { [key: string]: string } = {
 };
 import { translations } from './constants/translations';
 import { shareFile } from './utils/shareUtils';
-import { db, getFirebaseMessaging } from './firebase';
-import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, query, where, getDocs, addDoc, orderBy, limit } from 'firebase/firestore';
+import { db, auth, getFirebaseMessaging } from './firebase';
+import { collection, doc, getDoc, onSnapshot, setDoc, updateDoc, deleteDoc, query, where, getDocs, addDoc, orderBy, limit } from 'firebase/firestore';
+import {
+  loginWithCredentials, registerOwner, resolveSessionUser, createWorkerAccount, deleteWorkerAccount,
+  resetWorkerPassword, changeOwnPassword, changeUsername, changeOwnerEmail, verifyCurrentPassword,
+  sendOwnerPasswordReset, logout as authLogout, authErrorMessage,
+} from './services/authService';
+import { sendPush } from './services/pushService';
+import { useAuthSession } from './hooks/useAuthSession';
+import { useFarmData } from './hooks/useFarmData';
+
+// Heavy screens load on first open (ReportsModal pulls in jsPDF + html2canvas).
+const ReportsModal = lazy(() => import('./components/ReportsModal').then(m => ({ default: m.ReportsModal })));
+const ProductionStats = lazy(() => import('./components/ProductionStats').then(m => ({ default: m.ProductionStats })));
+const ChatModal = lazy(() => import('./components/ChatModal').then(m => ({ default: m.ChatModal })));
+const SettingsModal = lazy(() => import('./components/SettingsModal').then(m => ({ default: m.SettingsModal })));
+const WorkerManageModal = lazy(() => import('./components/WorkerManageModal').then(m => ({ default: m.WorkerManageModal })));
+
 import { safeStorage } from './utils/storage';
 
+import { tr, isEnglish, appLocale, switchLanguage } from './constants/i18n';
+
 // ────────────────────────
+
+// Worker actions that also send a push notification to the owner's phone.
+const OWNER_PUSH_ACTIONS = new Set(['استبعاد حيوان', 'تسجيل وفاة', 'حذف حيوان', 'حذف حظيرة', 'حذف قسم', 'نقل جماعي', 'حذف صنف']);
 
 function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'pens' | 'sheepList' | 'vaccines' | 'feed' | 'expenses'>('pens');
 
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    try {
-      const saved = safeStorage.getItem('rai_session');
-      return saved ? JSON.parse(saved) : null;
-    } catch (e) {
-      console.error("Failed to parse rai_session from safeStorage:", e);
-      return null;
-    }
-  });
+  const { currentUser, setCurrentUser, authReady } = useAuthSession();
 
   const [users, setUsers] = useState<User[]>([]);
-  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
 
   // Sync custom Firebase API Key & VAPID Key between database and local browser storage (for owner and workers)
   useEffect(() => {
@@ -107,11 +119,11 @@ function App() {
 
   const isOwner = currentUser?.role === 'owner';
   const ownerId = isOwner ? currentUser?.id : currentUser?.ownerId;
+  const { pens, setPens, rawSheep, setRawSheep, feedItems, expenses, sales, deaths, activityLog } = useFarmData(ownerId);
   
   const can = (permission: keyof WorkerPermissions, specificPenId?: string | null) => {
     if (isOwner) return true;
     if (!currentUser) return false;
-    if (permission === 'canViewActivity') return false;
     let targetBarnId = specificPenId || selectedGroupId;
     if (targetBarnId && targetBarnId.startsWith('mortality:')) {
       targetBarnId = targetBarnId.replace('mortality:', '');
@@ -120,13 +132,11 @@ function App() {
       const p = pens.find(x => x.id === targetBarnId);
       if (p && p.parentId) targetBarnId = p.parentId;
     }
-    if (targetBarnId && currentUser.permissionsPerBarn?.[targetBarnId]) {
-      return currentUser.permissionsPerBarn[targetBarnId][permission];
-    }
-    return currentUser.permissions?.[permission] ?? DEFAULT_WORKER_PERMISSIONS[permission];
+    // A per-barn config saved before a permission key existed must not silently deny it.
+    const perBarn = targetBarnId ? currentUser.permissionsPerBarn?.[targetBarnId] : undefined;
+    return perBarn?.[permission] ?? currentUser.permissions?.[permission] ?? DEFAULT_WORKER_PERMISSIONS[permission];
   };
 
-  const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
   const lastLogTimestampMsRef = useRef<number>(0);
   const timestampSubSeqRef = useRef<number>(0);
 
@@ -163,9 +173,14 @@ function App() {
     } catch (e) {
       console.error("Error logging activity: ", e);
     }
+
+    // Tell the owner's phone when a worker does something they would want to know about right away.
+    if (currentUser.role === 'worker' && OWNER_PUSH_ACTIONS.has(action)) {
+      sendPush(ownerId, `${currentUser.name}: ${action}`, detail).catch(err => console.warn('Owner push failed:', err));
+    }
   };
 
-  
+
   // Custom Alert State
   const [alertConfig, setAlertConfig] = useState<{
     isOpen: boolean;
@@ -203,8 +218,8 @@ function App() {
       type: 'confirm',
       title,
       message,
-      confirmLabel: 'نعم، متأكد',
-      cancelLabel: 'تراجع',
+      confirmLabel: tr("نعم، متأكد"),
+      cancelLabel: tr("تراجع"),
       onConfirm: () => {
         onConfirm();
         setAlertConfig(prev => ({ ...prev, isOpen: false }));
@@ -245,15 +260,9 @@ function App() {
 
           // Trigger a test push notification
           try {
-            await fetch('/api/sendPush', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                token: token.value,
-                title: 'تطبيق راعي 🐑',
-                body: 'رائع جداً! تم تنشيط واختبار نظام إشعارات البث الهاتفي لجهازك بنجاح 100%!'
-              })
-            });
+            if (currentUser) {
+              await sendPush(currentUser.id, 'تطبيق راعي 🐑', 'رائع جداً! تم تنشيط واختبار نظام إشعارات البث الهاتفي لجهازك بنجاح 100%!');
+            }
           } catch (pushErr) {
             console.error('Failed to send test push to native device:', pushErr);
           }
@@ -261,12 +270,12 @@ function App() {
 
         await PushNotifications.addListener('registrationError', (err) => {
           console.error('FCM Native Registration Error:', err);
-          showAlert('error', 'فشل التسجيل في النظام', 'تعذر تسجيل جهازك لتلقي التنبيهات: ' + (err.error || 'خطأ غير معروف'));
+          showAlert('error', tr("فشل التسجيل في النظام"), tr("تعذر تسجيل جهازك لتلقي التنبيهات: ") + (err.error || tr("خطأ غير معروف")));
         });
 
         await PushNotifications.addListener('pushNotificationReceived', (notification) => {
           console.log('تم استقبال إشعار والتطبيق مفتوح:', notification);
-          showAlert('success', notification.title || 'تنبيه جديد', notification.body || '');
+          showAlert('success', notification.title || tr("تنبيه جديد"), notification.body || '');
         });
 
         await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
@@ -280,13 +289,13 @@ function App() {
         }
 
         if (permStatus.receive !== 'granted') {
-          showAlert('error', 'الصلاحية مطلوبة', 'يرجى تفعيل صلاحية الإشعارات من إعدادات النظام لتلقي التنبيهات.');
+          showAlert('error', tr("الصلاحية مطلوبة"), tr("يرجى تفعيل صلاحية الإشعارات من إعدادات النظام لتلقي التنبيهات."));
           return;
         }
 
         // 3. Register device
         await PushNotifications.register();
-        showAlert('success', 'تم تفعيل التنبيهات', 'جهازك الآن جاهز لاستقبال الإشعارات خارج التطبيق تماماً مثل الواتساب. تم طلب إرسال تنبيه تجريبي!');
+        showAlert('success', tr("تم تفعيل التنبيهات"), tr("جهازك الآن جاهز لاستقبال الإشعارات خارج التطبيق تماماً مثل الواتساب. تم طلب إرسال تنبيه تجريبي!"));
 
       } else {
         // Web Platform (Web Push Notifications)
@@ -296,42 +305,40 @@ function App() {
         if (isIOS && !isStandalone) {
           showAlert(
             'warning',
-            'تنشيط الإشعارات للآيفون',
-            'لتتمكن من تفعيل الإشعارات على هاتف الآيفون، يرجى أولاً إضافة التطبيق إلى الشاشة الرئيسية:\n\n1. اضغط على زر مشاركة (Share) في متصفح Safari\n2. اختر "إضافة إلى الشاشة الرئيسية" (Add to Home Screen)\n3. افتح التطبيق من الأيقونة على الشاشة الرئيسية ثم اضغط على زر تفعيل التنبيهات.'
+            tr("تنشيط الإشعارات للآيفون"),
+            tr("لتتمكن من تفعيل الإشعارات على هاتف الآيفون، يرجى أولاً إضافة التطبيق إلى الشاشة الرئيسية:\n\n1. اضغط على زر مشاركة (Share) في متصفح Safari\n2. اختر \"إضافة إلى الشاشة الرئيسية\" (Add to Home Screen)\n3. افتح التطبيق من الأيقونة على الشاشة الرئيسية ثم اضغط على زر تفعيل التنبيهات.")
           );
           return;
         }
 
         if (typeof Notification === 'undefined') {
-          showAlert('error', 'غير مدعوم', 'هذا المتصفح أو بيئة التشغيل لا تدعم الإشعارات الفورية. لمستخدمي آيفون يرجى فتح الموقع عبر متصفح Safari وإضافته للشاشة الرئيسية أولاً.');
+          showAlert('error', tr("غير مدعوم"), tr("هذا المتصفح أو بيئة التشغيل لا تدعم الإشعارات الفورية. لمستخدمي آيفون يرجى فتح الموقع عبر متصفح Safari وإضافته للشاشة الرئيسية أولاً."));
           return;
         }
         
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') {
-          showAlert('warning', 'الصلاحية مطلوبة', 'يرجى منح صلاحية الإشعارات من إعدادات المتصفح أو الهاتف لتشغيل الخدمة.');
+          showAlert('warning', tr("الصلاحية مطلوبة"), tr("يرجى منح صلاحية الإشعارات من إعدادات المتصفح أو الهاتف لتشغيل الخدمة."));
           return;
         }
 
-        showAlert('warning', 'جاري التفعيل', 'جاري تسجيل الخدمة وجلب رمز التنبيهات الآمن...');
+        showAlert('warning', tr("جاري التفعيل"), tr("جاري تسجيل الخدمة وجلب رمز التنبيهات الآمن..."));
 
         const messaging = await getFirebaseMessaging();
         if (!messaging) {
-          showAlert('error', 'خطأ في الخدمة', 'فشل تهيئة نظام التنبيهات Firebase Cloud Messaging.');
+          showAlert('error', tr("خطأ في الخدمة"), tr("فشل تهيئة نظام التنبيهات Firebase Cloud Messaging."));
           return;
         }
 
         if (!('serviceWorker' in navigator)) {
-          showAlert('error', 'غير مدعوم', 'متصفحك لا يدعم تقنية Service Worker لتشغيل الإشعارات الخلفية.');
+          showAlert('error', tr("غير مدعوم"), tr("متصفحك لا يدعم تقنية Service Worker لتشغيل الإشعارات الخلفية."));
           return;
         }
 
-        // Explicitly register /firebase-messaging-sw.js with explicit scope to be 100% reliable
-        const swUrl = '/firebase-messaging-sw.js';
+        // Resolve against the document so the worker stays inside its own scope on a subpath deploy.
+        const swUrl = new URL('firebase-messaging-sw.js', document.baseURI).href;
 
-        const registration = await navigator.serviceWorker.register(swUrl, {
-          scope: '/'
-        });
+        const registration = await navigator.serviceWorker.register(swUrl);
         console.log('FCM Service Worker registered smoothly:', registration);
 
         // الانتظار حتى يتفعل في خلفية المتصفح بالكامل
@@ -376,7 +383,7 @@ function App() {
         }
 
         if (!currentToken) {
-          showAlert('error', 'فشل جلب الرمز', 'لم نتمكن من الحصول على رمز التنبيهات من خوادم Google Cloud.');
+          showAlert('error', tr("فشل جلب الرمز"), tr("لم نتمكن من الحصول على رمز التنبيهات من خوادم Google Cloud."));
           return;
         }
 
@@ -392,24 +399,14 @@ function App() {
           }
         }
 
-        showAlert('warning', 'جاري إرسال التنبيه', 'تم جلب الرمز وتوثيقه بنجاح! جاري طلب إرسال تنبيه تجريبي لهاتفك...');
+        showAlert('warning', tr("جاري إرسال التنبيه"), tr("تم جلب الرمز وتوثيقه بنجاح! جاري طلب إرسال تنبيه تجريبي لهاتفك..."));
 
-        // Call sendPush endpoint directly with user's own token
-        const res = await fetch('/api/sendPush', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            token: currentToken,
-            title: 'تطبيق راعي 🐑',
-            body: 'رائع جداً! تم تنشيط واختبار نظام إشعارات البث الهاتفي بنجاح 100%!'
-          })
-        });
-
-        if (res.ok) {
-          showAlert('success', 'تم التفعيل بنجاح', 'تهانينا! تم تفعيل إشعارات الهاتف بنجاح، وستصلك رسالة تنبيه تجريبية خلال ثوانٍ!');
-        } else {
-          const errData = await res.json().catch(() => ({}));
-          showAlert('error', 'فشل الإرسال', `تم تسجيل الرمز بنجاح ولكن فشل السيرفر في الإرسال: ${errData.details || errData.error || 'خطأ غير معروف'}`);
+        // Ask the push server to notify this same account (it reads the token we just saved).
+        try {
+          await sendPush(currentUser!.id, 'تطبيق راعي 🐑', 'رائع جداً! تم تنشيط واختبار نظام إشعارات البث الهاتفي بنجاح 100%!');
+          showAlert('success', tr("تم التفعيل بنجاح"), tr("تهانينا! تم تفعيل إشعارات الهاتف بنجاح، وستصلك رسالة تنبيه تجريبية خلال ثوانٍ!"));
+        } catch (pushErr: any) {
+          showAlert('error', tr("فشل الإرسال"), tr("تم تسجيل الرمز بنجاح ولكن فشل السيرفر في الإرسال: {0}", pushErr?.message || 'خطأ غير معروف'));
         }
       }
 
@@ -424,54 +421,59 @@ function App() {
       if (isCredentialError) {
         showAlert(
           'error',
-          'عطل في مصادقة الإشعارات (FCM)',
-          <div className="space-y-3 text-right font-medium text-xs leading-relaxed" dir="rtl">
+          tr("عطل في مصادقة الإشعارات (FCM)"),
+          <div className="space-y-3 text-start font-medium text-xs leading-relaxed" dir={isEnglish ? 'ltr' : 'rtl'}>
             <p className="text-red-600 dark:text-red-400 font-black">
-              فشل المشروع في المصادقة مع خوادم Google Cloud/Firebase لرموز الويب.
+              {tr("فشل المشروع في المصادقة مع خوادم Google Cloud/Firebase لرموز الويب.")}
             </p>
             <p className="text-gray-700 dark:text-slate-300">
-              يرجى التحقق من إعدادات مشروعك في كونسول Firebase بالطرق التالية:
+              {tr("يرجى التحقق من إعدادات مشروعك في كونسول Firebase بالطرق التالية:")}
             </p>
-            <ol className="list-decimal list-inside space-y-2 text-[11px] text-gray-600 dark:text-slate-400 pr-2">
+            <ol className="list-decimal list-inside space-y-2 text-[11px] text-gray-600 dark:text-slate-400 ps-2">
               <li>
-                <strong>قيود مفتاح API Key في GCP:</strong> اذهب إلى <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-[#795548] dark:text-orange-400 underline font-bold">منصة Google Cloud {"->"} Credentials</a> وقم بتعديل مفتاح المتصفح وتأكد من تفعيل صلاحية <strong>"FCM Registration API"</strong> و <strong>"Firebase Cloud Messaging API"</strong> للمفتاح.
+                <strong>{tr("قيود مفتاح API Key في GCP:")}</strong> {tr("اذهب إلى")} <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-brand-500 dark:text-orange-400 underline font-bold">{tr("منصة Google Cloud")} {"->"} Credentials</a> {tr("وقم بتعديل مفتاح المتصفح وتأكد من تفعيل صلاحية")} <strong>"FCM Registration API"</strong> {tr("و")} <strong>"Firebase Cloud Messaging API"</strong> {tr("للمفتاح.")}
               </li>
               <li>
-                <strong>مفتاح VAPID المخصص:</strong> توليد مفتاح جديد من إعدادات مشروع Firebase {"->"} Cloud Messaging {"->"} Web configuration، ثم وضعه في <strong>"إعدادات الإشعارات المتقدمة"</strong> أسفل نافذة الإعدادات.
+                <strong>{tr("مفتاح VAPID المخصص:")}</strong> {tr("توليد مفتاح جديد من إعدادات مشروع Firebase")} {"->"} Cloud Messaging {"->"} {tr("Web configuration، ثم وضعه في")} <strong>{tr("\"إعدادات الإشعارات المتقدمة\"")}</strong> {tr("أسفل نافذة الإعدادات.")}
               </li>
             </ol>
             <p className="text-[10px] text-red-500 font-bold mt-2 border-t pt-2 border-gray-100 dark:border-slate-800">
-              تفاصيل المشكلة الفنية: {errorMsg}
+              {tr("تفاصيل المشكلة الفنية:")} {errorMsg}
             </p>
           </div>
         );
       } else {
-        showAlert('error', 'عطل غير متوقع', e.message || 'تعذر استكمال اختبار التنبيهات.');
+        showAlert('error', tr("عطل غير متوقع"), e.message || tr("تعذر استكمال اختبار التنبيهات."));
       }
     }
   };
 
+  // Profile edits for the signed-in user. Password, username and email go through Firebase Auth;
+  // the live profile listener picks up the Firestore side.
   const handleUpdateUser = async (userId: string, updates: { name?: string, username?: string, password?: string, email?: string, vapidKey?: string, firebaseApiKey?: string }) => {
+    if (!currentUser || currentUser.id !== userId) throw new Error(tr("يمكن تعديل حسابك فقط من هنا"));
     try {
-      const cleanUpdates: any = {};
-      if (updates.name !== undefined) cleanUpdates.name = updates.name;
-      if (updates.username !== undefined) cleanUpdates.username = updates.username;
-      if (updates.password !== undefined) cleanUpdates.password = updates.password;
-      if (updates.email !== undefined) cleanUpdates.email = updates.email;
-      if (updates.vapidKey !== undefined) cleanUpdates.vapidKey = updates.vapidKey;
-      if (updates.firebaseApiKey !== undefined) cleanUpdates.firebaseApiKey = updates.firebaseApiKey;
+      const plain: any = {};
+      if (updates.name !== undefined) plain.name = updates.name;
+      if (updates.vapidKey !== undefined) plain.vapidKey = updates.vapidKey;
+      if (updates.firebaseApiKey !== undefined) plain.firebaseApiKey = updates.firebaseApiKey;
+      if (Object.keys(plain).length) await updateDoc(doc(db, 'users', userId), plain);
 
-      await updateDoc(doc(db, 'users', userId), cleanUpdates);
-      
-      if (currentUser && currentUser.id === userId) {
-        const updatedUser = { ...currentUser, ...cleanUpdates };
-        setCurrentUser(updatedUser);
-        localStorage.setItem('rai_session', JSON.stringify(updatedUser)); // backup fallback if available
-        safeStorage.setItem('rai_session', JSON.stringify(updatedUser));
+      if (updates.username !== undefined && updates.username !== currentUser.username) {
+        await changeUsername(currentUser, updates.username);
+      }
+      if (updates.password !== undefined) {
+        await changeOwnPassword(updates.password);
+      }
+      if (updates.email !== undefined && updates.email !== currentUser.email) {
+        const sent = await changeOwnerEmail(currentUser, updates.email);
+        if (sent) {
+          showAlert('success', tr("تأكيد البريد"), tr("أرسلنا رابط تأكيد إلى البريد الجديد. بعد الضغط عليه سجّل الدخول بالبريد الجديد."));
+        }
       }
     } catch (e) {
       console.error('Error updating user:', e);
-      throw e;
+      throw new Error(authErrorMessage(e));
     }
   };
 
@@ -479,44 +481,48 @@ function App() {
     try {
       if (typeof navigator.share !== 'undefined') {
         await navigator.share({
-          title: 'تطبيق راعي لإدارة الحظائر',
-          text: 'أفضل نظام لإدارة الحظائر والمواشي بدقة عالية.',
+          title: tr("تطبيق راعي لإدارة الحظائر"),
+          text: tr("أفضل نظام لإدارة الحظائر والمواشي بدقة عالية."),
           url: window.location.href
         });
       } else {
-        showAlert('warning', 'عذراً', 'ميزة المشاركة غير مدعومة في متصفحك');
+        showAlert('warning', tr("عذراً"), tr("ميزة المشاركة غير مدعومة في متصفحك"));
       }
     } catch (e) {
       console.error('Error sharing:', e);
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     safeStorage.removeItem('rai_session');
+    try { await authLogout(); } catch (e) { console.error('Logout failed:', e); }
     setCurrentUser(null);
     window.location.reload();
   };
 
-  const handleLogin = (user: User) => {
-    setCurrentUser(user);
-    safeStorage.setItem('rai_session', JSON.stringify(user));
+  // AuthScreen callbacks: onAuthStateChanged takes over once Firebase signs the user in.
+  const handleLogin = async (identifier: string, password: string) => {
+    try {
+      await loginWithCredentials(identifier, password);
+    } catch (e) {
+      throw new Error(authErrorMessage(e));
+    }
   };
 
-  const handleRegisterOwner = async (username: string, password: string, name: string, email?: string) => {
-    const userId = generateId();
-    const newUser: User = {
-      id: userId,
-      ownerId: userId, // For owners, ownerId is their own ID
-      name,
-      username,
-      password,
-      role: 'owner',
-      createdAt: new Date().toISOString(),
-      permissions: DEFAULT_WORKER_PERMISSIONS,
-      email
-    };
-    await setDoc(doc(db, 'users', newUser.id), newUser);
-    handleLogin(newUser);
+  const handleRegisterOwner = async (username: string, password: string, name: string, email: string) => {
+    try {
+      await registerOwner(username, password, name, email);
+    } catch (e) {
+      throw new Error(authErrorMessage(e));
+    }
+  };
+
+  const handleSendPasswordReset = async (email: string) => {
+    try {
+      await sendOwnerPasswordReset(email);
+    } catch (e) {
+      throw new Error(authErrorMessage(e));
+    }
   };
 
   const handleRegisterWorker = async (
@@ -530,46 +536,29 @@ function App() {
     permissionsPerBarn?: { [barnId: string]: WorkerPermissions }
   ) => {
     if (!isOwner || !ownerId) {
-      throw new Error('يجب تسجيل الدخول بحساب المالك لإضافة عامل.');
+      throw new Error(tr("يجب تسجيل الدخول بحساب المالك لإضافة عامل."));
     }
     
-    // Check if username already exists globally to prevent message leaks / duplicates
-    const normalizedUsername = username.trim().toLowerCase();
-    let usernameAlreadyExists: boolean;
     try {
-      const q = query(collection(db, 'users'), where('username', '==', normalizedUsername));
-      const querySnapshot = await getDocs(q);
-      usernameAlreadyExists = !querySnapshot.empty;
-    } catch (checkError: any) {
-      console.error('Check Duplicate Username Error:', checkError);
-      throw new Error('تعذر التحقق من اسم المستخدم. تحقق من الاتصال ثم حاول مجدداً.');
-    }
-    if (usernameAlreadyExists) {
-      throw new Error('اسم المستخدم مستخدم بالفعل. اختر اسماً آخر.');
-    }
-
-    const workerId = generateId();
-    const newWorker: User = {
-      id: workerId,
-      ownerId: ownerId,
-      name,
-      username: username.trim().toLowerCase(),
-      password,
-      role: 'worker',
-      permissions,
-      settingsPin,
-      accessiblePens,
-      avatar: avatar || '',
-      permissionsPerBarn: permissionsPerBarn || {},
-      createdAt: new Date().toISOString()
-    };
-    try {
-      await setDoc(doc(db, 'users', newWorker.id), newWorker);
+      await createWorkerAccount(ownerId, { username, password, name, permissions, settingsPin, accessiblePens, avatar, permissionsPerBarn });
       logActivity('إدارة العمال', `تمت إضافة العامل ${name}`);
-      showAlert('success', 'تمت الإضافة', `تم تسجيل العامل ${name} بنجاح`);
+      showAlert('success', tr("تمت الإضافة"), tr("تم تسجيل العامل {0} بنجاح", name));
     } catch (e: any) {
       console.error('Register Worker Error:', e);
-      throw new Error('فشل حفظ حساب العامل. تحقق من اتصال الإنترنت وصلاحيات Firebase ثم حاول مجدداً.');
+      throw new Error(authErrorMessage(e));
+    }
+  };
+
+  const handleResetWorkerPassword = async (userId: string, newPassword: string) => {
+    if (!isOwner) return;
+    const worker = users.find(u => u.id === userId && u.role === 'worker');
+    if (!worker) throw new Error(tr("لم يتم العثور على العامل"));
+    try {
+      await resetWorkerPassword(worker, newPassword);
+      logActivity('إدارة العمال', `تم تغيير كلمة مرور العامل ${worker.name}`);
+    } catch (e) {
+      console.error('Reset Worker Password Error:', e);
+      throw new Error(authErrorMessage(e));
     }
   };
 
@@ -598,8 +587,10 @@ function App() {
   const handleDeleteWorker = async (userId: string) => {
     if (!isOwner) return;
 
+    const worker = users.find(u => u.id === userId && u.role === 'worker');
+    if (!worker) return;
     try {
-      await deleteDoc(doc(db, 'users', userId));
+      await deleteWorkerAccount(worker);
       logActivity('إدارة العمال', `تم حذف حساب عامل`);
     } catch (e) {
       console.error('Delete Worker Error:', e);
@@ -622,6 +613,7 @@ function App() {
     safeStorage.setItem('rai_lang', appLanguage);
     document.dir = appLanguage === 'ar' ? 'rtl' : 'ltr';
     document.documentElement.lang = appLanguage;
+    document.title = appLanguage === 'en' ? 'Rai - Barn Manager' : 'Rai - مدير الحظائر';
   }, [appLanguage]);
 
   useEffect(() => {
@@ -636,12 +628,6 @@ function App() {
   const t = translations[appLanguage];
 
   // Data States
-  const [pens, setPens] = useState<Pen[]>([]);
-  const [rawSheep, setRawSheep] = useState<Sheep[]>([]);
-  const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [sales, setSales] = useState<Sale[]>([]);
-  const [deaths, setDeaths] = useState<Death[]>([]);
   const [ownerName, setOwnerName] = useState('المالك');
 
   // Dashboard Stats
@@ -660,19 +646,19 @@ function App() {
         if (barnId && accessIds.includes(barnId)) return true;
       }
       
-      // Check if parent pen is in accessIds
-      const currentPen = pens.find(p => p.id === s.penId);
-      if (currentPen?.parentId && accessIds.includes(currentPen.parentId)) return true;
-      
-      // Secondary check: if navigation is inside a parent pen, also check that parent
-      if (selectedGroupId && accessIds.includes(selectedGroupId)) {
-          const parent = pens.find(p => p.id === s.penId)?.parentId;
-          if (parent === selectedGroupId) return true;
+      // Walk every ancestor, matching visiblePens: a pen nested deeper than one level under an
+      // accessible barn was shown to the worker while its animals were hidden.
+      let currentPen = pens.find(p => p.id === s.penId);
+      const seen = new Set<string>();
+      while (currentPen?.parentId && !seen.has(currentPen.id)) {
+        seen.add(currentPen.id);
+        if (accessIds.includes(currentPen.parentId)) return true;
+        currentPen = pens.find(p => p.id === currentPen!.parentId);
       }
 
       return false;
     });
-  }, [rawSheep, pens, currentUser?.accessiblePens, isOwner, selectedGroupId]);
+  }, [rawSheep, pens, currentUser?.accessiblePens, isOwner]);
 
   const totalAnimals = allSheep.length;
   const sickCount = allSheep.filter(s => s.status === 'sick').length;
@@ -745,12 +731,38 @@ function App() {
         const diff = dueDate.getTime() - Date.now();
         return diff > 0 && diff < 7 * 24 * 60 * 60 * 1000; // Next 7 days
       }))
-      .map(s => ({ id: `vac_${s.id}`, type: 'warning', message: `تحصين مستحق للأغنام: ${s.serialNumber}` })),
+      .map(s => ({ id: `vac_${s.id}`, type: 'warning', message: tr("تحصين مستحق للأغنام: {0}", s.serialNumber) })),
 
     ...feedItems
       .filter(f => f.quantity < 50) // Threshold 50
-      .map(f => ({ id: `feed_${f.id}`, type: 'danger', message: `نقص حاد في العلف: ${f.name} (${f.quantity} ${f.unit})` }))
+      .map(f => ({ id: `feed_${f.id}`, type: 'danger', message: tr("نقص حاد في العلف: {0} ({1} {2})", f.name, f.quantity, f.unit) }))
   ];
+
+  // Push feed shortages and upcoming vaccinations to the owner's phone, at most once a day per alert.
+  // Whoever has the app open (usually a worker) triggers it; farms/{ownerId}/meta/push_alerts
+  // records what was already sent so several devices don't repeat it.
+  const alertKey = alerts.map(a => a.id).sort().join(',');
+  useEffect(() => {
+    if (!ownerId || !currentUser || isOwner || alerts.length === 0) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const ref = doc(db, 'farms', ownerId, 'meta', 'push_alerts');
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getDoc(ref);
+        const sent: Record<string, string> = snap.exists() ? (snap.data() as Record<string, string>) : {};
+        const fresh = alerts.filter(a => sent[a.id] !== today);
+        if (cancelled || fresh.length === 0) return;
+        const body = fresh.slice(0, 4).map(a => a.message).join('\n') + (fresh.length > 4 ? `\n+${fresh.length - 4}` : '');
+        await sendPush(ownerId, tr('تنبيهات المزرعة'), body);
+        await setDoc(ref, Object.fromEntries(fresh.map(a => [a.id, today])), { merge: true });
+      } catch (e) {
+        console.warn('Daily alert push failed:', e);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alertKey, ownerId, isOwner]);
 
   const isAnyFeedLowOrEmpty = React.useMemo(() => {
     return feedItems.some(f => {
@@ -863,12 +875,12 @@ function App() {
     if (isOwner) return; // Owner doesn't need to unlock
     const newCount = tapCount + 1;
     if (newCount >= 5) {
-      const pin = prompt('أدخل الرمز السري لعرض البيانات:');
+      const pin = prompt(tr("أدخل الرمز السري لعرض البيانات:"));
       if (pin === currentUser?.settingsPin) {
         setIsDataUnlocked(true);
         setTapCount(0);
       } else if (pin !== null) {
-        showAlert('error', 'خطأ في الدخول', 'الرمز السري غير صحيح');
+        showAlert('error', tr("خطأ في الدخول"), tr("الرمز السري غير صحيح"));
         setTapCount(0);
       } else {
         setTapCount(0);
@@ -970,22 +982,6 @@ function App() {
   // Support legacy accounts: if ownerId is missing but user is owner, use their ID
   // const ownerId = currentUser?.ownerId || (currentUser?.role === 'owner' ? currentUser?.id : null); // Removed legacy check
 
-  // --- Users Sync (Authentication Layer) ---
-  // This effect runs independently of ownerId to ensure AuthScreen has user data for login
-  const fetchActivityLog = async (ownerId: string) => {
-    try {
-      const q = query(collection(db, 'activity_log'), where('ownerId', '==', ownerId));
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const activities = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ActivityEntry));
-        activities.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-        setActivityLog(activities);
-      });
-      return unsubscribe;
-    } catch (error) {
-      console.error("Error fetching activity log:", error);
-    }
-  };
-
   useEffect(() => {
     if (!currentUser) return;
     const q = query(
@@ -1021,6 +1017,8 @@ function App() {
   // Request Push Notification Permission & Save Token
   useEffect(() => {
     if (!currentUser) return;
+    let unsubscribeOnMessage: (() => void) | null = null;
+    let cancelled = false;
     const setupPushNotifications = async () => {
       try {
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
@@ -1038,7 +1036,7 @@ function App() {
         }
         const permission = await Notification.requestPermission();
         if (permission === 'granted' && 'serviceWorker' in navigator) {
-          navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' })
+          navigator.serviceWorker.register(new URL('firebase-messaging-sw.js', document.baseURI).href)
             .then((registration) => {
               console.log('FCM SW registered in auto-setup:', registration);
               import('firebase/messaging').then(({ getToken, onMessage }) => {
@@ -1082,13 +1080,15 @@ function App() {
                     console.log('An error occurred while retrieving token. ', err);
                   });
 
-                onMessage(messaging, (payload) => {
+                if (cancelled) return;
+                // Keep the handle so a re-login does not stack a second listener (duplicate notifications).
+                unsubscribeOnMessage = onMessage(messaging, (payload) => {
                   console.log('Foreground Message received. ', payload);
                   if (Notification.permission === 'granted') {
                     try {
                       new Notification(payload.notification?.title || 'رسالة جديدة', {
                         body: payload.notification?.body || 'لديك رسالة جديدة في مدير الحظائر',
-                        icon: '/assets/logo.jpg',
+                        icon: new URL('assets/logo.jpg', document.baseURI).href,
                       });
                     } catch (e) {
                       console.error('Failed to show foreground notification:', e);
@@ -1106,89 +1106,27 @@ function App() {
       }
     };
     setupPushNotifications();
+    return () => {
+      cancelled = true;
+      unsubscribeOnMessage?.();
+    };
   }, [currentUser?.id]);
 
+  // Only the signed-in farm's accounts are ever loaded; the login screen no longer needs any.
   useEffect(() => {
-    let usersRef: any = collection(db, 'users');
-    
-    // The login screen needs global lookup; signed-in users only need their farm's accounts.
-    if (currentUser && !ownerId) {
+    if (!currentUser || !ownerId) {
       setUsers([]);
-      setIsLoadingUsers(false);
       return;
     }
-    if (currentUser) {
-       usersRef = query(collection(db, 'users'), where('ownerId', '==', ownerId));
-    }
-
+    const usersRef = query(collection(db, 'users'), where('ownerId', '==', ownerId));
     const unsub = onSnapshot(usersRef, (snapshot) => {
       setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
-      setIsLoadingUsers(false);
     }, (err) => {
       console.error("Users Sync Error:", err);
-      setIsLoadingUsers(false);
     });
-
     return () => unsub();
-  }, [currentUser?.id, isOwner, ownerId]);
+  }, [currentUser?.id, ownerId]);
 
-  // Data Sync (Conditional on OwnerID)
-  useEffect(() => {
-    if (!ownerId) return;
-    const unsubscribes: (() => void)[] = [];
-
-    // 1. Pens Sync
-    const pensRef = collection(db, 'farms', ownerId, 'pens');
-    unsubscribes.push(onSnapshot(pensRef, (snapshot) => {
-      setPens(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pen)));
-    }));
-
-    // 2. Sheep Sync
-    const sheepRef = collection(db, 'farms', ownerId, 'sheep');
-    unsubscribes.push(onSnapshot(sheepRef, (snapshot) => {
-      const raw = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sheep));
-      setRawSheep(raw);
-    }));
-
-    // 3. Feed Sync
-    const feedRef = collection(db, 'farms', ownerId, 'feed');
-    unsubscribes.push(onSnapshot(feedRef, (snapshot) => {
-      setFeedItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FeedItem)));
-    }));
-
-    // 4. Expenses Sync
-    const expensesRef = collection(db, 'farms', ownerId, 'expenses');
-    unsubscribes.push(onSnapshot(expensesRef, (snapshot) => {
-      setExpenses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense)));
-    }));
-
-    // 4.1 Sales Sync
-    const salesRef = collection(db, 'farms', ownerId, 'sales');
-    unsubscribes.push(onSnapshot(salesRef, (snapshot) => {
-      setSales(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale)));
-    }));
-
-    // 4.2 Deaths Sync
-    const deathsRef = collection(db, 'farms', ownerId, 'deaths');
-    unsubscribes.push(onSnapshot(deathsRef, (snapshot) => {
-      setDeaths(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Death)));
-    }));
-
-    // 5. Activity Log Sync
-    const activityRef = query(
-      collection(db, 'farms', ownerId, 'activity'),
-      orderBy('timestamp', 'desc'),
-      limit(200)
-    );
-    unsubscribes.push(onSnapshot(activityRef, (snapshot) => {
-      const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ActivityEntry));
-      setActivityLog(logs.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || '')));
-    }));
-
-    // 6. Users Sync moved to its own effect above for better reliability
-  
-    return () => unsubscribes.forEach(unsub => unsub());
-  }, [ownerId, isOwner]);
 
   // Personal Settings Persistence (safeStorage)
   useEffect(() => { safeStorage.setItem('rai_lang', appLanguage); }, [appLanguage]);
@@ -1243,7 +1181,7 @@ function App() {
         }
       }
       if (restoredCount > 0) {
-        showAlert('success', 'تم استرجاع الأقسام المفقودة والحيوانات بنجاح!', 'تم العثور على حيوانات في أقسام غير موجودة (تم حذفها سابقاً). تم إنشاء قسم "قسم مسترجع" لها بنجاح تحت حظيرة ' + targetBarn.name);
+        showAlert('success', tr("تم استرجاع الأقسام المفقودة والحيوانات بنجاح!"), tr("تم العثور على حيوانات في أقسام غير موجودة (تم حذفها سابقاً). تم إنشاء قسم \"قسم مسترجع\" لها بنجاح تحت حظيرة ") + targetBarn.name);
       }
     };
 
@@ -1299,7 +1237,7 @@ function App() {
         }
       }
       if (restoredCount > 0) {
-        showAlert('success', 'تم استرجاع الأقسام المفقودة والحيوانات بنجاح!', 'تم العثور على حيوانات في أقسام غير موجودة (تم حذفها سابقاً). تم إنشاء قسم "قسم مسترجع" لها بنجاح تحت حظيرة ' + targetBarn.name);
+        showAlert('success', tr("تم استرجاع الأقسام المفقودة والحيوانات بنجاح!"), tr("تم العثور على حيوانات في أقسام غير موجودة (تم حذفها سابقاً). تم إنشاء قسم \"قسم مسترجع\" لها بنجاح تحت حظيرة ") + targetBarn.name);
       }
     };
 
@@ -1391,7 +1329,7 @@ function App() {
 
   const handleSaveExpense = async (expense: Expense) => {
     if (!ownerId) {
-      showAlert('error', 'تنبيه', 'خطأ: لم يتم العثور على هوية المشروع. يرجى تسجيل الدخول مجدداً.');
+      showAlert('error', tr("تنبيه"), tr("خطأ: لم يتم العثور على هوية المشروع. يرجى تسجيل الدخول مجدداً."));
       return;
     }
     try {
@@ -1399,13 +1337,13 @@ function App() {
       logActivity('إضافة مصروف', `${expense.title}: ${expense.amount} ريال`);
     } catch (e: any) { 
       console.error('Expense Save Error:', e);
-      showAlert('error', 'فشل الحفظ', 'حدث خطأ أثناء حفظ المصروف: ' + (e.message || e));
+      showAlert('error', tr("فشل الحفظ"), tr("حدث خطأ أثناء حفظ المصروف: ") + (e.message || e));
     }
   };
 
   const handleSaveSale = async (sale: Sale) => {
     if (!ownerId) {
-      showAlert('error', 'تنبيه', 'خطأ: لم يتم العثور على هوية المشروع. يرجى تسجيل الدخول مجدداً.');
+      showAlert('error', tr("تنبيه"), tr("خطأ: لم يتم العثور على هوية المشروع. يرجى تسجيل الدخول مجدداً."));
       return;
     }
     try {
@@ -1413,13 +1351,13 @@ function App() {
       logActivity('إضافة مبيعات', `${sale.title}: ${sale.amount} ريال`);
     } catch (e: any) { 
       console.error('Sale Save Error:', e);
-      showAlert('error', 'فشل الحفظ', 'حدث خطأ أثناء حفظ المبيعات: ' + (e.message || e));
+      showAlert('error', tr("فشل الحفظ"), tr("حدث خطأ أثناء حفظ المبيعات: ") + (e.message || e));
     }
   };
 
   const handleDeleteExpense = async (id: string) => {
     if (!ownerId || !can('canDeleteExpenses')) return;
-    showConfirm('حذف مصروف', 'هل أنت متأكد من حذف هذا المصروف؟', async () => {
+    showConfirm(tr("حذف مصروف"), tr("هل أنت متأكد من حذف هذا المصروف؟"), async () => {
       try {
         await deleteDoc(doc(db, 'farms', ownerId, 'expenses', id));
       } catch (e: any) { console.error('Delete Expense Error:', e); }
@@ -1428,7 +1366,7 @@ function App() {
 
   const handleDeleteSale = async (id: string) => {
     if (!ownerId || !can('canDeleteExpenses')) return;
-    showConfirm('حذف سجل مبيعات', 'هل أنت متأكد من حذف هذا السجل؟', async () => {
+    showConfirm(tr("حذف سجل مبيعات"), tr("هل أنت متأكد من حذف هذا السجل؟"), async () => {
       try {
         await deleteDoc(doc(db, 'farms', ownerId, 'sales', id));
       } catch (e: any) { console.error('Delete Sale Error:', e); }
@@ -1447,7 +1385,7 @@ function App() {
   // --- Feed/Inventory Handlers ---
   const handleUpdateFeed = async (newItems: FeedItem[]) => {
     if (!ownerId) {
-      showAlert('error', 'خطأ في المزامنة', 'خطأ: لم يتم اكتشاف هوية المالك لمزامنة المخزون. يرجى إعادة تسجيل الدخول.');
+      showAlert('error', tr("خطأ في المزامنة"), tr("خطأ: لم يتم اكتشاف هوية المالك لمزامنة المخزون. يرجى إعادة تسجيل الدخول."));
       return;
     }
     try {
@@ -1529,14 +1467,14 @@ function App() {
       // Note: Full local state also gets updated via onSnapshot automatically
     } catch (e: any) {
       console.error('Feed Sync Error:', e);
-      showAlert('error', 'خطأ في المزامنة', `خطأ في مزامنة المخزون: ${e.message || e}`);
+      showAlert('error', tr("خطأ في المزامنة"), tr("خطأ في مزامنة المخزون: {0}", e.message || e));
     }
   };
 
   // --- Pen/Group Handlers ---
   const handleSavePen = async (pen: Pen) => {
     if (!ownerId) {
-      showAlert('error', 'خطأ في النظام', 'خطأ فني: لم يتم العثور على هوية المشروع (ownerId). يرجى تسجيل الخروج والدخول مرة أخرى ضروري جداً.');
+      showAlert('error', tr("خطأ في النظام"), tr("خطأ فني: لم يتم العثور على هوية المشروع (ownerId). يرجى تسجيل الخروج والدخول مرة أخرى ضروري جداً."));
       return;
     }
     
@@ -1575,7 +1513,7 @@ function App() {
       // alert('تم الحفظ بنجاح في السحابة!');
     } catch (e: any) { 
       console.error('Firebase Error:', e);
-      showAlert('error', 'فشل الحفظ', `عذراً، فشل الحفظ في السحابة. \nالسبب: ${e.message || e}`);
+      showAlert('error', tr("فشل الحفظ"), tr("عذراً، فشل الحفظ في السحابة. \nالسبب: {0}", e.message || e));
     }
 
     setEditingPen(undefined);
@@ -1605,7 +1543,7 @@ function App() {
       logActivity('ترتيب الأقسام', 'تم تحديث ترتيب الأقسام بنجاح');
     } catch (e: any) {
       console.error('Failed to save pens order:', e);
-      showAlert('error', 'فشل حفظ الترتيب', `فشل تحديث الترتيب في السحابة: ${e.message || e}`);
+      showAlert('error', tr("فشل حفظ الترتيب"), tr("فشل تحديث الترتيب في السحابة: {0}", e.message || e));
     }
   };
 
@@ -1613,10 +1551,10 @@ function App() {
     const requiredPermission = isGroup ? 'canDeleteBarns' : 'canDeletePens';
     if (!ownerId || !can(requiredPermission, id)) return;
     const penToDelete = pens.find(p => p.id === id);
-    const title = isGroup ? 'حذف حظيرة' : 'حذف قسم';
+    const title = isGroup ? tr('حذف حظيرة') : tr('حذف قسم');
     const msg = isGroup
-      ? 'حذف الحظيرة الرئيسية سيؤدي لحذف جميع الأقسام بداخلها. هل أنت متأكد؟'
-      : 'هل أنت متأكد من حذف هذا القسم؟ سيتم نقل جميع الحيوانات إلى القسم الرئيسي إن وجد.';
+      ? tr('حذف الحظيرة الرئيسية سيؤدي لحذف جميع الأقسام بداخلها. هل أنت متأكد؟')
+      : tr('هل أنت متأكد من حذف هذا القسم؟ سيتم نقل جميع الحيوانات إلى القسم الرئيسي إن وجد.');
 
     showConfirm(title, msg, async () => {
       try {
@@ -1756,7 +1694,7 @@ function App() {
       }
     } catch (e: any) { 
       console.error('Sheep Save Error:', e);
-      showAlert('error', 'فشل الحفظ', `خطأ في حفظ الحيوانات: ${e.message || e}`);
+      showAlert('error', tr("فشل الحفظ"), tr("خطأ في حفظ الحيوانات: {0}", e.message || e));
     }
     setEditingSheep(undefined);
     setIsSheepModalOpen(false);
@@ -1777,7 +1715,7 @@ function App() {
     if (skipConfirm) {
       performDelete();
     } else {
-      showConfirm('حذف حيوان', 'هل أنت متأكد من حذف هذا الرأس نهائياً؟', performDelete);
+      showConfirm(tr("حذف حيوان"), tr("هل أنت متأكد من حذف هذا الرأس نهائياً؟"), performDelete);
     }
   };
 
@@ -1804,7 +1742,7 @@ function App() {
     const isTargetExcl = targetPenId.includes('mortality') || pens.find(p => p.id === targetPenId)?.isExclusion;
 
     if (isTargetExcl && !can('canAddDeath')) {
-      showAlert('error', 'صلاحية غير متوفرة', 'ليس لديك صلاحية للقيام بالاستبعاد.');
+      showAlert('error', tr("صلاحية غير متوفرة"), tr("ليس لديك صلاحية للقيام بالاستبعاد."));
       return;
     }
 
@@ -1836,7 +1774,7 @@ function App() {
           await updateDoc(doc(db, 'farms', ownerId, 'sheep', s.id), { penId: targetPenId, notes: finalReason && isTargetExclusion ? finalReason : s.notes, exclusionDate: isTargetExclusion ? new Date().toISOString() : (s.exclusionDate || null), movementHistory: [...(s.movementHistory || []), moveEntry] });
         }
         logActivity(isTargetExclusion ? 'استبعاد حيوان' : 'نقل جماعي', `تم نقل ${toMove.length} رأس من [${sourceName}] إلى [${targetPenName}]${finalReason ? `. السبب: ${finalReason}` : ''}`);
-        showAlert('success', 'تم النقل', `تم نقل ${toMove.length} رأس بنجاح إلى ${targetPenName}`);
+        showAlert('success', tr("تم النقل"), tr("تم نقل {0} رأس بنجاح إلى {1}", toMove.length, targetPenName));
         setBulkMoveFilteredIds(null);
       } else if (batchAction && batchAction.action === 'move') {
         const typeToMove = batchAction.type;
@@ -1906,7 +1844,7 @@ function App() {
                   id: generateId(),
                   penId: s.penId,
                   relatedAnimalId: s.serialNumber,
-                  title: `بيع حيوان #${s.serialNumber}`,
+                  title: tr("بيع حيوان #{0}", s.serialNumber),
                   amount: price,
                   buyer: 'غير محدد',
                   date: new Date().toISOString().split('T')[0],
@@ -1969,7 +1907,7 @@ function App() {
                 id: generateId(),
                 penId: selectedSheepForAction.penId,
                 relatedAnimalId: selectedSheepForAction.serialNumber,
-                title: `بيع حيوان #${selectedSheepForAction.serialNumber}`,
+                title: tr("بيع حيوان #{0}", selectedSheepForAction.serialNumber),
                 amount: price,
                 buyer: 'غير محدد',
                 date: new Date().toISOString().split('T')[0],
@@ -2047,8 +1985,8 @@ function App() {
     let years = now.getFullYear() - birth.getFullYear();
     let months = now.getMonth() - birth.getMonth();
     if (months < 0) { years--; months += 12; }
-    if (years > 0) return `${years} سنة`;
-    return `${months} شهر`;
+    if (years > 0) return tr("{0} سنة", years);
+    return tr("{0} شهر", months);
   };
 
   // Local getAnimalAgeLabel removed in favor of utils function
@@ -2092,7 +2030,7 @@ function App() {
           <div>
             <h4 className="font-bold text-gray-800 flex items-center gap-2">
               {sheep.serialNumber}
-              <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{sheep.type}</span>
+              <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{tr(sheep.type)}</span>
             </h4>
             <div className="text-xs text-gray-400 mt-1 flex items-center gap-2">
               <span>{calculateAgeDisplay(sheep.birthDate)}</span>
@@ -2109,10 +2047,10 @@ function App() {
         </div>
         <div className="flex items-center gap-1">
           <Dna size={14} className="text-gray-400" />
-          <span className="text-xs">الأم: {getParentSerial(sheep.motherId)} / الأب: {getParentSerial(sheep.fatherId)}</span>
+          <span className="text-xs">{tr("الأم:")} {getParentSerial(sheep.motherId)} {tr("/ الأب:")} {getParentSerial(sheep.fatherId)}</span>
         </div>
         <div className="flex items-center gap-2 border-t md:border-t-0 pt-3 md:pt-0 mt-2 md:mt-0 justify-end">
-          <button onClick={() => handleDeleteSheep(sheep.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="حذف نهائي">
+          <button onClick={() => handleDeleteSheep(sheep.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title={tr("حذف نهائي")}>
             <Trash2 size={16} />
           </button>
         </div>
@@ -2137,10 +2075,10 @@ function App() {
 
       if (sheepToSell.length === 0) return;
 
-      const title = `بيع ${isBatch ? (sheepToSell.length + ' رأس من ' + idOrType) : ('الحيوان #' + idOrType)}`;
-      const msg = `هل أنت متأكد من إتمام هذه العملية؟ سيتم نقل الحيوان إلى سجل المستبعدة.`;
+      const title = isBatch ? tr('بيع {0} رأس من {1}', sheepToSell.length, tr(idOrType)) : tr('بيع الحيوان #{0}', idOrType);
+      const msg = tr('هل أنت متأكد من إتمام هذه العملية؟ سيتم نقل الحيوان إلى سجل المستبعدة.');
 
-      showConfirm('تأكيد البيع', msg, async () => {
+      showConfirm(tr("تأكيد البيع"), msg, async () => {
         const targetMortalityPenId = selectedGroupId ? `mortality:${selectedGroupId} ` : '';
         if (!targetMortalityPenId) return;
 
@@ -2219,15 +2157,15 @@ function App() {
         className={`relative rounded-3xl p-4 flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group aspect-square sm:aspect-auto border hover-glow dark:border-slate-800 premium-shadow ${
           isBulkSelectMode
             ? isSelected
-              ? 'bg-[#795548]/15 border-[#795548] ring-2 ring-[#795548]/40 dark:bg-orange-900/20 dark:border-orange-500'
+              ? 'bg-brand-500/15 border-brand-500 ring-2 ring-brand-500/40 dark:bg-orange-900/20 dark:border-orange-500'
               : 'bg-gray-50/60 border-gray-200 opacity-70 dark:bg-slate-900'
             : sheep.gender === 'male' ? 'bg-blue-50/30 border-gray-100 dark:bg-slate-900' : 'bg-pink-50/30 border-gray-100 dark:bg-slate-900'
         }`}
       >
         {/* Selection checkmark overlay */}
         {isBulkSelectMode && (
-          <div className={`absolute top-2 left-2 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-            isSelected ? 'bg-[#795548] border-[#795548]' : 'bg-white border-gray-300 dark:bg-slate-800'
+          <div className={`absolute top-2 end-2 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+            isSelected ? 'bg-brand-500 border-brand-500' : 'bg-white border-gray-300 dark:bg-slate-800'
           }`}>
             {isSelected && <Check size={11} strokeWidth={3} className="text-white" />}
           </div>
@@ -2241,10 +2179,10 @@ function App() {
 
         <div className="flex items-center justify-center gap-1 whitespace-nowrap w-full px-1">
           <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-400 shrink-0">
-            {sheep.type}
+            {tr(sheep.type)}
           </span>
           <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md shrink-0 ${sheep.gender === 'male' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300'}`}>
-            {sheep.gender === 'male' ? 'ذكر' : 'أنثى'}
+            {sheep.gender === 'male' ? tr("ذكر") : tr("أنثى")}
           </span>
         </div>
 
@@ -2256,7 +2194,7 @@ function App() {
         </div>
 
         {hasPendingVaccines(sheep) && (
-          <div className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse shadow-sm"></div>
+          <div className="absolute top-2 start-2 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse shadow-sm"></div>
         )}
       </div>
     );
@@ -2281,11 +2219,11 @@ function App() {
     }
 
     const parts = [];
-    if (years > 0) parts.push(`${years} سنة`);
-    if (months > 0) parts.push(`${months} شهر`);
-    if (days > 0) parts.push(`${days} يوم`);
+    if (years > 0) parts.push(tr("{0} سنة", years));
+    if (months > 0) parts.push(tr("{0} شهر", months));
+    if (days > 0) parts.push(tr("{0} يوم", days));
 
-    return parts.length > 0 ? parts.join(' و ') : 'اليوم';
+    return parts.length > 0 ? parts.join(tr(' و ')) : tr('اليوم');
   };
 
 
@@ -2298,7 +2236,7 @@ function App() {
     };
 
     return (
-      <div className="bg-[#FCFBF4] rounded-[2.5rem] p-6 w-full max-w-sm mx-auto shadow-2xl animate-scale-in dark:bg-slate-900">
+      <div className="bg-paper rounded-[2.5rem] p-6 w-full max-w-sm mx-auto shadow-2xl animate-scale-in dark:bg-slate-900">
         <div className="flex items-start justify-between mb-6">
           <div className="flex items-center gap-4">
             <div
@@ -2311,14 +2249,14 @@ function App() {
               <div className="flex items-center gap-2">
                 <h4 className="font-black text-gray-900 text-2xl dark:text-gray-100">{sheep.serialNumber}</h4>
                 <span className="text-lg font-bold text-gray-500">
-                  {sheep.type}
+                  {tr(sheep.type)}
                 </span>
               </div>
               <div className="flex flex-col mt-1">
                 <span className="text-sm font-bold text-gray-600 dark:text-gray-400">
-                  {sheep.gender === 'male' ? 'ذكر' : 'أنثى'} • {getAnimalAgeLabel(sheep.birthDate, sheep.type, sheep.gender)}
+                  {sheep.gender === 'male' ? tr("ذكر") : tr("أنثى")} • {tr(getAnimalAgeLabel(sheep.birthDate, sheep.type, sheep.gender))}
                 </span>
-                <span className="text-xs text-blue-500 font-bold mt-0.5" dir="rtl">{calculateDetailedAge(sheep.birthDate)}</span>
+                <span className="text-xs text-blue-500 font-bold mt-0.5" dir={isEnglish ? 'ltr' : 'rtl'}>{calculateDetailedAge(sheep.birthDate)}</span>
                 
                 {/* Mother Tag & Number Display */}
                 {(() => {
@@ -2326,7 +2264,7 @@ function App() {
                   if (!motherInfo) return null;
                   return (
                     <div className="flex items-center gap-1.5 mt-2 bg-pink-50/40 dark:bg-pink-900/10 px-2 py-1 rounded-xl border border-pink-100/30 w-fit">
-                      <span className="text-[10px] font-black text-pink-700 dark:text-pink-300">رقم الأم:</span>
+                      <span className="text-[10px] font-black text-pink-700 dark:text-pink-300">{tr("رقم الأم:")}</span>
                       <div 
                         className="w-2.5 h-2.5 rounded-full border border-black/10 dark:border-white/10 shrink-0" 
                         style={{ backgroundColor: motherInfo.tagColor || '#D7CCC8' }}
@@ -2351,8 +2289,8 @@ function App() {
         )}
 
         {sheep.notes && (
-          <div className="text-sm text-gray-600 bg-white/50 border border-gray-100 rounded-2xl p-4 mb-6 text-right dark:bg-slate-800 dark:border-slate-700/50">
-            <span className="font-black text-gray-400 block mb-2 text-[10px] uppercase tracking-widest">الملاحظات</span>
+          <div className="text-sm text-gray-600 bg-white/50 border border-gray-100 rounded-2xl p-4 mb-6 text-start dark:bg-slate-800 dark:border-slate-700/50">
+            <span className="font-black text-gray-400 block mb-2 text-[10px] uppercase tracking-widest">{tr("الملاحظات")}</span>
             <p className="dark:text-gray-300 leading-relaxed text-xs">{sheep.notes}</p>
           </div>
         )}
@@ -2363,19 +2301,19 @@ function App() {
           {sheep.status === 'sick' ? (
             <button
               onClick={async () => {
-                showConfirm('تأكيد الشفاء', `هل أنت متأكد من تسجيل الشفاء لهذه الحالة؟`, async () => {
+                showConfirm(tr("تأكيد الشفاء"), tr("هل أنت متأكد من تسجيل الشفاء لهذه الحالة؟"), async () => {
                   try {
                       await updateDoc(doc(db, 'farms', ownerId, 'sheep', sheep.id), { status: 'healthy' });
                       setViewingSheep(undefined);
                   } catch (e) {
                       console.error('Update status error:', e);
-                      showAlert('error', 'خطأ', 'حدث خطأ أثناء تحديث الحالة.');
+                      showAlert('error', tr("خطأ"), tr("حدث خطأ أثناء تحديث الحالة."));
                   }
                 });
               }}
               className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 rounded-2xl shadow-sm transition"
             >
-              مريض
+              {tr("مريض")}
               <Activity size={16} className="text-red-500" />
             </button>
           ) : (
@@ -2386,7 +2324,7 @@ function App() {
               }}
               className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 rounded-2xl shadow-sm transition"
             >
-              سليم
+              {tr("سليم")}
               <HeartPulse size={16} className="text-emerald-500" />
             </button>
           )}
@@ -2403,7 +2341,7 @@ function App() {
                   onClick={() => setReproductionConfirmState({ sheep, currentStatus: 'empty', nextStatus: 'pregnant', expectedDurationDays: 150 })}
                   className="flex-1 flex flex-row-reverse items-center justify-center gap-2 py-3 px-2 text-[11px] font-black text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-2xl shadow-sm transition"
                 >
-                  غير مضرع
+                  {tr("غير مضرع")}
                   <Baby size={16} className="text-amber-500" />
                 </button>
               );
@@ -2416,10 +2354,10 @@ function App() {
                   className="flex-1 flex flex-col items-center justify-center gap-1 py-2 px-2 font-black text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-2xl shadow-sm transition animate-pulse"
                 >
                   <div className="flex items-center gap-1.5 text-[11px]">
-                    <span>مضرع</span>
+                    <span>{tr("مضرع")}</span>
                     <Baby size={16} className="text-rose-500" />
                   </div>
-                  <span className="text-[9px] opacity-80">(باقي {remainingDays} يوم)</span>
+                  <span className="text-[9px] opacity-80">{tr("(باقي")} {remainingDays} {tr("يوم)")}</span>
                 </button>
               );
             } else {
@@ -2437,10 +2375,10 @@ function App() {
                   className="flex-1 flex flex-col items-center justify-center gap-1 py-2 px-2 font-black text-pink-700 bg-pink-50 border border-pink-200 hover:bg-pink-100 rounded-2xl shadow-sm transition"
                 >
                   <div className="flex items-center gap-1.5 text-[11px]">
-                    <span>أم حضانة</span>
+                    <span>{tr("أم حضانة")}</span>
                     <Baby size={16} className="text-pink-500" />
                   </div>
-                  <span className="text-[9px] opacity-80">(باقي {remainingLactation} يوم)</span>
+                  <span className="text-[9px] opacity-80">{tr("(باقي")} {remainingLactation} {tr("يوم)")}</span>
                 </button>
               );
             }
@@ -2454,7 +2392,7 @@ function App() {
           if (diffDays >= 150) {
             return (
               <div className="bg-red-50 border border-red-200 text-red-700 text-[10px] font-bold p-2.5 rounded-xl text-center mb-6">
-                ⚠️ تنبيه: مضى أكثر من 5 أشهر على الحمل!
+                {tr("⚠️ تنبيه: مضى أكثر من 5 أشهر على الحمل!")}
               </div>
             );
           }
@@ -2465,9 +2403,9 @@ function App() {
           {can('canAddMedical') && (
             <button onClick={() => { setViewingSheep(undefined); openMedicalModal(sheep); }} className="relative flex flex-col items-center justify-center gap-2 py-4 rounded-2xl text-[11px] font-black text-purple-700 bg-purple-50 hover:bg-purple-100 transition premium-shadow dark:bg-purple-900/20 dark:text-purple-300">
               <Syringe size={20} />
-              تحصين
+              {tr("تحصين")}
               {hasPendingVaccines(sheep) && (
-                <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border-2 border-white"></span>
+                <span className="absolute top-3 start-3 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border-2 border-white"></span>
               )}
             </button>
           )}
@@ -2475,14 +2413,14 @@ function App() {
           {can('canMoveAnimals') && (
             <button onClick={() => { setViewingSheep(undefined); openMoveModal(sheep); }} className="flex flex-col items-center justify-center gap-2 py-4 rounded-2xl text-[11px] font-black text-orange-700 bg-orange-50 hover:bg-orange-100 transition premium-shadow dark:bg-orange-900/20 dark:text-orange-300">
               <ArrowRightLeft size={20} />
-              الاجراءات
+              {tr("الاجراءات")}
             </button>
           )}
 
           {can('canEditAnimals') && (
             <button onClick={() => { setViewingSheep(undefined); openEditSheepModal(sheep); }} className="flex flex-col items-center justify-center gap-2 py-4 rounded-2xl text-[11px] font-black text-blue-700 bg-blue-50 hover:bg-blue-100 transition premium-shadow dark:bg-blue-900/20 dark:text-blue-300">
               <Edit size={20} />
-              تعديل
+              {tr("تعديل")}
             </button>
           )}
         </div>
@@ -2552,8 +2490,8 @@ function App() {
       if (colorA > colorB) return 1;
 
       // Secondary: Serial Number (Numeric)
-      const numA = parseInt(a.serialNumber.replace(/\D/g, '')) || 0;
-      const numB = parseInt(b.serialNumber.replace(/\D/g, '')) || 0;
+      const numA = parseInt((a.serialNumber || '').replace(/\D/g, '')) || 0;
+      const numB = parseInt((b.serialNumber || '').replace(/\D/g, '')) || 0;
       return numA - numB;
     });
 
@@ -2650,10 +2588,10 @@ function App() {
       <div
         key={pen.id}
         onClick={() => pen.isGroup ? enterGroup(pen.id) : enterSheepList(pen.id)}
-        className="flex-none w-[48%] md:w-[280px] snap-center flex flex-col bg-[#FCFBF4] rounded-[2.5rem] p-5 shadow-sm border border-gray-100/50 transition-all duration-500 relative cursor-pointer hover:shadow-xl hover:border-[#795548]/20 group hover-glow dark:bg-slate-900 dark:border-slate-800"
+        className="flex-none w-[48%] md:w-[280px] snap-center flex flex-col bg-paper rounded-[2.5rem] p-5 shadow-sm border border-gray-100/50 transition-all duration-500 relative cursor-pointer hover:shadow-xl hover:border-brand-500/20 group hover-glow dark:bg-slate-900 dark:border-slate-800"
       >
         <div className="flex justify-between items-start mb-2">
-          <h3 className="font-black text-lg text-[#3E2723] dark:text-gray-200 group-hover:text-[#795548] transition-colors line-clamp-1 w-full text-center">
+          <h3 className="font-black text-lg text-brand-900 dark:text-gray-200 group-hover:text-brand-500 transition-colors line-clamp-1 w-full text-center">
             {pen.name}
           </h3>
         </div>
@@ -2682,8 +2620,8 @@ function App() {
             </svg>
 
             <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
-              <span className="text-3xl font-black text-[#3E2723] dark:text-gray-100">{penSheep.length}</span>
-              <span className="text-[10px] text-gray-400 font-bold tracking-widest mt-1 uppercase">رأس</span>
+              <span className="text-3xl font-black text-brand-900 dark:text-gray-100">{penSheep.length}</span>
+              <span className="text-[10px] text-gray-400 font-bold tracking-widest mt-1 uppercase">{tr("رأس")}</span>
             </div>
 
             {maleCount > 0 && (
@@ -2708,10 +2646,10 @@ function App() {
         <div className="mt-auto flex items-center justify-center gap-2 w-full">
           <button
             onClick={(e) => { e.stopPropagation(); pen.isGroup ? enterGroup(pen.id) : enterSheepList(pen.id); }}
-            className="flex-1 bg-[#3E2723] text-white h-10 rounded-2xl text-xs font-black hover:bg-[#5D4037] transition flex items-center justify-center gap-2 shadow-lg dark:bg-slate-800 dark:hover:bg-slate-700"
+            className="flex-1 bg-brand-900 text-white h-10 rounded-2xl text-xs font-black hover:bg-brand-700 transition flex items-center justify-center gap-2 shadow-lg dark:bg-slate-800 dark:hover:bg-slate-700"
           >
             <Eye size={16} />
-            <span>عرض</span>
+            <span>{tr("عرض")}</span>
           </button>
 
           <button
@@ -2735,23 +2673,28 @@ function App() {
   };
 
   // === AUTH GUARD ===
+  if (!authReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-paper dark:bg-slate-950">
+        <div className="w-10 h-10 border-4 border-brand-300 border-t-brand-700 rounded-full animate-spin" />
+      </div>
+    );
+  }
   if (!currentUser) {
     return (
       <AuthScreen
-        users={users}
-        isLoading={isLoadingUsers}
         onLogin={handleLogin}
         onRegisterOwner={handleRegisterOwner}
-        onUpdateUser={handleUpdateUser}
+        onSendPasswordReset={handleSendPasswordReset}
       />
     );
   }
   
   return (
-    <div className="min-h-screen flex flex-col font-sans text-gray-800 bg-[#fcfbf4] transition-colors duration-300 dark:bg-slate-950 dark:text-gray-100" dir={appLanguage === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="min-h-screen flex flex-col font-sans text-gray-800 bg-paper transition-colors duration-300 dark:bg-slate-950 dark:text-gray-100" dir={appLanguage === 'ar' ? 'rtl' : 'ltr'}>
       {/* Persistent Logout & Settings Buttons */}
       {(activeTab === 'dashboard' || (activeTab === 'pens' && !selectedGroupId)) && (
-        <div className="fixed top-6 left-6 right-6 z-[100] pointer-events-none flex justify-between items-center" dir="rtl">
+        <div className="fixed top-6 end-6 start-6 z-[100] pointer-events-none flex justify-between items-center" dir={isEnglish ? 'ltr' : 'rtl'}>
           <div className="flex items-center gap-2 pointer-events-auto">
             <button 
               onClick={handleLogout} 
@@ -2765,7 +2708,7 @@ function App() {
           <div className="flex items-center gap-2 pointer-events-auto">
             <button 
               onClick={() => setIsSettingsOpen(true)} 
-              className="text-gray-400 hover:text-[#795548] transition-all duration-300 bg-white p-3.5 rounded-2xl shadow-lg border border-white/20 hover:shadow-xl active:scale-90 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-300"
+              className="text-gray-400 hover:text-brand-500 transition-all duration-300 bg-white p-3.5 rounded-2xl shadow-lg border border-white/20 hover:shadow-xl active:scale-90 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-300"
               title={t.settings}
             >
               <Settings size={22} strokeWidth={2.5} />
@@ -2786,7 +2729,7 @@ function App() {
                     if (selectedPenId) { setSelectedPenId(null); setSectionSearchQuery(''); }
                     else { setSelectedGroupId(null); }
                   }}
-                  className="p-2 rounded-xl bg-[#fcfbf4] hover:bg-gray-100 text-gray-500 transition dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-gray-400"
+                  className="p-2 rounded-xl bg-paper hover:bg-gray-100 text-gray-500 transition dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-gray-400"
                 >
                   <ArrowRight size={20} className="rtl:rotate-180" />
                 </button>
@@ -2796,26 +2739,26 @@ function App() {
                 <div className="flex flex-col font-sans">
                   {selectedPen ? (
                     <div className="flex items-center gap-2">
-                      <h1 className="text-sm sm:text-base font-black text-[#3E2723] dark:text-gray-100 leading-tight">
+                      <h1 className="text-sm sm:text-base font-black text-brand-900 dark:text-gray-100 leading-tight">
                         {selectedPen.name}
                       </h1>
-                      <span className="bg-[#795548]/10 text-[#795548] text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded-lg dark:bg-orange-500/10 dark:text-orange-400">
-                        {displayedSheep.length} رأس
+                      <span className="bg-brand-500/10 text-brand-500 text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded-lg dark:bg-orange-500/10 dark:text-orange-400">
+                        {displayedSheep.length} {tr("رأس")}
                       </span>
                     </div>
                   ) : (
                     <>
-                      <h1 className="text-base sm:text-lg font-bold text-[#3E2723] dark:text-gray-100 leading-tight">
+                      <h1 className="text-base sm:text-lg font-bold text-brand-900 dark:text-gray-100 leading-tight">
                         {selectedGroup.name}
                       </h1>
-                      <span className="text-[10px] font-black text-orange-605 dark:text-orange-400 mt-0.5">
-                        عدد الأقسام: {pens.filter(p => p.parentId === selectedGroupId).length}
+                      <span className="text-[10px] font-black text-orange-600 dark:text-orange-400 mt-0.5">
+                        {tr("عدد الأقسام:")} {pens.filter(p => p.parentId === selectedGroupId).length}
                       </span>
                     </>
                   )}
                 </div>
               ) : (
-                <h1 className="text-xl font-bold text-[#3E2723] flex items-center gap-3 dark:text-gray-100">
+                <h1 className="text-xl font-bold text-brand-900 flex items-center gap-3 dark:text-gray-100">
                   {t.myBarns}
                 </h1>
               )}
@@ -2831,35 +2774,35 @@ function App() {
                       {can('canEditPens') && (
                         <button 
                           onClick={() => { setEditingPen(selectedPen); setIsAddingGroup(false); setIsModalOpen(true); }}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-bold border border-indigo-100 hover:bg-indigo-150 transition dark:bg-indigo-900/20 dark:border-indigo-900/50 whitespace-nowrap"
-                          title="تعديل القسم"
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-bold border border-indigo-100 hover:bg-indigo-200 transition dark:bg-indigo-900/20 dark:border-indigo-900/50 whitespace-nowrap"
+                          title={tr("تعديل القسم")}
                         >
-                          <Edit size={12} /> تعديل
+                          <Edit size={12} /> {tr("تعديل")}
                         </button>
                       )}
                       {/* Delete Section Button */}
                       {can('canDeletePens', selectedPen.id) && (
                         <button 
                           onClick={() => handleDeletePen(selectedPen.id, false)}
-                          className="flex items-center justify-center p-1.5 bg-red-50 text-red-600 rounded-xl border border-red-105 hover:bg-red-150 transition dark:bg-red-900/20 dark:border-red-900/50"
-                          title="حذف القسم"
+                          className="flex items-center justify-center p-1.5 bg-red-50 text-red-600 rounded-xl border border-red-100 hover:bg-red-200 transition dark:bg-red-900/20 dark:border-red-900/50"
+                          title={tr("حذف القسم")}
                         >
                           <Trash2 size={14} />
                         </button>
                       )}
                     </>
                   )}
-                  {can('canAddPens') && !selectedPenId && <button onClick={openAddSectionModal} className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-bold border border-blue-100 dark:bg-blue-900/20 whitespace-nowrap"><Warehouse size={12} /> قسم <Plus size={10} /></button>}
+                  {can('canAddPens') && !selectedPenId && <button onClick={openAddSectionModal} className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-bold border border-blue-100 dark:bg-blue-900/20 whitespace-nowrap"><Warehouse size={12} /> {tr("قسم")} <Plus size={10} /></button>}
                   {can('canAddAnimals') && !selectedPenId && <button onClick={() => openNewSheepModal(undefined)} className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-600 rounded-xl text-[10px] font-bold border border-orange-100 dark:bg-orange-900/20 whitespace-nowrap"><Dna size={12} /> {t.head} <Plus size={10} /></button>}
                   {!selectedPenId && (
                     <button 
                       onClick={() => setIsChatOpen(true)} 
-                      className="relative flex items-center justify-center p-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 hover:bg-emerald-105 transition dark:bg-emerald-900/20 dark:border-emerald-900/50"
-                      title="رسايل"
+                      className="relative flex items-center justify-center p-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 hover:bg-emerald-100 transition dark:bg-emerald-900/20 dark:border-emerald-900/50"
+                      title={tr("رسايل")}
                     >
                       <MessageCircle size={16} />
                       {unreadChatCount > 0 && (
-                        <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                        <span className="absolute -top-1 -start-1 flex h-4 w-4">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                           <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 text-white text-[9px] items-center justify-center font-bold">
                             {unreadChatCount > 9 ? '9+' : unreadChatCount}
@@ -2883,7 +2826,7 @@ function App() {
              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 dark:bg-slate-900 dark:border-slate-800">
                <h2 className="text-2xl font-bold mb-4">{t.farmSummary}</h2>
                {/* Dashboard content was implied but activeTab dashboard logic is minimal here */}
-               <p className="text-gray-500">نظرة عامة على المزرعة...</p>
+               <p className="text-gray-500">{tr("نظرة عامة على المزرعة...")}</p>
              </div>
           </div>
         )}
@@ -2896,34 +2839,34 @@ function App() {
               <div className="flex-1 flex flex-col min-h-0">
                 <div className="flex flex-col items-center justify-center pt-12 pb-8 mb-8 relative animate-slide-up">
               <div className="relative group">
-                <div className="w-16 h-16 rounded-2xl bg-[#3E2723] flex items-center justify-center text-white mb-4 shadow-xl premium-shadow animate-scale-in dark:bg-orange-600 rotate-3 group-hover:rotate-0 transition-transform duration-500">
+                <div className="w-16 h-16 rounded-2xl bg-brand-900 flex items-center justify-center text-white mb-4 shadow-xl premium-shadow animate-scale-in dark:bg-orange-600 rotate-3 group-hover:rotate-0 transition-transform duration-500">
                   <Warehouse size={32} />
                 </div>
               </div>
                   
-                  <h2 className="text-4xl font-black text-[#3E2723] dark:text-gray-100 tracking-tight">{t.myBarns}</h2>
-                  <div className="w-16 h-1.5 bg-[#795548] rounded-full mt-4 dark:bg-orange-600 opacity-20"></div>
-                  <p className="text-[9px] text-gray-400 font-black mt-4 uppercase tracking-[0.2em]">من تطوير JokeR_β</p>
+                  <h2 className="text-4xl font-black text-brand-900 dark:text-gray-100 tracking-tight">{t.myBarns}</h2>
+                  <div className="w-16 h-1.5 bg-brand-500 rounded-full mt-4 dark:bg-orange-600 opacity-20"></div>
+                  <p className="text-[9px] text-gray-400 font-black mt-4 uppercase tracking-[0.2em]">{tr("من تطوير JokeR_β")}</p>
                 </div>
 
                  {/* Section Filtering & Custom Reordering Controls (Root View) */}
-                 <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 mb-6 gap-3" dir="rtl">
+                 <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 mb-6 gap-3" dir={isEnglish ? 'ltr' : 'rtl'}>
                    {/* Search/Filter Barns Dropdown */}
                    <div className="relative flex-1" ref={barnFilterRef}>
-                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none z-10" />
+                     <Search className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none z-10" />
                      <button
                        type="button"
                        onClick={() => setIsBarnFilterDropdownOpen(!isBarnFilterDropdownOpen)}
-                       className="w-full pr-8 pl-8 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl text-[11px] font-bold outline-none focus:border-[#795548] focus:ring-1 focus:ring-[#795548] shadow-sm flex items-center justify-between text-right cursor-pointer text-gray-700 dark:text-gray-200"
+                       className="w-full ps-8 pe-8 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl text-[11px] font-bold outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 shadow-sm flex items-center justify-between text-start cursor-pointer text-gray-700 dark:text-gray-200"
                      >
-                       <span>{barnSearchQuery || 'كل الحظائر'}</span>
+                       <span>{barnSearchQuery || tr("كل الحظائر")}</span>
                        <div className="text-gray-400 w-3 h-3 flex items-center justify-center text-[10px]">
                          ▼
                        </div>
                      </button>
 
                      {isBarnFilterDropdownOpen && (
-                       <div className="absolute top-full right-0 left-0 mt-1.5 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl shadow-2xl z-50 max-h-48 overflow-y-auto custom-scrollbar animate-scale-in">
+                       <div className="absolute top-full start-0 end-0 mt-1.5 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl shadow-2xl z-50 max-h-48 overflow-y-auto custom-scrollbar animate-scale-in">
                          <div className="p-2 space-y-1">
                            <button
                              type="button"
@@ -2931,13 +2874,13 @@ function App() {
                                setBarnSearchQuery('');
                                setIsBarnFilterDropdownOpen(false);
                              }}
-                             className={`w-full text-right px-4 py-2.5 rounded-xl text-[10.5px] font-black transition-all ${
+                             className={`w-full text-start px-4 py-2.5 rounded-xl text-[10.5px] font-black transition-all ${
                                barnSearchQuery === ''
-                                 ? 'bg-[#795548] text-white shadow-md'
+                                 ? 'bg-brand-500 text-white shadow-md'
                                  : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800'
                              }`}
                            >
-                             كل الحظائر
+                             {tr("كل الحظائر")}
                            </button>
                            {displayedPens.map((p) => (
                              <button
@@ -2947,9 +2890,9 @@ function App() {
                                  setBarnSearchQuery(p.name);
                                  setIsBarnFilterDropdownOpen(false);
                                }}
-                               className={`w-full text-right px-4 py-2.5 rounded-xl text-[10.5px] font-black transition-all ${
+                               className={`w-full text-start px-4 py-2.5 rounded-xl text-[10.5px] font-black transition-all ${
                                  barnSearchQuery === p.name
-                                   ? 'bg-[#795548] text-white shadow-md'
+                                   ? 'bg-brand-500 text-white shadow-md'
                                    : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800'
                                }`}
                              >
@@ -2965,11 +2908,11 @@ function App() {
                    {can('canReorderPens') && (
                      <button
                        onClick={() => setIsReorderPensOpen(true)}
-                       className="flex items-center gap-1 px-3 py-2 bg-[#795548]/10 text-[#795548] rounded-xl text-[10px] font-black hover:bg-[#795548] hover:text-white transition-all dark:bg-orange-500/10 dark:text-orange-400 whitespace-nowrap shadow-sm border border-[#795548]/5 dark:border-orange-500/10"
-                       title="إعادة ترتيب الأقسام"
+                       className="flex items-center gap-1 px-3 py-2 bg-brand-500/10 text-brand-500 rounded-xl text-[10px] font-black hover:bg-brand-500 hover:text-white transition-all dark:bg-orange-500/10 dark:text-orange-400 whitespace-nowrap shadow-sm border border-brand-500/5 dark:border-orange-500/10"
+                       title={tr("إعادة ترتيب الأقسام")}
                      >
                        <ArrowRightLeft size={12} className="rotate-90" />
-                       <span>ترتيب الأقسام</span>
+                       <span>{tr("ترتيب الأقسام")}</span>
                      </button>
                    )}
                  </div>
@@ -2984,7 +2927,7 @@ function App() {
                          const sectionsCount = pens.filter(p => p.parentId === pen.id).length;
                          return (
                            <div key={pen.id} className="hover-glow transition-all">
-                              <SwipeableBarnCard onEdit={() => openEditModal(pen)} canEdit={isOwner || can('canEditBarns')} canDelete={isOwner || can('canDeleteBarns')}
+                              <SwipeableBarnCard onEdit={() => openEditModal(pen)} canEdit={can('canEditBarns')} canDelete={can('canDeleteBarns')}
                                name={pen.name} 
                                sectionsCount={sectionsCount}
                                onClick={() => enterGroup(pen.id)} 
@@ -2998,11 +2941,11 @@ function App() {
                  </div>
 
                 {/* Square FAB for Add Barn - Restricted to Owners/Permission */}
-                {(isOwner || can('canAddBarns')) && (
-                  <div className="fixed bottom-32 left-6 md:left-12 z-[100] pointer-events-none">
+                {can('canAddBarns') && (
+                  <div className="fixed bottom-32 end-6 md:end-12 z-[100] pointer-events-none">
                     <button 
                       onClick={openAddBarnModal} 
-                      className="pointer-events-auto w-14 h-14 bg-[#795548] text-white rounded-[1.5rem] shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all dark:bg-orange-600 premium-shadow animate-pulse-subtle"
+                      className="pointer-events-auto w-14 h-14 bg-brand-500 text-white rounded-[1.5rem] shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all dark:bg-orange-600 premium-shadow animate-pulse-subtle"
                       title={t.addBarn}
                     >
                       <Plus size={32} />
@@ -3010,7 +2953,7 @@ function App() {
                   </div>
                 )}
 
-                <div className="fixed bottom-10 left-0 right-0 p-6 flex flex-col items-center gap-4 pointer-events-none">
+                <div className="fixed bottom-10 end-0 start-0 p-6 flex flex-col items-center gap-4 pointer-events-none">
                 </div>
               </div>
             ) : (
@@ -3021,13 +2964,13 @@ function App() {
                     <div className="flex-1 overflow-y-auto pb-40 pt-6">
                       {/* Section Filtering & Custom Reordering Controls */}
                       {!selectedPenId && (
-                        <div className="flex items-center justify-between px-4 md:px-8 mb-4 gap-3" dir="rtl">
+                        <div className="flex items-center justify-between px-4 md:px-8 mb-4 gap-3" dir={isEnglish ? 'ltr' : 'rtl'}>
                           {/* Search/Filter Sections Input */}
                           <div className="relative flex-1">
-                            <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none z-10" />
+                            <Search className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none z-10" />
                             <input
                               type="text"
-                              placeholder="بحث عن الأقسام..."
+                              placeholder={tr("بحث عن الأقسام...")}
                               value={sectionSearchQuery}
                               onChange={(e) => {
                                 const val = e.target.value;
@@ -3036,7 +2979,7 @@ function App() {
                                   setSelectedPenId(null);
                                 }
                               }}
-                              className="w-full pr-8 pl-8 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl text-[11px] font-bold outline-none focus:border-[#795548] focus:ring-1 focus:ring-[#795548] shadow-sm text-right text-gray-700 dark:text-gray-200"
+                              className="w-full ps-8 pe-8 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl text-[11px] font-bold outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 shadow-sm text-start text-gray-700 dark:text-gray-200"
                             />
                             {sectionSearchQuery && (
                               <button
@@ -3045,7 +2988,7 @@ function App() {
                                   setSectionSearchQuery('');
                                   setSelectedPenId(null);
                                 }}
-                                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-650 dark:hover:text-gray-250 text-[10px] font-bold w-4 h-4 flex items-center justify-center bg-gray-100 hover:bg-gray-200 dark:bg-slate-850 dark:hover:bg-slate-700 rounded-full"
+                                className="absolute end-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-[10px] font-bold w-4 h-4 flex items-center justify-center bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-full"
                               >
                                 ✕
                               </button>
@@ -3056,11 +2999,11 @@ function App() {
                           {can('canReorderPens') && (
                             <button
                               onClick={() => setIsReorderPensOpen(true)}
-                              className="flex items-center gap-1 px-3 py-2 bg-[#795548]/10 text-[#795548] rounded-xl text-[10px] font-black hover:bg-[#795548] hover:text-white transition-all dark:bg-orange-500/10 dark:text-orange-400 whitespace-nowrap shadow-sm border border-[#795548]/5 dark:border-orange-500/10"
-                              title="إعادة ترتيب الأقسام"
+                              className="flex items-center gap-1 px-3 py-2 bg-brand-500/10 text-brand-500 rounded-xl text-[10px] font-black hover:bg-brand-500 hover:text-white transition-all dark:bg-orange-500/10 dark:text-orange-400 whitespace-nowrap shadow-sm border border-brand-500/5 dark:border-orange-500/10"
+                              title={tr("إعادة ترتيب الأقسام")}
                             >
                               <ArrowRightLeft size={12} className="rotate-90" />
-                              <span>ترتيب الأقسام</span>
+                              <span>{tr("ترتيب الأقسام")}</span>
                             </button>
                           )}
 
@@ -3071,15 +3014,15 @@ function App() {
                               onClick={() => setIsAnimalFilterOpen(!isAnimalFilterOpen)}
                               className={`flex items-center gap-1 px-3 py-2 rounded-xl text-[10px] font-black transition-all whitespace-nowrap shadow-sm border ${
                                 isAnimalFilterOpen || isAnimalSearchActive
-                                  ? 'bg-[#795548] text-white border-[#795548] dark:bg-orange-600 dark:border-orange-600'
+                                  ? 'bg-brand-500 text-white border-brand-500 dark:bg-orange-600 dark:border-orange-600'
                                   : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-slate-800 dark:text-gray-200 dark:border-slate-700'
                               }`}
-                              title="بحث وتصفية الحيوانات"
+                              title={tr("بحث وتصفية الحيوانات")}
                             >
                               <Filter size={12} />
-                              <span>تصفية الحيوانات</span>
+                              <span>{tr("تصفية الحيوانات")}</span>
                               {isAnimalSearchActive && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#E53935] animate-pulse inline-block mr-0.5" />
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#E53935] animate-pulse inline-block ms-0.5" />
                               )}
                             </button>
                           </div>
@@ -3088,20 +3031,20 @@ function App() {
 
 
                       {!selectedPenId && isAnimalFilterOpen && (
-                        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm rounded-[2rem] p-5 shadow-sm border border-gray-100 dark:border-slate-800 mx-4 md:mx-8 mb-6 mt-2" dir="rtl">
-                          <h4 className="text-[10px] font-black text-gray-400 mb-3">البحث والتصفية في الحظيرة</h4>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-right">
+                        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm rounded-[2rem] p-5 shadow-sm border border-gray-100 dark:border-slate-800 mx-4 md:mx-8 mb-6 mt-2" dir={isEnglish ? 'ltr' : 'rtl'}>
+                          <h4 className="text-[10px] font-black text-gray-400 mb-3">{tr("البحث والتصفية في الحظيرة")}</h4>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-start">
                             {/* Search by Number */}
                             <div className="relative col-span-2 md:col-span-1">
-                              <label className="block text-[8px] font-black text-gray-400 mb-1">رقم الحيوان</label>
+                              <label className="block text-[8px] font-black text-gray-400 mb-1">{tr("رقم الحيوان")}</label>
                               <div className="relative">
-                                <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3 h-3 pointer-events-none" />
+                                <Search className="absolute start-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3 h-3 pointer-events-none" />
                                 <input
                                   type="text"
-                                  placeholder="رقم الحيوان..."
+                                  placeholder={tr("رقم الحيوان...")}
                                   value={tempSearchNumber}
                                   onChange={(e) => setTempSearchNumber(e.target.value)}
-                                  className="w-full pr-7 pl-2.5 py-1.5 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-xl text-[10px] font-bold focus:ring-1 focus:ring-[#795548] focus:border-[#795548] outline-none transition-all dark:text-white"
+                                  className="w-full ps-7 pe-2.5 py-1.5 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-xl text-[10px] font-bold focus:ring-1 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all dark:text-white"
                                 />
                               </div>
                             </div>
@@ -3109,23 +3052,23 @@ function App() {
                             {/* Search by Color */}
                             <div>
                               <CustomSelect
-                                label="اللون"
-                                modalTitle="كل الألوان"
+                                label={tr("اللون")}
+                                modalTitle={tr("كل الألوان")}
                                 value={tempSearchColor}
                                 onChange={(val) => setTempSearchColor(val)}
                                 textSize="text-xs"
-                                placeholder="كل الألوان"
+                                placeholder={tr("كل الألوان")}
                                 options={(() => {
                                   const baseColors: Option[] = [
-                                    { value: 'all', label: 'كل الألوان' },
-                                    { value: '#10B981', label: 'أخضر', color: '#10B981' },
-                                    { value: '#3B82F6', label: 'أزرق', color: '#3B82F6' },
-                                    { value: '#EC4899', label: 'وردي', color: '#EC4899' },
-                                    { value: '#EF4444', label: 'أحمر', color: '#EF4444' },
-                                    { value: '#FACC15', label: 'أصفر', color: '#FACC15' },
-                                    { value: '#F59E0B', label: 'برتقالي', color: '#F59E0B' },
-                                    { value: '#8B5CF6', label: 'بنفسجي', color: '#8B5CF6' },
-                                    { value: '#6366F1', label: 'نيلي', color: '#6366F1' },
+                                    { value: 'all', label: tr("كل الألوان") },
+                                    { value: '#10B981', label: tr("أخضر"), color: '#10B981' },
+                                    { value: '#3B82F6', label: tr("أزرق"), color: '#3B82F6' },
+                                    { value: '#EC4899', label: tr("وردي"), color: '#EC4899' },
+                                    { value: '#EF4444', label: tr("أحمر"), color: '#EF4444' },
+                                    { value: '#FACC15', label: tr("أصفر"), color: '#FACC15' },
+                                    { value: '#F59E0B', label: tr("برتقالي"), color: '#F59E0B' },
+                                    { value: '#8B5CF6', label: tr("بنفسجي"), color: '#8B5CF6' },
+                                    { value: '#6366F1', label: tr("نيلي"), color: '#6366F1' },
                                     
                                   ];
                                   const extraColors = Array.from(new Set(displayedSheep.map(s => s.tagColor).filter(c => c && c !== 'none'))) as string[];
@@ -3146,18 +3089,18 @@ function App() {
                             {/* Search by Type */}
                             <div>
                               <CustomSelect
-                                label="النوع"
-                                modalTitle="كل الأنواع"
+                                label={tr("النوع")}
+                                modalTitle={tr("كل الأنواع")}
                                 value={tempSearchType}
                                 onChange={(val) => setTempSearchType(val)}
                                 textSize="text-xs"
-                                placeholder="كل الأنواع"
+                                placeholder={tr("كل الأنواع")}
                                 options={(() => {
                                   const defaultTypes = ['حري', 'نعيمي', 'نجدي', 'سواكني', 'ماعز', 'أخرى'];
                                   const presentTypes = displayedSheep.map(s => s.type).filter(Boolean);
                                   const allTypes = Array.from(new Set([...defaultTypes, ...presentTypes]));
                                   return [
-                                    { value: 'all', label: 'كل الأنواع' },
+                                    { value: 'all', label: tr("كل الأنواع") },
                                     ...allTypes.map(t => ({ value: t, label: t }))
                                   ];
                                 })()}
@@ -3167,18 +3110,18 @@ function App() {
                             {/* Search by Age */}
                             <div>
                               <CustomSelect
-                                label="العمر"
-                                modalTitle="كل الأعمار"
+                                label={tr("العمر")}
+                                modalTitle={tr("كل الأعمار")}
                                 value={tempSearchAge}
                                 onChange={(val) => setTempSearchAge(val)}
                                 textSize="text-xs"
-                                placeholder="كل الأعمار"
+                                placeholder={tr("كل الأعمار")}
                                 options={(() => {
                                   const defaultAges = ['طفل', 'جذع', 'ثني', 'رباع', 'سداس', 'تام'];
                                   const presentAges = displayedSheep.map(s => getAnimalAgeLabel(s.birthDate, s.type, s.gender)).filter(Boolean);
                                   const allAges = Array.from(new Set([...defaultAges, ...presentAges]));
                                   return [
-                                    { value: 'all', label: 'كل الأعمار' },
+                                    { value: 'all', label: tr("كل الأعمار") },
                                     ...allAges.map(a => ({ value: a, label: a }))
                                   ];
                                 })()}
@@ -3187,19 +3130,19 @@ function App() {
 
                             {/* Search by Gender - Radio Dots */}
                             <div className="col-span-2 sm:col-span-1">
-                              <label className="block text-[8px] font-black text-gray-400 mb-1">الجنس</label>
+                              <label className="block text-[8px] font-black text-gray-400 mb-1">{tr("الجنس")}</label>
                               <div className="flex items-center gap-1 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 p-1 rounded-xl">
                                 <button
                                   type="button"
                                   onClick={() => setTempSearchGender('all')}
                                   className={`flex-1 py-1 px-1.5 rounded-lg text-[9px] font-bold flex items-center justify-center gap-1 transition-all ${
                                     tempSearchGender === 'all'
-                                      ? 'bg-[#795548] text-white shadow-xs dark:bg-orange-600'
+                                      ? 'bg-brand-500 text-white shadow-xs dark:bg-orange-600'
                                       : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700/50'
                                   }`}
                                 >
                                   <span className={`w-2 h-2 rounded-full border ${tempSearchGender === 'all' ? 'bg-white border-white ring-1 ring-white/50' : 'border-gray-400'}`} />
-                                  <span>الكل</span>
+                                  <span>{tr("الكل")}</span>
                                 </button>
                                 <button
                                   type="button"
@@ -3211,7 +3154,7 @@ function App() {
                                   }`}
                                 >
                                   <span className={`w-2 h-2 rounded-full border ${tempSearchGender === 'male' ? 'bg-white border-white ring-1 ring-white/50' : 'border-blue-400'}`} />
-                                  <span>ذكر</span>
+                                  <span>{tr("ذكر")}</span>
                                 </button>
                                 <button
                                   type="button"
@@ -3223,7 +3166,7 @@ function App() {
                                   }`}
                                 >
                                   <span className={`w-2 h-2 rounded-full border ${tempSearchGender === 'female' ? 'bg-white border-white ring-1 ring-white/50' : 'border-pink-400'}`} />
-                                  <span>أنثى</span>
+                                  <span>{tr("أنثى")}</span>
                                 </button>
                               </div>
                             </div>
@@ -3247,7 +3190,7 @@ function App() {
                               }}
                               className="px-5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-[10px] font-black transition dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-gray-300 cursor-pointer"
                             >
-                              الغاء
+                              {tr("الغاء")}
                             </button>
                             <button
                               type="button"
@@ -3259,9 +3202,9 @@ function App() {
                                 setSheepSearchGender(tempSearchGender);
                                 setIsAnimalFilterOpen(false);
                               }}
-                              className="px-5 py-1.5 bg-[#795548] hover:bg-[#5E3F35] text-white rounded-xl text-[10px] font-black transition dark:bg-orange-600 dark:hover:bg-orange-700 cursor-pointer shadow-sm"
+                              className="px-5 py-1.5 bg-brand-500 hover:bg-[#5E3F35] text-white rounded-xl text-[10px] font-black transition dark:bg-orange-600 dark:hover:bg-orange-700 cursor-pointer shadow-sm"
                             >
-                              بحث
+                              {tr("بحث")}
                             </button>
                           </div>
                         </div>
@@ -3287,17 +3230,17 @@ function App() {
                               }} 
                               className={`flex-none w-32 h-40 snap-center bg-white/95 backdrop-blur-sm rounded-[2rem] p-3 shadow-lg border cursor-pointer dark:bg-slate-900 flex flex-col items-center justify-between hover:scale-[1.03] transition-all group relative overflow-hidden ${
                                 selectedPenId === pen.id 
-                                  ? 'border-[#795548] ring-2 ring-[#795548]/20 dark:border-orange-500 dark:ring-orange-500/20 bg-[#795548]/5 dark:bg-[#795548]/10' 
+                                  ? 'border-brand-500 ring-2 ring-brand-500/20 dark:border-orange-500 dark:ring-orange-500/20 bg-brand-500/5 dark:bg-brand-500/10' 
                                   : 'border-gray-100 dark:border-slate-800'
                                }`}
                             >
-                              <div className="absolute top-0 right-0 w-8 h-8 bg-orange-500/5 rounded-bl-3xl" />
-                              <div className="w-10 h-10 rounded-2xl bg-[#795548]/5 flex items-center justify-center text-[#795548] mb-1 group-hover:bg-[#795548] group-hover:text-white transition-colors dark:bg-orange-500/10 dark:text-orange-500">
+                              <div className="absolute top-0 start-0 w-8 h-8 bg-orange-500/5 rounded-ee-3xl" />
+                              <div className="w-10 h-10 rounded-2xl bg-brand-500/5 flex items-center justify-center text-brand-500 mb-1 group-hover:bg-brand-500 group-hover:text-white transition-colors dark:bg-orange-500/10 dark:text-orange-500">
                                  <Warehouse size={20} />
                               </div>
-                              <h3 className="font-black text-[11px] text-[#3E2723] dark:text-gray-100 text-center truncate w-full px-1 mb-1">{pen.name}</h3>
+                              <h3 className="font-black text-[11px] text-brand-900 dark:text-gray-100 text-center truncate w-full px-1 mb-1">{pen.name}</h3>
                               <div className="flex items-center gap-1 mb-2">
-                                 <span className="text-xl font-black text-[#795548] dark:text-orange-500">{allSheep.filter(s => s.penId === pen.id).length}</span>
+                                 <span className="text-xl font-black text-brand-500 dark:text-orange-500">{allSheep.filter(s => s.penId === pen.id).length}</span>
                                  <span className="text-[7px] text-gray-400 font-bold uppercase tracking-tighter">{t.head}</span>
                               </div>
                               <div className="flex gap-1 w-full flex-1 items-end">
@@ -3312,9 +3255,9 @@ function App() {
                                        setSectionSearchQuery(pen.name);
                                      }
                                    }} 
-                                   className="flex-1 bg-gray-50 text-gray-500 py-1.5 rounded-xl text-[9px] font-black dark:bg-slate-800 hover:bg-[#795548] hover:text-white transition-all border border-gray-100 dark:border-slate-700"
+                                   className="flex-1 bg-gray-50 text-gray-500 py-1.5 rounded-xl text-[9px] font-black dark:bg-slate-800 hover:bg-brand-500 hover:text-white transition-all border border-gray-100 dark:border-slate-700"
                                  >
-                                   التفاصيل
+                                   {tr("التفاصيل")}
                                  </button>
                               </div>
                             </div>
@@ -3326,13 +3269,13 @@ function App() {
                       {!selectedPenId && isAnimalSearchActive && (
                         <div className="px-4 md:px-8 pb-10">
                           <div className="bg-white/80 rounded-[2.5rem] shadow-sm border border-gray-100 p-6 dark:bg-slate-900 animate-slide-up">
-                            <div className="flex flex-wrap items-center justify-between gap-3 mb-4" dir="rtl">
+                            <div className="flex flex-wrap items-center justify-between gap-3 mb-4" dir={isEnglish ? 'ltr' : 'rtl'}>
                               <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="text-sm font-black text-[#3E2723] dark:text-gray-100 whitespace-nowrap">
-                                  نتائج البحث عن الحيوان
+                                <h3 className="text-sm font-black text-brand-900 dark:text-gray-100 whitespace-nowrap">
+                                  {tr("نتائج البحث عن الحيوان")}
                                 </h3>
-                                <span className="inline-flex items-center gap-1 text-xs font-bold bg-[#795548]/10 text-[#795548] px-2.5 py-1 rounded-xl dark:bg-orange-500/10 dark:text-orange-400 whitespace-nowrap shrink-0">
-                                  {filteredSheepList.length} رأس
+                                <span className="inline-flex items-center gap-1 text-xs font-bold bg-brand-500/10 text-brand-500 px-2.5 py-1 rounded-xl dark:bg-orange-500/10 dark:text-orange-400 whitespace-nowrap shrink-0">
+                                  {filteredSheepList.length} {tr("رأس")}
                                 </span>
                               </div>
                               <div className="flex items-center gap-2 shrink-0 flex-wrap">
@@ -3355,7 +3298,7 @@ function App() {
                                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-xl transition dark:bg-red-950/40 dark:text-red-400 cursor-pointer shadow-sm border border-red-100 dark:border-red-900/30 whitespace-nowrap shrink-0 active:scale-95"
                                 >
                                   <X size={14} />
-                                  <span>إلغاء التصفية</span>
+                                  <span>{tr("إلغاء التصفية")}</span>
                                 </button>
                                 {isBulkSelectMode ? (
                                   <>
@@ -3368,7 +3311,7 @@ function App() {
                                       className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 dark:bg-slate-800 dark:text-gray-300 text-xs font-bold rounded-xl transition whitespace-nowrap active:scale-95"
                                     >
                                       <X size={14} />
-                                      <span>إلغاء التحديد</span>
+                                      <span>{tr("إلغاء التحديد")}</span>
                                     </button>
                                     <button
                                       type="button"
@@ -3377,10 +3320,10 @@ function App() {
                                         setBulkMoveFilteredIds(selectedFilteredSheep.map(s => s.id));
                                         setIsMoveModalOpen(true);
                                       }}
-                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#795548]/10 hover:bg-[#795548]/20 disabled:opacity-50 disabled:cursor-not-allowed text-[#795548] dark:text-orange-400 text-xs font-bold rounded-xl transition cursor-pointer shadow-sm border border-[#795548]/20 dark:border-orange-800/30 whitespace-nowrap active:scale-95"
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-500/10 hover:bg-brand-500/20 disabled:opacity-50 disabled:cursor-not-allowed text-brand-500 dark:text-orange-400 text-xs font-bold rounded-xl transition cursor-pointer shadow-sm border border-brand-500/20 dark:border-orange-800/30 whitespace-nowrap active:scale-95"
                                     >
                                       <ArrowRightLeft size={13} />
-                                      <span>نقل المحدد ({selectedFilteredSheep.length})</span>
+                                      <span>{tr("نقل المحدد (")}{selectedFilteredSheep.length})</span>
                                     </button>
                                   </>
                                 ) : filteredSheepList.length > 0 && can('canMoveAnimals') && (
@@ -3390,10 +3333,10 @@ function App() {
                                       setSelectedBulkIds(new Set());
                                       setIsBulkSelectMode(true);
                                     }}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#795548]/10 hover:bg-[#795548]/20 text-[#795548] dark:text-orange-400 text-xs font-bold rounded-xl transition cursor-pointer shadow-sm border border-[#795548]/20 dark:border-orange-800/30 whitespace-nowrap active:scale-95"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-500/10 hover:bg-brand-500/20 text-brand-500 dark:text-orange-400 text-xs font-bold rounded-xl transition cursor-pointer shadow-sm border border-brand-500/20 dark:border-orange-800/30 whitespace-nowrap active:scale-95"
                                   >
                                     <ArrowRightLeft size={13} />
-                                    <span>نقل جماعي</span>
+                                    <span>{tr("نقل جماعي")}</span>
                                   </button>
                                 )}
                               </div>
@@ -3401,7 +3344,7 @@ function App() {
 
                             {isBulkSelectMode && (
                               <p className="mb-4 text-xs font-bold text-gray-500 dark:text-gray-400">
-                                اختر الحيوانات التي تريد نقلها، ثم اضغط «نقل المحدد».
+                                {tr("اختر الحيوانات التي تريد نقلها، ثم اضغط «نقل المحدد».")}
                               </p>
                             )}
 
@@ -3414,17 +3357,17 @@ function App() {
                                       if (s.gender === 'male') acc[key].male++; else acc[key].female++;
                                       return acc;
                                     }, {} as any)).map((group: any, idx) => (
-                                      <div key={idx} className="bg-white border border-gray-105 rounded-2xl p-4 dark:bg-slate-900">
+                                      <div key={idx} className="bg-white border border-gray-100 rounded-2xl p-4 dark:bg-slate-900">
                                          <div className="flex items-center justify-between mb-4">
                                            <div className="flex items-center gap-3">
                                              <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-sm" style={{ backgroundColor: group.tagColor || '#D7CCC8' }}><Dna size={18} className="text-white" /></div>
-                                             <h3 className="font-bold text-gray-800 dark:text-gray-100">{group.type}</h3>
+                                             <h3 className="font-bold text-gray-800 dark:text-gray-100">{tr(group.type)}</h3>
                                            </div>
-                                           <span className="text-xs font-black bg-[#795548] text-white px-2 py-1 rounded-lg">{group.male + group.female} {currentMetadata.headLabel}</span>
+                                           <span className="text-xs font-black bg-brand-500 text-white px-2 py-1 rounded-lg">{group.male + group.female} {tr(currentMetadata.headLabel)}</span>
                                          </div>
                                          <div className="grid grid-cols-2 gap-2 text-center">
-                                           <div className="bg-blue-50/50 p-2 rounded-xl"><span className="text-[10px] block">ذكور</span><span className="font-black text-blue-700">{group.male}</span></div>
-                                           <div className="bg-pink-50/50 p-2 rounded-xl"><span className="text-[10px] block">إناث</span><span className="font-black text-pink-700">{group.female}</span></div>
+                                           <div className="bg-blue-50/50 p-2 rounded-xl"><span className="text-[10px] block">{tr("ذكور")}</span><span className="font-black text-blue-700">{group.male}</span></div>
+                                           <div className="bg-pink-50/50 p-2 rounded-xl"><span className="text-[10px] block">{tr("إناث")}</span><span className="font-black text-pink-700">{group.female}</span></div>
                                          </div>
                                       </div>
                                     )))
@@ -3433,8 +3376,8 @@ function App() {
                                  )}
                               </div>
                             ) : (
-                              <div className="text-center py-12 text-gray-400 dark:text-slate-650 font-bold text-[11px]">
-                                لا توجد نتائج مطابقة لبحثك في هذه الحظيرة
+                              <div className="text-center py-12 text-gray-400 dark:text-slate-700 font-bold text-[11px]">
+                                {tr("لا توجد نتائج مطابقة لبحثك في هذه الحظيرة")}
                               </div>
                             )}
                           </div>
@@ -3458,13 +3401,13 @@ function App() {
                                          <div className="flex items-center justify-between mb-4">
                                            <div className="flex items-center gap-3">
                                              <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-sm" style={{ backgroundColor: group.tagColor || '#D7CCC8' }}><Dna size={18} className="text-white" /></div>
-                                             <h3 className="font-bold text-gray-800 dark:text-gray-100">{group.type}</h3>
+                                             <h3 className="font-bold text-gray-800 dark:text-gray-100">{tr(group.type)}</h3>
                                            </div>
-                                           <span className="text-xs font-black bg-[#795548] text-white px-2 py-1 rounded-lg">{group.male + group.female} {currentMetadata.headLabel}</span>
+                                           <span className="text-xs font-black bg-brand-500 text-white px-2 py-1 rounded-lg">{group.male + group.female} {tr(currentMetadata.headLabel)}</span>
                                          </div>
                                          <div className="grid grid-cols-2 gap-2 text-center">
-                                           <div className="bg-blue-50/50 p-2 rounded-xl"><span className="text-[10px] block">ذكور</span><span className="font-black text-blue-700">{group.male}</span></div>
-                                           <div className="bg-pink-50/50 p-2 rounded-xl"><span className="text-[10px] block">إناث</span><span className="font-black text-pink-700">{group.female}</span></div>
+                                           <div className="bg-blue-50/50 p-2 rounded-xl"><span className="text-[10px] block">{tr("ذكور")}</span><span className="font-black text-blue-700">{group.male}</span></div>
+                                           <div className="bg-pink-50/50 p-2 rounded-xl"><span className="text-[10px] block">{tr("إناث")}</span><span className="font-black text-pink-700">{group.female}</span></div>
                                          </div>
                                       </div>
                                     )))
@@ -3473,9 +3416,9 @@ function App() {
                                  )}
                               </div>
                             ) : (
-                              <div className="flex flex-col items-center justify-center py-16 text-gray-450 dark:text-gray-500">
+                              <div className="flex flex-col items-center justify-center py-16 text-gray-500 dark:text-gray-500">
                                 <Warehouse size={48} className="text-gray-300 dark:text-slate-700 mb-3" />
-                                <p className="font-black text-xs text-gray-450 dark:text-gray-400">هذا القسم فارغ، لا توجد به حيوانات حالياً</p>
+                                <p className="font-black text-xs text-gray-500 dark:text-gray-400">{tr("هذا القسم فارغ، لا توجد به حيوانات حالياً")}</p>
                               </div>
                             )}
                           </div>
@@ -3509,27 +3452,27 @@ function App() {
                              {can('canViewProduction') && (
                               <div className="mt-8 space-y-3 px-4 md:px-8">
                                 <div className="flex justify-between items-center mb-1">
-                                  <h3 className="text-[10px] font-black text-[#3E2723] dark:text-gray-100 text-right uppercase tracking-[0.2em]">{t.typeStats}</h3>
+                                  <h3 className="text-[10px] font-black text-brand-900 dark:text-gray-100 text-start uppercase tracking-[0.2em]">{t.typeStats}</h3>
                                   <button 
                                     onClick={() => setIsTypeAgeStatsOpen(true)}
-                                    className="text-[9px] font-black text-[#5E3F35] hover:text-orange-850 select-none bg-orange-50 dark:bg-orange-950/20 px-2.5 py-1 rounded-xl border border-orange-100/50 dark:border-orange-900/20 cursor-pointer transition-colors active:scale-95"
+                                    className="text-[9px] font-black text-[#5E3F35] hover:text-orange-800 select-none bg-orange-50 dark:bg-orange-950/20 px-2.5 py-1 rounded-xl border border-orange-100/50 dark:border-orange-900/20 cursor-pointer transition-colors active:scale-95"
                                   >
-                                    عرض تفاصيل الأعمار
+                                    {tr("عرض تفاصيل الأعمار")}
                                   </button>
                                 </div>
                                 <div 
                                   onDoubleClick={() => setIsTypeAgeStatsOpen(true)}
                                   className="bg-white/90 rounded-[2rem] p-4 shadow-sm border border-gray-100 flex items-center justify-between gap-6 dark:bg-slate-900 dark:border-slate-800 backdrop-blur-md cursor-pointer hover:shadow-md transition-shadow"
-                                  title="انقر مزدوجاً لعرض تفاصيل الأعمار"
+                                  title={tr("انقر مزدوجاً لعرض تفاصيل الأعمار")}
                                 >
-                                  <div className="flex-1 grid gap-2 max-h-24 overflow-y-auto pr-2 custom-scrollbar">
+                                  <div className="flex-1 grid gap-2 max-h-24 overflow-y-auto ps-2 custom-scrollbar">
                                     {chartData.map((d, i) => (
                                       <div key={i} className="flex items-center gap-3 p-2 rounded-xl bg-gray-50/50 dark:bg-slate-800 justify-start transition-all hover:bg-gray-100/50">
                                         <div className="flex items-center gap-2 min-w-0">
                                           <div className="w-2 h-2 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: d.color && d.color.startsWith('#') ? d.color : (d.color === 'yellow' ? '#FDD835' : (d.color === 'red' ? '#E53935' : '#D7CCC8')) }} />
                                           <span className="text-[10px] font-bold text-gray-700 dark:text-gray-300 truncate">{d.name}</span>
                                         </div>
-                                        <span className="text-xs font-black text-[#3E2723] dark:text-gray-100 shrink-0 ml-auto">{d.value}</span>
+                                        <span className="text-xs font-black text-brand-900 dark:text-gray-100 shrink-0 me-auto">{d.value}</span>
                                       </div>
                                     ))}
                                   </div>
@@ -3545,7 +3488,7 @@ function App() {
                                       })}
                                     </svg>
                                     <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
-                                      <span className="text-xl font-black text-[#3E2723] dark:text-gray-100">{total}</span>
+                                      <span className="text-xl font-black text-brand-900 dark:text-gray-100">{total}</span>
                                       <span className="text-[7px] text-gray-400 font-bold uppercase mt-1 tracking-tighter">{t.head}</span>
                                     </div>
                                   </div>
@@ -3558,12 +3501,12 @@ function App() {
                                 <div className="mt-8 px-4 md:px-8 animate-fade-in">
                                   <div className="bg-white/95 rounded-[2rem] p-5 shadow-sm border border-gray-100 dark:bg-slate-900 dark:border-slate-800 backdrop-blur-md">
                                     <div className="flex justify-between items-center mb-6">
-                                      <button onClick={() => setIsRecentsOpen(true)} className="text-[10px] font-bold text-gray-400 hover:text-[#795548] flex items-center gap-1 bg-gray-50 px-2 py-1.5 rounded-lg transition dark:bg-slate-800">
-                                        سجل كامل <ChevronLeft size={10} className="rotate-180" />
+                                      <button onClick={() => setIsRecentsOpen(true)} className="text-[10px] font-bold text-gray-400 hover:text-brand-500 flex items-center gap-1 bg-gray-50 px-2 py-1.5 rounded-lg transition dark:bg-slate-800">
+                                        {tr("سجل كامل")} <ChevronLeft size={10} className="rotate-180" />
                                       </button>
                                       
                                       <div className="flex items-center gap-2">
-                                        <h3 className="font-black text-sm text-gray-800 dark:text-gray-100">الأحداث الأخيرة</h3>
+                                        <h3 className="font-black text-sm text-gray-800 dark:text-gray-100">{tr("الأحداث الأخيرة")}</h3>
                                         <div className="p-1.5 bg-pink-50 text-pink-700 rounded-lg dark:bg-pink-900/20"><Calendar size={14} /></div>
                                       </div>
                                     </div>
@@ -3571,10 +3514,10 @@ function App() {
                                     {(() => {
                                       const barnLogs = getBarnRelevantLogs(selectedGroupId);
                                       if (barnLogs.length === 0) {
-                                        return <div className="text-center py-6 text-gray-300 font-bold text-xs">لا توجد أحداث مسجلة بالحظيرة</div>;
+                                        return <div className="text-center py-6 text-gray-300 font-bold text-xs">{tr("لا توجد أحداث مسجلة بالحظيرة")}</div>;
                                       }
                                       return (
-                                        <div className="relative pr-3 space-y-5 before:absolute before:right-[15px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gray-100 dark:before:bg-slate-800">
+                                        <div className="relative ps-3 space-y-5 before:absolute before:start-[15px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gray-100 dark:before:bg-slate-800">
                                           {barnLogs.slice(0, 5).map(log => {
                                           // Determine dot color based on action type
                                           let dotColor = 'bg-slate-400 border-slate-200';
@@ -3592,14 +3535,14 @@ function App() {
 
                                            return (
                                              <div key={log.id} className="relative flex flex-col animate-scale-in">
-                                               <div className="flex items-start justify-between gap-4 pr-6">
+                                               <div className="flex items-start justify-between gap-4 ps-6">
                                                  {/* Dot marker */}
-                                                 <div className={`absolute right-[9px] top-1.5 w-3.5 h-3.5 rounded-full border-4 border-[#FCFBF4] dark:border-slate-900 ${dotColor} shadow-sm shrink-0`} />
+                                                 <div className={`absolute start-[9px] top-1.5 w-3.5 h-3.5 rounded-full border-4 border-paper dark:border-slate-900 ${dotColor} shadow-sm shrink-0`} />
                                                  
                                                  {/* Right content: Action details */}
-                                                 <div className="flex-1 text-right min-w-0 pr-1">
+                                                 <div className="flex-1 text-start min-w-0 ps-1">
                                                    <h4 className="font-extrabold text-[12px] text-gray-800 dark:text-gray-100 leading-snug">
-                                                     {log.action}
+                                                     {tr(log.action)}
                                                    </h4>
                                                    <p className="text-[10px] text-gray-400 font-bold mt-0.5 flex items-center justify-start gap-1 leading-relaxed">
                                                      {(() => {
@@ -3607,7 +3550,7 @@ function App() {
                                                         const tagCol = log.tagColor || s_item?.tagColor;
                                                        if (!tagCol) return null;
                                                        return (
-                                                         <span className="flex flex-col items-center justify-center shrink-0 mr-1 ml-0.5">
+                                                         <span className="flex flex-col items-center justify-center shrink-0 ms-1 me-0.5">
                                                            <span 
                                                              className="w-2.5 h-2.5 rounded-full inline-block border border-white dark:border-slate-900 shadow-sm shrink-0" 
                                                              style={{ backgroundColor: tagCol }}
@@ -3618,48 +3561,48 @@ function App() {
                                                          </span>
                                                        );
                                                      })()}
-                                                     <span className="truncate">{log.detail || 'تحديث بيانات الحلال'}</span>
+                                                     <span className="truncate">{log.detail || tr("تحديث بيانات الحلال")}</span>
                                                    </p>
                                                  </div>
 
                                                  {/* Left content: Date & Show details button */}
-                                                 <div className="text-left flex flex-col items-start shrink-0">
+                                                 <div className="text-end flex flex-col items-start shrink-0">
                                                    <span className="text-[9px] font-extrabold text-gray-400 leading-none">
-                                                     {new Date(log.timestamp).toLocaleDateString('ar-EG', { numberingSystem: 'latn' })}
+                                                     {new Date(log.timestamp).toLocaleDateString(appLocale, { numberingSystem: 'latn' })}
                                                    </span>
                                                    <button
                                                      onClick={() => setExpandedActivityId(isExpanded ? null : log.id)}
                                                      className="text-[9px] font-black text-orange-600 hover:text-orange-800 transition-colors mt-1 cursor-pointer hover:underline bg-transparent border-0 p-0"
                                                    >
-                                                     {isExpanded ? 'إخفاء التفاصيل' : 'عرض التفاصيل'}
+                                                     {isExpanded ? tr("إخفاء التفاصيل") : tr("عرض التفاصيل")}
                                                    </button>
                                                  </div>
                                                </div>
 
                                                {/* Accordion dropdown content */}
                                                {isExpanded && (
-                                                 <div className="mr-6 ml-2 mt-2 p-3 bg-orange-50/50 dark:bg-slate-800/50 rounded-2xl border border-orange-100/30 dark:border-slate-800 text-[10px] font-bold text-gray-600 dark:text-gray-300 space-y-1.5 animate-slide-up text-right">
-                                                   {can('canViewActivity') && <div><span className="text-gray-400">القائم بالعمل: </span>{log.userName}</div>}
-                                                   <div><span className="text-gray-400">الإجراء: </span>{log.action}</div>
-                                                   <div><span className="text-gray-400">التفاصيل: </span>{log.detail || 'تحديث بيانات'}</div>
+                                                 <div className="ms-6 me-2 mt-2 p-3 bg-orange-50/50 dark:bg-slate-800/50 rounded-2xl border border-orange-100/30 dark:border-slate-800 text-[10px] font-bold text-gray-600 dark:text-gray-300 space-y-1.5 animate-slide-up text-start">
+                                                   {can('canViewActivity') && <div><span className="text-gray-400">{tr("القائم بالعمل:")} </span>{log.userName}</div>}
+                                                   <div><span className="text-gray-400">{tr("الإجراء:")} </span>{tr(log.action)}</div>
+                                                   <div><span className="text-gray-400">{tr("التفاصيل:")} </span>{log.detail || tr("تحديث بيانات")}</div>
                                                    {(() => {
                                                      const s = log.serialNumber ? (allSheep.find(s => s.serialNumber === log.serialNumber && s.tagColor === (log.tagColor || undefined)) || allSheep.find(s => s.serialNumber === log.serialNumber)) : null;
                                                      const tagCol = log.tagColor || s?.tagColor;
                                                      if (!tagCol) return null;
                                                      return (
                                                        <div className="flex items-center justify-start gap-1.5">
-                                                         <span className="text-gray-400">لون الشارة: </span>
+                                                         <span className="text-gray-400">{tr("لون الشارة:")} </span>
                                                          <span className="inline-flex items-center gap-1.5">
                                                            <span 
                                                              className="w-2 h-2 rounded-full inline-block border border-white dark:border-slate-900 shadow-sm shrink-0" 
                                                              style={{ backgroundColor: tagCol }}
                                                            />
-                                                           {colorNames[tagCol] || 'ملون'}
+                                                           {colorNames[tagCol] || tr("ملون")}
                                                          </span>
                                                        </div>
                                                      );
                                                    })()}
-                                                   <div><span className="text-gray-400">التاريخ: </span>{new Date(log.timestamp).toLocaleString('ar-EG', { numberingSystem: 'latn' })}</div>
+                                                   <div><span className="text-gray-400">{tr("التاريخ:")} </span>{new Date(log.timestamp).toLocaleString(appLocale, { numberingSystem: 'latn' })}</div>
                                                  </div>
                                                )}
                                              </div>
@@ -3679,28 +3622,28 @@ function App() {
                 )}
 
                 {/* Sub-Tabs for Feed, Vaccines, Expenses */}
-                {barnTab === 'feed' && <div className="max-w-5xl mx-auto pt-4 pb-24 px-4"><FeedManager items={feedItems} onUpdate={handleUpdateFeed} penId={selectedGroupId} animalType={selectedGroup?.animalType} onAddExpense={handleSaveExpense} isOwner={isOwner} canEdit={can('canEditFeed')} currentUser={currentUser} onShowAlert={showAlert} onShowConfirm={showConfirm} /></div>}
+                {barnTab === 'feed' && can('canViewFeed') && <div className="max-w-5xl mx-auto pt-4 pb-24 px-4"><FeedManager items={feedItems} onUpdate={handleUpdateFeed} penId={selectedGroupId} animalType={selectedGroup?.animalType} onAddExpense={handleSaveExpense} canEdit={can('canEditFeed')} currentUser={currentUser} onShowAlert={showAlert} onShowConfirm={showConfirm} /></div>}
                 {barnTab === 'vaccines' && <div className="max-w-2xl mx-auto pt-4 pb-24 px-4 flex justify-center"><VaccinationGuide sheepList={barnSheep} animalType={selectedGroup?.animalType} language={appLanguage} /></div>}
-                {barnTab === 'expenses' && <div className="max-w-5xl mx-auto pt-4 pb-24 px-4"><FinanceManager penId={selectedGroupId!} expenses={expenses} sales={sales} animals={displayedSheep} animalType={selectedGroup?.animalType} onSaveExpense={handleSaveExpense} onSaveSale={handleSaveSale} onDeleteExpense={handleDeleteExpense} onDeleteSale={handleDeleteSale} isOwner={isOwner} onShowAlert={showAlert} onShowConfirm={showConfirm} /></div>}
+                {barnTab === 'expenses' && can('canViewFinance') && <div className="max-w-5xl mx-auto pt-4 pb-24 px-4"><FinanceManager penId={selectedGroupId!} expenses={expenses} sales={sales} animals={displayedSheep} animalType={selectedGroup?.animalType} onSaveExpense={handleSaveExpense} onSaveSale={handleSaveSale} onDeleteExpense={handleDeleteExpense} onDeleteSale={handleDeleteSale} canAdd={can('canAddExpenses')} canDelete={can('canDeleteExpenses')} onShowAlert={showAlert} onShowConfirm={showConfirm} /></div>}
 
                 {/* Barn Secondary Navigation */}
-                <div className="fixed bottom-6 left-0 right-0 z-50 flex justify-center pointer-events-none">
+                <div className="fixed bottom-6 end-0 start-0 z-50 flex justify-center pointer-events-none">
                    <div className="bg-white border border-gray-100 rounded-2xl shadow-xl w-[90%] max-w-lg pointer-events-auto flex items-center justify-between px-2 py-2 dark:bg-slate-900 dark:border-slate-800">
-                     {isOwner && <button onClick={() => setBarnTab('expenses')} className={`flex-1 flex flex-col items-center gap-1 py-1 ${barnTab === 'expenses' ? 'text-orange-600' : 'text-gray-400'}`}><Wallet size={24} /><span className="text-[10px] font-bold">{t.financials}</span></button>}
+                     {can('canViewFinance') && <button onClick={() => setBarnTab('expenses')} className={`flex-1 flex flex-col items-center gap-1 py-1 ${barnTab === 'expenses' ? 'text-orange-600' : 'text-gray-400'}`}><Wallet size={24} /><span className="text-[10px] font-bold">{t.financials}</span></button>}
                      <button onClick={() => setBarnTab('vaccines')} className={`flex-1 flex flex-col items-center gap-1 py-1 ${barnTab === 'vaccines' ? 'text-orange-600' : 'text-gray-400'}`}><ShieldCheck size={24} /><span className="text-[10px] font-bold">{t.vaccination}</span></button>
-                      <div className="relative -top-6"><button onClick={() => setIsDashboardOpen(true)} className="w-14 h-14 bg-[#795548] rounded-full shadow-lg flex items-center justify-center text-white border-4 border-[#fcfbf4] dark:bg-orange-600 dark:border-slate-950"><Plus size={28} strokeWidth={3} /></button></div>
-                     <button onClick={() => setBarnTab('feed')} className={`flex-1 flex flex-col items-center gap-1 py-1 relative ${barnTab === 'feed' ? 'text-orange-600' : 'text-gray-400'}`}>
+                      <div className="relative -top-6"><button onClick={() => setIsDashboardOpen(true)} className="w-14 h-14 bg-brand-500 rounded-full shadow-lg flex items-center justify-center text-white border-4 border-paper dark:bg-orange-600 dark:border-slate-950"><Plus size={28} strokeWidth={3} /></button></div>
+                     {can('canViewFeed') && <button onClick={() => setBarnTab('feed')} className={`flex-1 flex flex-col items-center gap-1 py-1 relative ${barnTab === 'feed' ? 'text-orange-600' : 'text-gray-400'}`}>
                         <div className="relative">
                           <Wheat size={24} />
                           {isAnyFeedLowOrEmpty && (
-                            <span className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 z-10">
+                            <span className="absolute -top-1.5 -start-1.5 flex h-3.5 w-3.5 z-10">
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                               <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500 border border-white dark:border-slate-900"></span>
                             </span>
                           )}
                         </div>
                         <span className="text-[10px] font-bold">{t.stock}</span>
-                      </button>
+                      </button>}
                      <button onClick={() => setBarnTab('pens')} className={`flex-1 flex flex-col items-center gap-1 py-1 ${barnTab === 'pens' ? 'text-orange-600' : 'text-gray-400'}`}><Warehouse size={24} /><span className="text-[10px] font-bold">{t.sections}</span></button>
                    </div>
                 </div>
@@ -3714,16 +3657,16 @@ function App() {
           <div className="p-4 md:p-8 space-y-6 animate-fade-in h-[calc(100vh-64px)] overflow-y-auto">
              {/* Filter Bar */}
              {displayedSheep.length > 0 && (
-               <div className="bg-white/95 border border-gray-150/10 rounded-3xl p-4 shadow-md dark:bg-slate-900 dark:border-slate-800 grid grid-cols-2 md:grid-cols-4 gap-3 text-right">
+               <div className="bg-white/95 border border-gray-200/10 rounded-3xl p-4 shadow-md dark:bg-slate-900 dark:border-slate-800 grid grid-cols-2 md:grid-cols-4 gap-3 text-start">
                  {/* Animal Number Search */}
                  <div className="relative">
-                   <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
+                   <Search className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
                    <input
                      type="text"
-                     placeholder="رقم الحيوان..."
+                     placeholder={tr("رقم الحيوان...")}
                      value={sheepSearchNumber}
                      onChange={(e) => setSheepSearchNumber(e.target.value)}
-                     className="w-full pr-8 pl-3 py-2 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-2xl text-[11px] font-bold focus:ring-2 focus:ring-[#795548]/20 focus:border-[#795548] outline-none transition-all dark:text-white"
+                     className="w-full ps-8 pe-3 py-2 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-2xl text-[11px] font-bold focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none transition-all dark:text-white"
                    />
                  </div>
 
@@ -3732,9 +3675,9 @@ function App() {
                    <select
                      value={sheepSearchType}
                      onChange={(e) => setSheepSearchType(e.target.value)}
-                     className="w-full px-3 py-2 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-2xl text-[11px] font-bold focus:ring-2 focus:ring-[#795548]/20 focus:border-[#795548] outline-none transition-all dark:text-white cursor-pointer"
+                     className="w-full px-3 py-2 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-2xl text-[11px] font-bold focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none transition-all dark:text-white cursor-pointer"
                    >
-                     <option value="all">كل الأنواع</option>
+                     <option value="all">{tr("كل الأنواع")}</option>
                      {Array.from(new Set(displayedSheep.map(s => s.type)))
                        .filter(Boolean)
                        .map(type => (
@@ -3748,9 +3691,9 @@ function App() {
                    <select
                      value={sheepSearchColor}
                      onChange={(e) => setSheepSearchColor(e.target.value)}
-                     className="w-full px-3 py-2 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-2xl text-[11px] font-bold focus:ring-2 focus:ring-[#795548]/20 focus:border-[#795548] outline-none transition-all dark:text-white cursor-pointer"
+                     className="w-full px-3 py-2 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-2xl text-[11px] font-bold focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none transition-all dark:text-white cursor-pointer"
                    >
-                     <option value="all">كل الألوان</option>
+                     <option value="all">{tr("كل الألوان")}</option>
                      {Array.from(new Set(displayedSheep.map(s => s.tagColor || 'none')))
                        .map((color: any) => (
                          <option key={color} value={color}>
@@ -3765,9 +3708,9 @@ function App() {
                    <select
                      value={sheepSearchAge}
                      onChange={(e) => setSheepSearchAge(e.target.value)}
-                     className="w-full px-3 py-2 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-2xl text-[11px] font-bold focus:ring-2 focus:ring-[#795548]/20 focus:border-[#795548] outline-none transition-all dark:text-white cursor-pointer"
+                     className="w-full px-3 py-2 bg-gray-50/50 dark:bg-slate-800 border border-gray-200/50 dark:border-slate-700/60 rounded-2xl text-[11px] font-bold focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none transition-all dark:text-white cursor-pointer"
                    >
-                     <option value="all">كل الأعمار</option>
+                     <option value="all">{tr("كل الأعمار")}</option>
                      {Array.from(new Set(displayedSheep.map(s => getAnimalAgeLabel(s.birthDate, s.type, s.gender))))
                        .filter(Boolean)
                        .map(age => (
@@ -3792,13 +3735,13 @@ function App() {
                              <div className="flex items-center justify-between mb-4">
                                <div className="flex items-center gap-3">
                                  <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-sm" style={{ backgroundColor: group.tagColor || '#D7CCC8' }}><Dna size={18} className="text-white" /></div>
-                                 <h3 className="font-bold text-gray-800 dark:text-gray-100">{group.type}</h3>
+                                 <h3 className="font-bold text-gray-800 dark:text-gray-100">{tr(group.type)}</h3>
                                </div>
-                               <span className="text-xs font-black bg-[#795548] text-white px-2 py-1 rounded-lg">{group.male + group.female} {currentMetadata.headLabel}</span>
+                               <span className="text-xs font-black bg-brand-500 text-white px-2 py-1 rounded-lg">{group.male + group.female} {tr(currentMetadata.headLabel)}</span>
                              </div>
                              <div className="grid grid-cols-2 gap-2 text-center">
-                               <div className="bg-blue-50/50 p-2 rounded-xl"><span className="text-[10px] block">ذكور</span><span className="font-black text-blue-700">{group.male}</span></div>
-                               <div className="bg-pink-50/50 p-2 rounded-xl"><span className="text-[10px] block">إناث</span><span className="font-black text-pink-700">{group.female}</span></div>
+                               <div className="bg-blue-50/50 p-2 rounded-xl"><span className="text-[10px] block">{tr("ذكور")}</span><span className="font-black text-blue-700">{group.male}</span></div>
+                               <div className="bg-pink-50/50 p-2 rounded-xl"><span className="text-[10px] block">{tr("إناث")}</span><span className="font-black text-pink-700">{group.female}</span></div>
                              </div>
                           </div>
                        ))
@@ -3807,7 +3750,7 @@ function App() {
                     )}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-20 text-gray-400 opacity-20"><Warehouse size={64} /><p className="font-bold">لا توجد بيانات</p></div>
+                  <div className="flex flex-col items-center justify-center py-20 text-gray-400 opacity-20"><Warehouse size={64} /><p className="font-bold">{tr("لا توجد بيانات")}</p></div>
                 )}
               </div>
             </div>
@@ -3817,8 +3760,8 @@ function App() {
 
       {/* Dashboard Summary Modal - Restored and Restricted */}
       {isDashboardOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl">
-          <div className="bg-[#FCFBF4] w-full max-w-sm h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative border border-[#E8E5DF] animate-scale-in dark:bg-slate-950 dark:border-slate-800">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir={isEnglish ? 'ltr' : 'rtl'}>
+          <div className="bg-paper w-full max-w-sm h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative border border-[#E8E5DF] animate-scale-in dark:bg-slate-950 dark:border-slate-800">
             {/* Header */}
             <div className="p-6 pb-4 flex justify-between items-center bg-transparent no-print">
               <button 
@@ -3828,7 +3771,7 @@ function App() {
                 <X size={20} />
               </button>
               
-              <h2 className="text-2xl font-black text-[#3E2723] flex items-center gap-3 dark:text-gray-100">
+              <h2 className="text-2xl font-black text-brand-900 flex items-center gap-3 dark:text-gray-100">
                 <LayoutGrid className="text-orange-600" size={24} />
                 {t.farmSummary}
               </h2>
@@ -3838,15 +3781,15 @@ function App() {
               {/* Grid Menu */}
               <div className="grid grid-cols-2 gap-4">
                 {[
-                  { id: 'feed', label: 'إدارة الأعلاف', icon: Wheat, color: 'text-orange-600 bg-orange-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setReportsInitialTab('feed'); setIsReportsModalOpen(true); } },
-                  { id: 'health', label: 'الحالة الصحية', icon: Activity, color: 'text-blue-600 bg-blue-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setReportsInitialTab('health'); setIsReportsModalOpen(true); } },
-                  { id: 'sales', label: 'المبيعات', icon: Banknote, color: 'text-[#00E676] bg-emerald-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setReportsInitialTab('sales'); setIsReportsModalOpen(true); } },
-                  { id: 'finance', label: 'المصاريف', icon: Wallet, color: 'text-green-600 bg-green-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setReportsInitialTab('financial'); setIsReportsModalOpen(true); } },
-                  { id: 'excluded', label: 'المستبعدة', icon: Skull, color: 'text-red-600 bg-red-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsDeathsModalOpen(true); } },
-                  { id: 'production', label: 'سجل الإنتاج', icon: BarChart3, color: 'text-purple-600 bg-purple-50', onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsStatsModalOpen(true); } },
-                  { id: 'workers', label: 'إدارة العمال', icon: Users, color: 'text-[#795548] bg-[#795548]/10', onClick: () => { if (!isOwner) return; setIsDashboardOpen(false); setReturnToDashboard(true); setIsWorkerManageOpen(true); } },
-                  { id: 'chat', label: 'المحادثات', icon: MessageCircle, color: 'text-emerald-600 bg-emerald-50', onClick: () => { setIsDashboardOpen(false); setIsChatOpen(true); } },
-                ].filter(item => isOwner || item.id !== 'workers').map(item => (
+                  { id: 'feed', label: tr("إدارة الأعلاف"), icon: Wheat, color: 'text-orange-600 bg-orange-50', allowed: can('canViewReports'), onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setReportsInitialTab('feed'); setIsReportsModalOpen(true); } },
+                  { id: 'health', label: tr("الحالة الصحية"), icon: Activity, color: 'text-blue-600 bg-blue-50', allowed: can('canViewReports'), onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setReportsInitialTab('health'); setIsReportsModalOpen(true); } },
+                  { id: 'sales', label: tr("المبيعات"), icon: Banknote, color: 'text-[#00E676] bg-emerald-50', allowed: can('canViewFinance'), onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setReportsInitialTab('sales'); setIsReportsModalOpen(true); } },
+                  { id: 'finance', label: tr("المصاريف"), icon: Wallet, color: 'text-green-600 bg-green-50', allowed: can('canViewFinance'), onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setReportsInitialTab('financial'); setIsReportsModalOpen(true); } },
+                  { id: 'excluded', label: tr("المستبعدة"), icon: Skull, color: 'text-red-600 bg-red-50', allowed: can('canViewDeaths'), onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsDeathsModalOpen(true); } },
+                  { id: 'production', label: tr("سجل الإنتاج"), icon: BarChart3, color: 'text-purple-600 bg-purple-50', allowed: can('canViewProduction'), onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsStatsModalOpen(true); } },
+                  { id: 'workers', label: tr("إدارة العمال"), icon: Users, color: 'text-brand-500 bg-brand-500/10', allowed: isOwner, onClick: () => { setIsDashboardOpen(false); setReturnToDashboard(true); setIsWorkerManageOpen(true); } },
+                  { id: 'chat', label: tr("المحادثات"), icon: MessageCircle, color: 'text-emerald-600 bg-emerald-50', allowed: true, onClick: () => { setIsDashboardOpen(false); setIsChatOpen(true); } },
+                ].filter(item => item.allowed).map(item => (
                   <button 
                     key={item.id}
                     onClick={item.onClick}
@@ -3874,18 +3817,18 @@ function App() {
                       }
                       setIsWorkerActivityOpen(true); 
                     }}
-                    className="px-3 py-1.5 bg-[#F5F2EC] hover:bg-[#EFEBE9] text-[#795548] font-bold text-[10px] rounded-full transition-colors flex items-center gap-1"
+                    className="px-3 py-1.5 bg-[#F5F2EC] hover:bg-[#EFEBE9] text-brand-500 font-bold text-[10px] rounded-full transition-colors flex items-center gap-1"
                   >
-                    عرض الكل &lt;
+                    {tr("عرض الكل &lt;")}
                   </button>
                   
                   <div className="flex items-center gap-2">
-                    <h3 className="font-black text-sm text-[#3E2723] dark:text-gray-100">سجل العمال</h3>
-                    <History size={16} className="text-[#795548]" />
+                    <h3 className="font-black text-sm text-brand-900 dark:text-gray-100">{tr("سجل العمال")}</h3>
+                    <History size={16} className="text-brand-500" />
                   </div>
                 </div>
 
-                <div className="relative pr-3 space-y-5 before:absolute before:right-[15px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gray-100 dark:before:bg-slate-800">
+                <div className="relative ps-3 space-y-5 before:absolute before:start-[15px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gray-100 dark:before:bg-slate-800">
                   {(() => {
                     const workerActivities = getBarnRelevantLogs(selectedGroupId).filter(log => {
                       if (log.userRole) return log.userRole === 'worker';
@@ -3896,7 +3839,7 @@ function App() {
 
                     if (workerActivities.length === 0) {
                       return (
-                        <div className="text-center py-8 text-gray-300 font-bold text-xs">لا توجد أنشطة عمال مسجلة</div>
+                        <div className="text-center py-8 text-gray-300 font-bold text-xs">{tr("لا توجد أنشطة عمال مسجلة")}</div>
                       );
                     }
 
@@ -3917,14 +3860,14 @@ function App() {
 
                       return (
                         <div key={log.id} className="relative flex flex-col animate-scale-in">
-                          <div className="flex items-start justify-between gap-4 pr-6">
+                          <div className="flex items-start justify-between gap-4 ps-6">
                             {/* Dot marker */}
-                            <div className={`absolute right-[9px] top-1.5 w-3.5 h-3.5 rounded-full border-4 border-[#FCFBF4] dark:border-slate-950 ${dotColor} shadow-sm shrink-0`} />
+                            <div className={`absolute start-[9px] top-1.5 w-3.5 h-3.5 rounded-full border-4 border-paper dark:border-slate-950 ${dotColor} shadow-sm shrink-0`} />
                             
                             {/* Right content: Action details */}
-                            <div className="flex-1 text-right min-w-0 pr-1">
+                            <div className="flex-1 text-start min-w-0 ps-1">
                               <h4 className="font-extrabold text-[12px] text-gray-800 dark:text-gray-100 leading-snug">
-                                {log.userName}: {log.action}
+                                {log.userName}: {tr(log.action)}
                               </h4>
                               <p className="text-[10px] text-gray-400 font-bold mt-0.5 flex items-center justify-start gap-1 leading-relaxed">
                                 {(() => {
@@ -3932,7 +3875,7 @@ function App() {
                                                         const tagCol = log.tagColor || s_item?.tagColor;
                                   if (!tagCol) return null;
                                   return (
-                                    <span className="flex flex-col items-center justify-center shrink-0 mr-1 ml-0.5">
+                                    <span className="flex flex-col items-center justify-center shrink-0 ms-1 me-0.5">
                                       <span 
                                         className="w-2.5 h-2.5 rounded-full inline-block border border-white dark:border-slate-900 shadow-sm shrink-0" 
                                         style={{ backgroundColor: tagCol }}
@@ -3943,12 +3886,12 @@ function App() {
                                     </span>
                                   );
                                 })()}
-                                <span className="truncate">{log.detail || 'تحديث بيانات الحظيرة'}</span>
+                                <span className="truncate">{log.detail || tr("تحديث بيانات الحظيرة")}</span>
                               </p>
                             </div>
 
                             {/* Left content: Date & Show details button */}
-                            <div className="text-left flex flex-col items-start shrink-0">
+                            <div className="text-end flex flex-col items-start shrink-0">
                               <span className="text-[9px] font-extrabold text-gray-400 leading-none">
                                 {new Date(log.timestamp).toLocaleDateString('en-GB')}
                               </span>
@@ -3956,19 +3899,19 @@ function App() {
                                 onClick={() => setExpandedActivityId(isExpanded ? null : log.id)}
                                 className="text-[9px] font-black text-orange-600 hover:text-orange-800 transition-colors mt-1 cursor-pointer hover:underline bg-transparent border-0 p-0"
                               >
-                                {isExpanded ? 'إخفاء التفاصيل' : 'عرض التفاصيل'}
+                                {isExpanded ? tr("إخفاء التفاصيل") : tr("عرض التفاصيل")}
                               </button>
                             </div>
                           </div>
 
                           {/* Accordion dropdown content */}
                           {isExpanded && (
-                            <div className="mr-6 ml-2 mt-2 p-3 bg-orange-50/50 dark:bg-slate-800/50 rounded-2xl border border-orange-100/30 dark:border-slate-800 text-[10px] font-bold text-gray-600 dark:text-gray-300 space-y-1.5 animate-slide-up text-right">
-                              <div><span className="text-gray-400">العامل: </span>{log.userName}</div>
-                              <div><span className="text-gray-400">الإجراء: </span>{log.action}</div>
-                              <div><span className="text-gray-400">التفاصيل: </span>{log.detail || 'تحديث بيانات'}</div>
+                            <div className="ms-6 me-2 mt-2 p-3 bg-orange-50/50 dark:bg-slate-800/50 rounded-2xl border border-orange-100/30 dark:border-slate-800 text-[10px] font-bold text-gray-600 dark:text-gray-300 space-y-1.5 animate-slide-up text-start">
+                              <div><span className="text-gray-400">{tr("العامل:")} </span>{log.userName}</div>
+                              <div><span className="text-gray-400">{tr("الإجراء:")} </span>{tr(log.action)}</div>
+                              <div><span className="text-gray-400">{tr("التفاصيل:")} </span>{log.detail || tr("تحديث بيانات")}</div>
 
-                              <div><span className="text-gray-400">التاريخ: </span>{new Date(log.timestamp).toLocaleString('ar-EG', { numberingSystem: 'latn' })}</div>
+                              <div><span className="text-gray-400">{tr("التاريخ:")} </span>{new Date(log.timestamp).toLocaleString(appLocale, { numberingSystem: 'latn' })}</div>
                             </div>
                           )}
                         </div>
@@ -3986,12 +3929,12 @@ function App() {
       {/* Recent Events Full Modal */}
       {isRecentsOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-[#fcfbf4] w-full max-w-lg h-[80vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col">
+          <div className="bg-paper w-full max-w-lg h-[80vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col">
             <div className="p-5 border-b border-gray-100 bg-white">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-xl text-gray-800 flex items-center gap-2">
-                  <Calendar className="text-[#795548]" />
-                  سجل الأحداث
+                  <Calendar className="text-brand-500" />
+                  {tr("سجل الأحداث")}
                 </h3>
                 <button onClick={() => {
                   setIsRecentsOpen(false);
@@ -4009,14 +3952,14 @@ function App() {
               {/* Filters */}
               <div className="space-y-1.5">
                 {/* Custom Date Range Filter */}
-                <div className="flex items-center gap-1 mb-1 bg-gray-50 p-1 rounded-lg border border-gray-100" dir="rtl">
+                <div className="flex items-center gap-1 mb-1 bg-gray-50 p-1 rounded-lg border border-gray-100" dir={isEnglish ? 'ltr' : 'rtl'}>
                   <div className="flex items-center gap-1 flex-1">
                     <span className="text-[8px] font-black text-gray-400 shrink-0">{t.dateFrom}</span>
                     <input
                       type="date"
                       value={customDateRange.start}
                       onChange={(e) => setCustomDateRange(prev => ({ ...prev, start: e.target.value }))}
-                      className="w-full bg-white border border-gray-200 rounded-md px-1 py-0.5 text-[9px] outline-none focus:border-[#795548] font-bold"
+                      className="w-full bg-white border border-gray-200 rounded-md px-1 py-0.5 text-[9px] outline-none focus:border-brand-500 font-bold"
                     />
                   </div>
                   <div className="flex items-center gap-1 flex-1">
@@ -4025,7 +3968,7 @@ function App() {
                       type="date"
                       value={customDateRange.end}
                       onChange={(e) => setCustomDateRange(prev => ({ ...prev, end: e.target.value }))}
-                      className="w-full bg-white border border-gray-200 rounded-md px-1 py-0.5 text-[9px] outline-none focus:border-[#795548] font-bold"
+                      className="w-full bg-white border border-gray-200 rounded-md px-1 py-0.5 text-[9px] outline-none focus:border-brand-500 font-bold"
                     />
                   </div>
                   {(customDateRange.start || customDateRange.end) && (
@@ -4040,18 +3983,18 @@ function App() {
                 </div>
 
                 {/* Date Filter (Top Row) */}
-                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5" dir="rtl">
+                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5" dir={isEnglish ? 'ltr' : 'rtl'}>
                   {[
-                    { id: 'today', label: 'اليوم' },
-                    { id: 'week', label: 'الأسبوع' },
-                    { id: 'month', label: 'الشهر' },
-                    { id: 'year', label: 'السنة' },
-                    { id: 'all', label: 'الكل' },
+                    { id: 'today', label: tr("اليوم") },
+                    { id: 'week', label: tr("الأسبوع") },
+                    { id: 'month', label: tr("الشهر") },
+                    { id: 'year', label: tr("السنة") },
+                    { id: 'all', label: tr("الكل") },
                   ].map(f => (
                     <button
                       key={f.id}
                       onClick={() => setRecentsDateFilter(f.id as any)}
-                      className={`px-2 py-0.5 rounded-md text-[9px] font-black whitespace-nowrap transition ${recentsDateFilter === f.id ? 'bg-[#795548] text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                      className={`px-2 py-0.5 rounded-md text-[9px] font-black whitespace-nowrap transition ${recentsDateFilter === f.id ? 'bg-brand-500 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                     >
                       {f.label}
                     </button>
@@ -4059,22 +4002,22 @@ function App() {
                 </div>
 
                 {/* Type Filter (Second Row) */}
-                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5" dir="rtl">
+                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5" dir={isEnglish ? 'ltr' : 'rtl'}>
                   {[
-                    { id: 'all', label: 'كافة الأحداث', icon: LayoutGrid },
-                    { id: 'edit', label: 'تعديلات', icon: Edit },
-                    { id: 'birth', label: 'ولادات/إضافة', icon: Dna },
-                    { id: 'death', label: 'استبعاد/وفيات', icon: Skull },
-                    { id: 'medical', label: 'علاجات/تحصين', icon: Syringe },
-                    { id: 'expense', label: 'مصروفات', icon: Wallet },
-                    { id: 'feed', label: 'إضافة مخزون', icon: Wheat },
-                    { id: 'feed_update', label: 'تحديث الاستهلاك', icon: RefreshCw },
-                    { id: 'transfer', label: 'نقل', icon: ArrowRightLeft },
+                    { id: 'all', label: tr("كافة الأحداث"), icon: LayoutGrid },
+                    { id: 'edit', label: tr("تعديلات"), icon: Edit },
+                    { id: 'birth', label: tr("ولادات/إضافة"), icon: Dna },
+                    { id: 'death', label: tr("استبعاد/وفيات"), icon: Skull },
+                    { id: 'medical', label: tr("علاجات/تحصين"), icon: Syringe },
+                    { id: 'expense', label: tr("مصروفات"), icon: Wallet },
+                    { id: 'feed', label: tr("إضافة مخزون"), icon: Wheat },
+                    { id: 'feed_update', label: tr("تحديث الاستهلاك"), icon: RefreshCw },
+                    { id: 'transfer', label: tr("نقل"), icon: ArrowRightLeft },
                   ].map(f => (
                     <button
                       key={f.id}
                       onClick={() => setRecentsTypeFilter(f.id as any)}
-                      className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-black whitespace-nowrap transition border ${recentsTypeFilter === f.id ? 'bg-[#795548]/10 text-[#795548] border-[#795548]/30' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}
+                      className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-black whitespace-nowrap transition border ${recentsTypeFilter === f.id ? 'bg-brand-500/10 text-brand-500 border-brand-500/30' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}
                     >
                       {f.icon && <f.icon size={9} />}
                       {f.label}
@@ -4189,7 +4132,7 @@ function App() {
                               className="w-2 h-2 rounded-full inline-block border border-white dark:border-slate-800 shadow-sm" 
                               style={{ backgroundColor: logTagColor }}
                             />
-                            <span className="text-[6px] text-gray-400 font-black leading-none">{colorNames[logTagColor] || 'ملون'}</span>
+                            <span className="text-[6px] text-gray-400 font-black leading-none">{colorNames[logTagColor] || tr("ملون")}</span>
                           </span>
                         )}
                         {sheepType && (
@@ -4198,31 +4141,31 @@ function App() {
                           </span>
                         )}
                         {can('canViewActivity') && (
-                          <span className="text-[9px] text-gray-400">بواسطة: <span className="font-extrabold text-gray-600 dark:text-gray-300">{log.userName}</span></span>
+                          <span className="text-[9px] text-gray-400">{tr("بواسطة:")} <span className="font-extrabold text-gray-600 dark:text-gray-300">{log.userName}</span></span>
                         )}
                       </span>
                     ),
                     icon,
                     color,
                     details: (
-                      <div className="space-y-1.5 text-[11px] font-bold text-gray-500 dark:text-gray-400 text-right">
-                        {can('canViewActivity') && <div><span className="text-gray-400">القائم بالعمل: </span>{log.userName}</div>}
-                        <div><span className="text-gray-400">الإجراء: </span>{log.action}</div>
-                        <div><span className="text-gray-400">التفاصيل: </span>{log.detail}</div>
+                      <div className="space-y-1.5 text-[11px] font-bold text-gray-500 dark:text-gray-400 text-start">
+                        {can('canViewActivity') && <div><span className="text-gray-400">{tr("القائم بالعمل:")} </span>{log.userName}</div>}
+                        <div><span className="text-gray-400">{tr("الإجراء:")} </span>{tr(log.action)}</div>
+                        <div><span className="text-gray-400">{tr("التفاصيل:")} </span>{log.detail}</div>
                         {logTagColor && (
                           <div className="flex items-center justify-start gap-1.5">
-                            <span className="text-gray-400">لون الشارة: </span>
+                            <span className="text-gray-400">{tr("لون الشارة:")} </span>
                             <span className="inline-flex items-center gap-1.5">
                               <span 
                                 className="w-2 h-2 rounded-full inline-block border border-white dark:border-slate-800 shadow-sm shrink-0" 
                                 style={{ backgroundColor: logTagColor }}
                               />
-                              {colorNames[logTagColor] || 'ملون'}
+                              {colorNames[logTagColor] || tr("ملون")}
                             </span>
                           </div>
                         )}
 
-                        <div><span className="text-gray-400">التاريخ والوقت: </span>{new Date(log.timestamp).toLocaleString('ar-EG', { numberingSystem: 'latn' })}</div>
+                        <div><span className="text-gray-400">{tr("التاريخ والوقت:")} </span>{new Date(log.timestamp).toLocaleString(appLocale, { numberingSystem: 'latn' })}</div>
                       </div>
                     )
                   };
@@ -4237,7 +4180,7 @@ function App() {
                     <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-gray-400">
                       <Filter size={32} />
                     </div>
-                    <p className="text-gray-400 font-bold">لا توجد نتائج لهذا التصنيف</p>
+                    <p className="text-gray-400 font-bold">{tr("لا توجد نتائج لهذا التصنيف")}</p>
                   </div>
                 );
 
@@ -4275,7 +4218,7 @@ function App() {
                         onClick={() => setExpandedEventId(expandedEventId === event.id ? null : event.id)}
                         className="mt-3 self-start text-[10px] font-bold text-orange-500 hover:text-orange-600 transition"
                       >
-                         {expandedEventId === event.id ? 'إخفاء التفاصيل' : 'عرض التفاصيل'}
+                         {expandedEventId === event.id ? tr("إخفاء التفاصيل") : tr("عرض التفاصيل")}
                       </button>
                     )}
                   </div>
@@ -4290,26 +4233,26 @@ function App() {
       {
         isActionMenuOpen && (
           <div className="fixed inset-0 z-50 flex items-start justify-end p-4 bg-black/20 backdrop-blur-sm" onClick={() => setIsActionMenu(false)}>
-            <div className="bg-white w-64 mt-12 rounded-2xl shadow-xl border border-gray-100 overflow-hidden animate-scale-in" dir="rtl" onClick={e => e.stopPropagation()}>
+            <div className="bg-white w-64 mt-12 rounded-2xl shadow-xl border border-gray-100 overflow-hidden animate-scale-in" dir={isEnglish ? 'ltr' : 'rtl'} onClick={e => e.stopPropagation()}>
               <div className="p-2 space-y-1">
-                <button onClick={() => { setIsActionMenu(false); setIsReportsModalOpen(true); }} className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition text-gray-700 font-bold text-sm">
+                {can('canViewReports') && <button onClick={() => { setIsActionMenu(false); setIsReportsModalOpen(true); }} className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition text-gray-700 font-bold text-sm">
                   <FileText size={18} className="text-teal-600" />
-                  التقارير الشاملة
-                </button>
+                  {tr("التقارير الشاملة")}
+                </button>}
                 {can('canViewProduction') && (
                   <button onClick={() => { setIsActionMenu(false); setIsStatsModalOpen(true); }} className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition text-gray-700 font-bold text-sm">
                     <Activity size={18} className="text-purple-600" />
-                    سجل الانتاج و الاحصائيات
+                    {tr("سجل الانتاج و الاحصائيات")}
                   </button>
                 )}
                 <div className="h-px bg-gray-100 my-1"></div>
                 <button onClick={() => { setIsActionMenu(false); setIsDashboardOpen(true); }} className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition text-gray-700 font-bold text-sm">
                   <LayoutDashboard size={18} className="text-orange-600" />
-                  لوحة التحكم
+                  {tr("لوحة التحكم")}
                 </button>
                 <button onClick={() => { setIsActionMenu(false); openAddBarnModal(); }} className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition text-gray-700 font-bold text-sm">
                   <Plus size={18} className="text-gray-600" />
-                  إضافة حظيرة
+                  {tr("إضافة حظيرة")}
                 </button>
               </div>
             </div>
@@ -4318,6 +4261,8 @@ function App() {
       }
 
       {/* Modals */}
+      {isStatsModalOpen && (
+      <Suspense fallback={null}>
       <ProductionStats
         isOpen={isStatsModalOpen}
         onClose={() => {
@@ -4332,6 +4277,10 @@ function App() {
         pens={selectedGroupId ? pens.filter(p => p.parentId === selectedGroupId || p.id === selectedGroupId) : pens}
         initialType={productionStatsInitialType}
       />
+      </Suspense>
+      )}
+      {isReportsModalOpen && (
+      <Suspense fallback={null}>
       <ReportsModal
         isOpen={isReportsModalOpen}
         onClose={() => {
@@ -4346,13 +4295,15 @@ function App() {
         expenses={selectedGroupId ? expenses.filter(e => e.penId === selectedGroupId || pens.find(p => p.id === e.penId)?.parentId === selectedGroupId) : expenses}
         sales={selectedGroupId ? sales.filter(s => s.penId === selectedGroupId || pens.find(p => p.id === s.penId)?.parentId === selectedGroupId) : sales}
         pens={selectedGroupId ? pens.filter(p => p.parentId === selectedGroupId || p.id === selectedGroupId) : pens}
-        barnName={selectedGroupId ? pens.find(p => p.id === selectedGroupId)?.name : 'المزرعة'}
+        barnName={selectedGroupId ? pens.find(p => p.id === selectedGroupId)?.name : tr("المزرعة")}
         ownerName={selectedGroupId ? pens.find(p => p.id === selectedGroupId)?.ownerName || ownerName : ownerName}
-        isOwner={isOwner}
+        canViewFinance={can('canViewFinance')}
         onShowAlert={showAlert}
         onShowConfirm={showConfirm}
         initialReport={reportsInitialTab}
       />
+      </Suspense>
+      )}
       <PenModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSavePen} initialData={editingPen} isGroupMode={isAddingGroup} />
       <ReorderPensModal isOpen={isReorderPensOpen} onClose={() => setIsReorderPensOpen(false)} pens={pens} selectedGroupId={selectedGroupId} onSave={handleReorderPens} />
       <SheepModal 
@@ -4371,7 +4322,7 @@ function App() {
             id: generateId(),
             penId: sheep.penId,
             relatedAnimalId: sheep.serialNumber,
-            title: `بيع حيوان #${sheep.serialNumber}`,
+            title: tr("بيع حيوان #{0}", sheep.serialNumber),
             amount: price,
             buyer,
             date,
@@ -4466,31 +4417,31 @@ function App() {
         };
 
         return (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl">
-            <div className="bg-[#fcfbf4] rounded-[2rem] w-full max-w-sm shadow-2xl overflow-hidden border border-gray-100 dark:bg-slate-900 dark:border-slate-800">
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir={isEnglish ? 'ltr' : 'rtl'}>
+            <div className="bg-paper rounded-[2rem] w-full max-w-sm shadow-2xl overflow-hidden border border-gray-100 dark:bg-slate-900 dark:border-slate-800">
               <div className="p-6 text-center">
                 <div className="w-16 h-16 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 dark:bg-purple-900/30 dark:text-purple-400">
                   <Baby size={32} />
                 </div>
                 
                 {showMiscarriageInput ? (
-                  <div className="space-y-4 text-right animate-fade-in">
-                    <h3 className="text-xl font-black text-gray-800 mb-2 dark:text-white text-center">إلغاء الحمل (إجهاض)</h3>
+                  <div className="space-y-4 text-start animate-fade-in">
+                    <h3 className="text-xl font-black text-gray-800 mb-2 dark:text-white text-center">{tr("إلغاء الحمل (إجهاض)")}</h3>
                     <p className="text-xs font-bold text-gray-500 mb-4 dark:text-gray-400 leading-relaxed text-center">
-                      الرجاء كتابة سبب إلغاء الحمل أو الإجهاض لحفظ التغيير في السجل:
+                      {tr("الرجاء كتابة سبب إلغاء الحمل أو الإجهاض لحفظ التغيير في السجل:")}
                     </p>
                     <textarea
                       value={miscarriageReason}
                       onChange={(e) => setMiscarriageReason(e.target.value)}
-                      placeholder="مثال: إجهاض تلقائي، حمل كاذب، حادث سقوط..."
+                      placeholder={tr("مثال: إجهاض تلقائي، حمل كاذب، حادث سقوط...")}
                       rows={3}
-                      className="w-full p-4 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-2 focus:ring-red-500 transition-all font-bold text-sm text-right resize-none shadow-sm"
+                      className="w-full p-4 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-2 focus:ring-red-500 transition-all font-bold text-sm text-start resize-none shadow-sm"
                     />
                     <div className="flex gap-2">
                       <button
                         onClick={async () => {
                           if (!miscarriageReason.trim()) {
-                            showAlert('error', 'خطأ', 'يجب كتابة سبب لإلغاء الحمل.');
+                            showAlert('error', tr("خطأ"), tr("يجب كتابة سبب لإلغاء الحمل."));
                             return;
                           }
                           const { sheep } = reproductionConfirmState;
@@ -4510,12 +4461,12 @@ function App() {
                             
                             await logActivity('إلغاء الحمل (إجهاض)', 'تم إلغاء الحمل للحيوان #' + sheep.serialNumber + ' - السبب: ' + miscarriageReason, sheep.serialNumber, sheep.tagColor);
                             closeReproductionConfirmModal();
-                            showAlert('success', 'تم إلغاء الحمل', 'تم إلغاء الحمل وتسجيل السبب بنجاح.');
+                            showAlert('success', tr("تم إلغاء الحمل"), tr("تم إلغاء الحمل وتسجيل السبب بنجاح."));
                           } catch (e) { console.error(e); }
                         }}
                         className="flex-1 py-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs transition shadow-lg text-center"
                       >
-                        تأكيد الإلغاء
+                        {tr("تأكيد الإلغاء")}
                       </button>
                       <button
                         onClick={() => {
@@ -4524,23 +4475,23 @@ function App() {
                         }}
                         className="flex-1 py-3.5 rounded-xl bg-gray-100 text-gray-500 font-black text-xs hover:bg-gray-200 transition dark:bg-slate-800 dark:text-gray-400 dark:hover:bg-slate-700 text-center"
                       >
-                        تراجع
+                        {tr("تراجع")}
                       </button>
                     </div>
                   </div>
                 ) : (
                   <>
-                    <h3 className="text-xl font-black text-gray-800 mb-2 dark:text-white">تأكيد حالة الإنجاب</h3>
+                    <h3 className="text-xl font-black text-gray-800 mb-2 dark:text-white">{tr("تأكيد حالة الإنجاب")}</h3>
                     <p className="text-sm font-bold text-gray-500 mb-6 dark:text-gray-400 leading-relaxed">
-                      {reproductionConfirmState.currentStatus === 'empty' ? 'سيتم تغيير الحالة إلى (مضرع) لمدة 5 أشهر تقريباً.' : 
-                       reproductionConfirmState.currentStatus === 'pregnant' ? 'سيتم تغيير الحالة إلى (أم) لبدء فترة حضانة الرضيع (3 أشهر).' : 
-                       'سيتم إعادة الحيوان إلى حالة (غير مضرع).'}
+                      {reproductionConfirmState.currentStatus === 'empty' ? tr("سيتم تغيير الحالة إلى (مضرع) لمدة 5 أشهر تقريباً.") : 
+                       reproductionConfirmState.currentStatus === 'pregnant' ? tr("سيتم تغيير الحالة إلى (أم) لبدء فترة حضانة الرضيع (3 أشهر).") : 
+                       tr("سيتم إعادة الحيوان إلى حالة (غير مضرع).")}
                     </p>
                     
                     {(reproductionConfirmState.nextStatus === 'pregnant' || reproductionConfirmState.nextStatus === 'mother') && (
-                      <div className="mb-5 text-right space-y-1">
+                      <div className="mb-5 text-start space-y-1">
                         <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">
-                          {reproductionConfirmState.nextStatus === 'pregnant' ? 'تاريخ التلقيح / الحمل' : 'تاريخ الولادة'}
+                          {reproductionConfirmState.nextStatus === 'pregnant' ? tr("تاريخ التلقيح / الحمل") : tr("تاريخ الولادة")}
                         </label>
                         <input
                           type="date"
@@ -4588,7 +4539,7 @@ function App() {
                         }}
                         className="w-full py-4 rounded-2xl bg-purple-600 text-white font-black text-sm hover:bg-purple-700 transition shadow-lg"
                       >
-                        تأكيد {reproductionConfirmState.nextStatus === 'pregnant' ? 'الحمل' : reproductionConfirmState.nextStatus === 'mother' ? 'الولادة' : 'إنهاء الحضانة'}
+                        {tr("تأكيد")} {reproductionConfirmState.nextStatus === 'pregnant' ? tr("الحمل") : reproductionConfirmState.nextStatus === 'mother' ? tr("الولادة") : tr("إنهاء الحضانة")}
                       </button>
                       
                       {reproductionConfirmState.currentStatus === 'pregnant' && (
@@ -4596,7 +4547,7 @@ function App() {
                           onClick={() => setShowMiscarriageInput(true)}
                           className="w-full py-4 rounded-2xl bg-red-50 text-red-700 border border-red-200 font-black text-sm hover:bg-red-100 transition dark:bg-red-900/20 dark:border-red-900 dark:text-red-400"
                         >
-                          إلغاء الحمل (إجهاض / حمل كاذب)
+                          {tr("إلغاء الحمل (إجهاض / حمل كاذب)")}
                         </button>
                       )}
                       
@@ -4604,7 +4555,7 @@ function App() {
                         onClick={closeReproductionConfirmModal}
                         className="w-full py-4 rounded-2xl bg-gray-100 text-gray-500 font-black text-sm hover:bg-gray-200 transition dark:bg-slate-800 dark:text-gray-400 dark:hover:bg-slate-700"
                       >
-                        إلغاء
+                        {tr("إلغاء")}
                       </button>
                     </div>
                   </>
@@ -4615,20 +4566,27 @@ function App() {
         );
       })()}
 
+      {isSettingsOpen && (
+      <Suspense fallback={null}>
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         language={appLanguage}
-        setLanguage={setAppLanguage}
+        setLanguage={(lang) => { setAppLanguage(lang); switchLanguage(lang); }}
         theme={appTheme}
         setTheme={setAppTheme}
         currentUser={currentUser}
         onUpdateProfile={handleUpdateProfile}
+        onVerifyPassword={verifyCurrentPassword}
+        onSendPasswordReset={handleSendPasswordReset}
         onShowAlert={showAlert}
         onTestNotifications={handleTestNotifications}
       />
+      </Suspense>
+      )}
 
-      {isOwner && (
+      {isOwner && isWorkerManageOpen && (
+        <Suspense fallback={null}>
         <WorkerManageModal
           isOpen={isWorkerManageOpen}
           onClose={() => {
@@ -4642,10 +4600,12 @@ function App() {
           onAddWorker={handleRegisterWorker}
           onUpdateWorker={handleUpdateWorkerPermissions}
           onDeleteWorker={handleDeleteWorker}
+          onResetWorkerPassword={handleResetWorkerPassword}
           pens={pens}
           onShowAlert={showAlert}
           onShowConfirm={showConfirm}
         />
+        </Suspense>
       )}
 
       <DeathsModal
@@ -4666,18 +4626,18 @@ function App() {
         allSheep={allSheep}
         pens={pens}
         onDelete={(id) => handleDeleteSheep(id, true)}
-        barnName={selectedGroupId ? pens.find(p => p.id === selectedGroupId)?.name : 'المزرعة'}
+        barnName={selectedGroupId ? pens.find(p => p.id === selectedGroupId)?.name : tr("المزرعة")}
       />
 
       {/* Worker Activity Log Modal */}
       {isWorkerActivityOpen && isOwner && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl">
-          <div className="bg-[#fcfbf4] w-full max-w-xl h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col dark:bg-slate-950">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir={isEnglish ? 'ltr' : 'rtl'}>
+          <div className="bg-paper w-full max-w-xl h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col dark:bg-slate-950">
             <div className="p-5 border-b border-gray-100 bg-white dark:bg-slate-900 shrink-0">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-xl text-gray-800 dark:text-white flex items-center gap-2">
-                  <History className="text-[#3E2723] dark:text-orange-500" />
-                  سجل العمال
+                  <History className="text-brand-900 dark:text-orange-500" />
+                  {tr("سجل العمال")}
                 </h3>
                 <button onClick={() => {
                   setIsWorkerActivityOpen(false);
@@ -4694,18 +4654,18 @@ function App() {
               {/* Filters for Worker Activity Log */}
               <div className="space-y-3">
                 {/* Worker Filter */}
-                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1" dir="rtl">
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1" dir={isEnglish ? 'ltr' : 'rtl'}>
                   <button
                     onClick={() => setWorkerFilter('all')}
-                    className={`px-4 py-1.5 rounded-full text-[10px] font-black transition whitespace-nowrap border ${workerFilter === 'all' ? 'bg-[#795548] text-white border-[#795548]' : 'bg-white text-gray-400 border-gray-100 dark:bg-slate-800 dark:border-slate-700'}`}
+                    className={`px-4 py-1.5 rounded-full text-[10px] font-black transition whitespace-nowrap border ${workerFilter === 'all' ? 'bg-brand-500 text-white border-brand-500' : 'bg-white text-gray-400 border-gray-100 dark:bg-slate-800 dark:border-slate-700'}`}
                   >
-                    جميع العمال
+                    {tr("جميع العمال")}
                   </button>
                   {users.filter(u => u.role === 'worker').map(w => (
                     <button
                       key={w.id}
                       onClick={() => setWorkerFilter(w.id)}
-                      className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[10px] font-black transition whitespace-nowrap border ${workerFilter === w.id ? 'bg-[#795548] text-white border-[#795548]' : 'bg-white text-gray-400 border-gray-100 dark:bg-slate-800 dark:border-slate-700'}`}
+                      className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[10px] font-black transition whitespace-nowrap border ${workerFilter === w.id ? 'bg-brand-500 text-white border-brand-500' : 'bg-white text-gray-400 border-gray-100 dark:bg-slate-800 dark:border-slate-700'}`}
                     >
                       <Users size={10} />
                       {w.name}
@@ -4714,12 +4674,12 @@ function App() {
                 </div>
 
                 {/* Date Filters */}
-                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1" dir="rtl">
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1" dir={isEnglish ? 'ltr' : 'rtl'}>
                    {[
-                     { id: 'today', label: 'اليوم' },
-                     { id: 'week', label: 'الأسبوع' },
-                     { id: 'month', label: 'الشهر' },
-                     { id: 'year', label: 'السنة' },
+                     { id: 'today', label: tr("اليوم") },
+                     { id: 'week', label: tr("الأسبوع") },
+                     { id: 'month', label: tr("الشهر") },
+                     { id: 'year', label: tr("السنة") },
                    ].map(f => (
                      <button
                        key={f.id}
@@ -4732,22 +4692,22 @@ function App() {
                 </div>
 
                 {/* Type Filters */}
-                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1" dir="rtl">
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1" dir={isEnglish ? 'ltr' : 'rtl'}>
                   {[
-                    { id: 'all', label: 'كافة الأحداث', icon: LayoutGrid },
-                    { id: 'edit', label: 'تعديلات', icon: Edit },
-                    { id: 'birth', label: 'ولادات/إضافة', icon: Dna },
-                    { id: 'death', label: 'استبعاد/وفيات', icon: Skull },
-                    { id: 'medical', label: 'علاجات/تحصين', icon: Syringe },
-                    { id: 'expense', label: 'مصروفات', icon: Wallet },
-                    { id: 'feed', label: 'إضافة مخزون', icon: Wheat },
-                    { id: 'feed_update', label: 'تحديث الاستهلاك', icon: RefreshCw },
-                    { id: 'transfer', label: 'نقل', icon: ArrowRightLeft },
+                    { id: 'all', label: tr("كافة الأحداث"), icon: LayoutGrid },
+                    { id: 'edit', label: tr("تعديلات"), icon: Edit },
+                    { id: 'birth', label: tr("ولادات/إضافة"), icon: Dna },
+                    { id: 'death', label: tr("استبعاد/وفيات"), icon: Skull },
+                    { id: 'medical', label: tr("علاجات/تحصين"), icon: Syringe },
+                    { id: 'expense', label: tr("مصروفات"), icon: Wallet },
+                    { id: 'feed', label: tr("إضافة مخزون"), icon: Wheat },
+                    { id: 'feed_update', label: tr("تحديث الاستهلاك"), icon: RefreshCw },
+                    { id: 'transfer', label: tr("نقل"), icon: ArrowRightLeft },
                   ].map(f => (
                     <button
                       key={f.id}
                       onClick={() => setWorkerActivityFilter(f.id as any)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black whitespace-nowrap transition border ${workerActivityFilter === f.id ? 'bg-[#795548]/10 text-[#795548] border-[#795548]/30 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300 dark:bg-slate-800 dark:border-slate-700'}`}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black whitespace-nowrap transition border ${workerActivityFilter === f.id ? 'bg-brand-500/10 text-brand-500 border-brand-500/30 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300 dark:bg-slate-800 dark:border-slate-700'}`}
                     >
                       {f.icon && <f.icon size={12} className={(f as any).color || ''} />}
                       {f.label}
@@ -4806,12 +4766,12 @@ function App() {
                 if (filteredLogs.length === 0) return (
                   <div className="text-center py-20 text-gray-400">
                     <History size={64} className="mx-auto mb-4 opacity-10" />
-                    <p className="text-sm font-bold">لا توجد أحداث مسجلة حالياً</p>
+                    <p className="text-sm font-bold">{tr("لا توجد أحداث مسجلة حالياً")}</p>
                   </div>
                 );
 
                 return (
-                  <div className="relative pl-2 pr-12 space-y-6 before:absolute before:inset-y-0 before:right-[3.25rem] before:w-[2px] before:bg-gray-100 dark:before:bg-slate-800" dir="rtl">
+                  <div className="relative pe-2 ps-12 space-y-6 before:absolute before:inset-y-0 before:start-[3.25rem] before:w-[2px] before:bg-gray-100 dark:before:bg-slate-800" dir={isEnglish ? 'ltr' : 'rtl'}>
                     {filteredLogs.map((log, idx) => {
                       const getActionInfo = (action: string) => {
                         if (action.includes('إضافة حظيرة') || action.includes('حظيرة')) return { icon: Warehouse, color: 'text-emerald-600', dotColor: 'bg-emerald-500' };
@@ -4840,29 +4800,29 @@ function App() {
                       return (
                         <div key={log.id} className="relative flex items-start w-full">
                           {/* Date and Time Column (Absolute on the right) */}
-                          <div className="absolute -right-14 top-2 flex flex-col items-center w-12 shrink-0">
+                          <div className="absolute -start-14 top-2 flex flex-col items-center w-12 shrink-0">
                             <span className="text-[9px] font-bold text-gray-500 leading-tight">{dateStr}</span>
                             <span className="text-[8px] text-gray-400 font-medium leading-tight">{timeStr}</span>
                           </div>
                           
                           {/* Timeline Dot */}
-                          <div className={`absolute -right-3 top-4 w-2 h-2 rounded-full ${dotColor} ring-4 ring-white dark:ring-slate-900 z-10`} />
+                          <div className={`absolute -start-3 top-4 w-2 h-2 rounded-full ${dotColor} ring-4 ring-white dark:ring-slate-900 z-10`} />
                           
                           {/* Event Card */}
-                          <div className="flex-1 bg-gray-50/50 border border-gray-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition dark:bg-slate-800/50 dark:border-slate-700 mr-2 w-full">
+                          <div className="flex-1 bg-gray-50/50 border border-gray-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition dark:bg-slate-800/50 dark:border-slate-700 ms-2 w-full">
                             <div className="flex justify-between items-start gap-2 mb-2">
-                              <h4 className="font-bold text-gray-900 text-sm dark:text-gray-100 leading-tight">{log.action}</h4>
+                              <h4 className="font-bold text-gray-900 text-sm dark:text-gray-100 leading-tight">{tr(log.action)}</h4>
                               {logTagColor && (
                                 <span className="inline-flex flex-col items-center gap-0.5 bg-gray-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md border border-gray-200 dark:border-slate-700 shrink-0">
                                   <span 
                                     className="w-2 h-2 rounded-full inline-block border border-white dark:border-slate-800 shadow-sm" 
                                     style={{ backgroundColor: logTagColor }}
                                   />
-                                  <span className="text-[6px] text-gray-400 font-black leading-none">{colorNames[logTagColor] || 'ملون'}</span>
+                                  <span className="text-[6px] text-gray-400 font-black leading-none">{colorNames[logTagColor] || tr("ملون")}</span>
                                 </span>
                               )}
                             </div>
-                            <p className="text-[10px] text-gray-500 font-bold mb-3">العامل: {log.userName}</p>
+                            <p className="text-[10px] text-gray-500 font-bold mb-3">{tr("العامل:")} {log.userName}</p>
                             <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed bg-white dark:bg-slate-900 p-3 rounded-xl border border-gray-100 dark:border-slate-800">
                               {log.detail}
                             </p>
@@ -4898,12 +4858,16 @@ function App() {
         confirmLabel={alertConfig.confirmLabel}
         cancelLabel={alertConfig.cancelLabel}
       />
+      {isChatOpen && (
+      <Suspense fallback={null}>
       <ChatModal 
         isOpen={isChatOpen} 
         onClose={() => setIsChatOpen(false)} 
         currentUser={currentUser} 
         users={users} 
       />
+      </Suspense>
+      )}
 
     </div>
   );

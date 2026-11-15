@@ -6,6 +6,8 @@ import { getAnimalMetadata, generateId } from '../utils/animalHelpers';
 import { CustomSelect } from './CustomSelect';
 import { translations } from '../constants/translations';
 
+import { tr, isEnglish } from '../constants/i18n';
+
 interface SheepModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -68,14 +70,14 @@ export const SheepModal: React.FC<SheepModalProps> = ({
   const colorInputRef = useRef<HTMLInputElement>(null);
 
   const colorNames: { [key: string]: string } = {
-    '#EF4444': 'أحمر',
-    '#F59E0B': 'برتقالي',
-    '#10B981': 'أخضر',
-    '#3B82F6': 'أزرق',
-    '#6366F1': 'نيلي',
-    '#8B5CF6': 'بنفسجي',
-    '#EC4899': 'وردي',
-    '#FACC15': 'أصفر'
+    '#EF4444': tr('أحمر'),
+    '#F59E0B': tr('برتقالي'),
+    '#10B981': tr('أخضر'),
+    '#3B82F6': tr('أزرق'),
+    '#6366F1': tr('نيلي'),
+    '#8B5CF6': tr('بنفسجي'),
+    '#EC4899': tr('وردي'),
+    '#FACC15': tr('أصفر')
   };
 
   useEffect(() => {
@@ -278,7 +280,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
 
     if (isBatchMode && !initialData) {
       if (!type) {
-        if (onShowAlert) onShowAlert('warning', 'تنبيه', 'الرجاء اختيار النوع');
+        if (onShowAlert) onShowAlert('warning', tr("تنبيه"), tr("الرجاء اختيار النوع"));
         return;
       }
       const newAnimals: Sheep[] = [];
@@ -324,7 +326,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
       );
 
       if (duplicateSheep) {
-        if (onShowAlert) onShowAlert('error', 'خطأ', 'يوجد حيوان نشط بنفس الرقم التسلسلي ولون العلامة. الرجاء تغيير أحدهما.');
+        if (onShowAlert) onShowAlert('error', tr("خطأ"), tr("يوجد حيوان نشط بنفس الرقم التسلسلي ولون العلامة. الرجاء تغيير أحدهما."));
         return;
       }
     }
@@ -390,16 +392,16 @@ export const SheepModal: React.FC<SheepModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" dir="rtl">
-      <div className="bg-[#FCFBF4] rounded-3xl w-full max-w-md shadow-2xl animate-scale-in dark:bg-slate-900 dark:border dark:border-slate-800 max-h-[90vh] flex flex-col">
-        <div className="bg-gradient-to-br from-[#795548] to-[#5D4037] py-3.5 px-5 text-white relative overflow-hidden rounded-t-3xl dark:from-slate-800 dark:to-slate-950 shrink-0">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" dir={isEnglish ? 'ltr' : 'rtl'}>
+      <div className="bg-paper rounded-3xl w-full max-w-md shadow-2xl animate-scale-in dark:bg-slate-900 dark:border dark:border-slate-800 max-h-[90vh] flex flex-col">
+        <div className="bg-gradient-to-br from-brand-500 to-brand-700 py-3.5 px-5 text-white relative overflow-hidden rounded-t-3xl dark:from-slate-800 dark:to-slate-950 shrink-0">
           <div className="flex justify-between items-center relative z-10">
             <div>
               <h2 className="text-xl font-bold tracking-tight">
-                {initialData ? `تعديل ${metadata.headLabel}` : `إضافة ${metadata.headLabel}`}
+                {initialData ? tr("تعديل {0}", metadata.headLabel) : tr("إضافة {0}", metadata.headLabel)}
               </h2>
               <p className="text-orange-100/60 text-[9px] font-bold mt-0.5 uppercase tracking-widest leading-none">
-                نظام إدارة {metadata.label.plural}
+                {tr("نظام إدارة")} {tr(metadata.label.plural)}
               </p>
             </div>
             <button 
@@ -409,7 +411,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
               <X size={18} />
             </button>
           </div>
-          <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-white/5 rounded-full blur-3xl" />
+          <div className="absolute -start-10 -bottom-10 w-48 h-48 bg-white/5 rounded-full blur-3xl" />
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 space-y-3.5 overflow-y-auto custom-scrollbar flex-1 bg-white/30 dark:bg-transparent">
@@ -422,7 +424,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
               {/* Pen Selector for Batch Mode */}
               <div>
                 <CustomSelect
-                  label="القسم / الحظيرة"
+                  label={tr("القسم / الحظيرة")}
                   value={selectedPenId}
                   onChange={(val) => setSelectedPenId(val)}
                   textSize="text-xs"
@@ -442,7 +444,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                 {/* Type Selection */}
                 <div className="space-y-1">
                   <CustomSelect
-                    label="النوع"
+                    label={tr("النوع")}
                     value={type}
                     onChange={(val) => setType(val as SheepType)}
                     textSize="text-xs"
@@ -458,35 +460,35 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                 </div>
                 {/* Count Input */}
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-right mb-1">العدد</label>
+                  <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-start mb-1">{tr("العدد")}</label>
                   <input
                     type="number"
                     min="1"
                     value={count}
                     onChange={(e) => setCount(parseInt(e.target.value) || 0)}
-                    className="w-full h-[36px] px-2 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[#795548] outline-none transition-all font-bold text-center text-xs shadow-sm"
+                    className="w-full h-[36px] px-2 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all font-bold text-center text-xs shadow-sm"
                   />
                 </div>
               </div>
 
               {/* Gender Selection for Batch */}
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-right mb-1">الجنس</label>
+                <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-start mb-1">{tr("الجنس")}</label>
                 <div className="grid grid-cols-2 gap-2">
-                  <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all h-[36px] flex items-center justify-center gap-2 ${gender === 'male' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-200 bg-white dark:bg-slate-800 dark:border-slate-700 hover:border-[#795548]'}`}>
+                  <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all h-[36px] flex items-center justify-center gap-2 ${gender === 'male' ? 'border-brand-500 bg-brand-500/10' : 'border-gray-200 bg-white dark:bg-slate-800 dark:border-slate-700 hover:border-brand-500'}`}>
                     <input type="radio" name="batch-gender" value="male" checked={gender === 'male'} onChange={() => setGender('male')} className="hidden" />
-                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${gender === 'male' ? 'border-[#795548] bg-[#795548] text-white' : 'border-gray-300 dark:border-slate-600'}`}>
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${gender === 'male' ? 'border-brand-500 bg-brand-500 text-white' : 'border-gray-300 dark:border-slate-600'}`}>
                       {gender === 'male' && <Check size={10} strokeWidth={3} />}
                     </div>
-                    <span className={`font-bold text-xs ${gender === 'male' ? 'text-[#795548]' : 'text-gray-600 dark:text-gray-300'}`}>{t.males}</span>
+                    <span className={`font-bold text-xs ${gender === 'male' ? 'text-brand-500' : 'text-gray-600 dark:text-gray-300'}`}>{t.males}</span>
                   </label>
 
-                  <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all h-[36px] flex items-center justify-center gap-2 ${gender === 'female' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-200 bg-white dark:bg-slate-800 dark:border-slate-700 hover:border-[#795548]'}`}>
+                  <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all h-[36px] flex items-center justify-center gap-2 ${gender === 'female' ? 'border-brand-500 bg-brand-500/10' : 'border-gray-200 bg-white dark:bg-slate-800 dark:border-slate-700 hover:border-brand-500'}`}>
                     <input type="radio" name="batch-gender" value="female" checked={gender === 'female'} onChange={() => setGender('female')} className="hidden" />
-                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${gender === 'female' ? 'border-[#795548] bg-[#795548] text-white' : 'border-gray-300'}`}>
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${gender === 'female' ? 'border-brand-500 bg-brand-500 text-white' : 'border-gray-300'}`}>
                       {gender === 'female' && <Check size={10} strokeWidth={3} />}
                     </div>
-                    <span className={`font-bold text-xs ${gender === 'female' ? 'text-[#795548]' : 'text-gray-600 dark:text-gray-300'}`}>{t.females}</span>
+                    <span className={`font-bold text-xs ${gender === 'female' ? 'text-brand-500' : 'text-gray-600 dark:text-gray-300'}`}>{t.females}</span>
                   </label>
                 </div>
               </div>
@@ -495,8 +497,8 @@ export const SheepModal: React.FC<SheepModalProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300">تاريخ الميلاد</label>
-                    <label className="flex items-center gap-1 cursor-pointer bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded-md border border-gray-200 dark:border-slate-700 hover:bg-gray-105 transition">
+                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300">{tr("تاريخ الميلاد")}</label>
+                    <label className="flex items-center gap-1 cursor-pointer bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded-md border border-gray-200 dark:border-slate-700 hover:bg-gray-100 transition">
                       <input
                         type="checkbox"
                         checked={includeBirthDate}
@@ -507,9 +509,9 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                             setAgeString('');
                           }
                         }}
-                        className="w-3 h-3 text-[#795548] rounded focus:ring-[#795548]"
+                        className="w-3 h-3 text-brand-500 rounded focus:ring-brand-500"
                       />
-                      <span className="text-[8px] font-bold text-gray-600 dark:text-gray-300">تفعيل</span>
+                      <span className="text-[8px] font-bold text-gray-600 dark:text-gray-300">{tr("تفعيل")}</span>
                     </label>
                   </div>
 
@@ -519,19 +521,19 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                       required
                       value={birthDate}
                       onChange={(e) => setBirthDate(e.target.value)}
-                      className="w-full h-[36px] px-2 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[#795548] outline-none transition-all font-bold text-center text-xs shadow-sm"
+                      className="w-full h-[36px] px-2 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all font-bold text-center text-xs shadow-sm"
                     />
                   ) : (
                     <div className="w-full h-[36px] flex items-center justify-center bg-white dark:bg-slate-800 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-slate-700 rounded-xl text-[10px] text-center font-medium shadow-sm">
-                      بدون تاريخ
+                      {tr("بدون تاريخ")}
                     </div>
                   )}
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-right mb-1">العمر (تلقائي)</label>
-                  <div className="w-full h-[36px] bg-[#795548]/10 text-[#795548] border border-gray-200 dark:border-slate-700 rounded-xl flex items-center justify-center gap-1 shadow-sm">
-                    <Calculator size={12} className="text-[#795548]" />
+                  <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-start mb-1">{tr("العمر (تلقائي)")}</label>
+                  <div className="w-full h-[36px] bg-brand-500/10 text-brand-500 border border-gray-200 dark:border-slate-700 rounded-xl flex items-center justify-center gap-1 shadow-sm">
+                    <Calculator size={12} className="text-brand-500" />
                     <span className="font-bold text-xs">{ageString || '-'}</span>
                   </div>
                 </div>
@@ -543,7 +545,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
               {/* Pen Selector */}
               <div>
                 <CustomSelect
-                  label="القسم / الحظيرة"
+                  label={tr("القسم / الحظيرة")}
                   value={selectedPenId}
                   onChange={(val) => setSelectedPenId(val)}
                   textSize="text-xs"
@@ -565,7 +567,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                   {/* Type (النوع) - col-span-3 */}
                   <div className="col-span-3 space-y-1">
                     <CustomSelect
-                      label="النوع"
+                      label={tr("النوع")}
                       value={type}
                       onChange={(val) => setType(val as SheepType)}
                       textSize="text-xs"
@@ -593,11 +595,11 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                   {/* Tag Color (الشارة) - col-span-3 */}
                   <div className="col-span-3 space-y-1">
                     <CustomSelect
-                      label="الشارة"
+                      label={tr("الشارة")}
                       value={tagColor}
                       onChange={(val) => { setTagColor(val); setColor(val); }}
                       textSize="text-xs"
-                      placeholder="الشارة"
+                      placeholder={tr("الشارة")}
                       variant="dropdown"
                       options={Object.entries(colorNames).map(([c, name]) => ({
                         value: c,
@@ -609,7 +611,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
 
                   {/* Serial Number (الرقم) - col-span-3 */}
                   <div className="col-span-3 space-y-1">
-                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-center mb-1">الرقم</label>
+                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-center mb-1">{tr("الرقم")}</label>
                     <input
                       required
                       type="text"
@@ -621,19 +623,19 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                         setSerialNumber(val);
                       }}
                       placeholder="000"
-                      className="w-full h-[36px] bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[#795548] outline-none transition-all font-mono text-sm tracking-wider text-center shadow-sm"
+                      className="w-full h-[36px] bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all font-mono text-sm tracking-wider text-center shadow-sm"
                     />
                   </div>
 
                   {/* Nickname (الكنية) - col-span-3 */}
                   <div className="col-span-3 space-y-1">
-                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-center mb-1">الكنية</label>
+                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-center mb-1">{tr("الكنية")}</label>
                     <input
                       type="text"
                       value={nickname}
                       onChange={(e) => setNickname(e.target.value)}
-                      placeholder="اختياري"
-                      className="w-full h-[36px] px-2 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[#795548] outline-none transition-all font-medium text-center shadow-sm placeholder:text-gray-300 dark:placeholder:text-slate-500 text-xs"
+                      placeholder={tr("اختياري")}
+                      className="w-full h-[36px] px-2 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all font-medium text-center shadow-sm placeholder:text-gray-300 dark:placeholder:text-slate-500 text-xs"
                     />
                   </div>
                 </div>
@@ -642,20 +644,20 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                 <div className="grid grid-cols-2 gap-3">
                   {/* Date */}
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-right mb-1">تاريخ الميلاد</label>
+                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-start mb-1">{tr("تاريخ الميلاد")}</label>
                     <input
                       type="date"
                       required
                       value={birthDate}
                       onChange={(e) => setBirthDate(e.target.value)}
-                      className="w-full h-[36px] px-2 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[#795548] outline-none transition-all font-bold text-center text-xs shadow-sm"
+                      className="w-full h-[36px] px-2 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all font-bold text-center text-xs shadow-sm"
                     />
                   </div>
 
                   {/* Age */}
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-right mb-1">العمر</label>
-                    <div className="w-full h-[36px] px-2 bg-[#795548]/10 text-[#795548] border border-gray-200 dark:border-slate-700 rounded-xl flex items-center justify-center gap-1 shadow-sm overflow-hidden">
+                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-start mb-1">{tr("العمر")}</label>
+                    <div className="w-full h-[36px] px-2 bg-brand-500/10 text-brand-500 border border-gray-200 dark:border-slate-700 rounded-xl flex items-center justify-center gap-1 shadow-sm overflow-hidden">
                       <span className="font-bold text-xs whitespace-nowrap">{ageString || '-'}</span>
                     </div>
                   </div>
@@ -663,7 +665,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
 
                 {/* Row 3: الجنس */}
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-right mb-1">الجنس</label>
+                  <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-start mb-1">{tr("الجنس")}</label>
                   <div className="flex items-center gap-1.5 bg-gray-50/70 dark:bg-slate-800/70 border border-gray-200/80 dark:border-slate-700 p-1 rounded-2xl shadow-xs">
                     {/* Male Button */}
                     <button
@@ -671,7 +673,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                       onClick={() => setGender('male')}
                       className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                         gender === 'male'
-                          ? 'bg-[#795548] text-white shadow-sm dark:bg-orange-600 font-black'
+                          ? 'bg-brand-500 text-white shadow-sm dark:bg-orange-600 font-black'
                           : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700/50'
                       }`}
                     >
@@ -689,7 +691,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                       onClick={() => setGender('female')}
                       className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                         gender === 'female'
-                          ? 'bg-[#795548] text-white shadow-sm dark:bg-orange-600 font-black'
+                          ? 'bg-brand-500 text-white shadow-sm dark:bg-orange-600 font-black'
                           : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700/50'
                       }`}
                     >
@@ -712,21 +714,21 @@ export const SheepModal: React.FC<SheepModalProps> = ({
             <div className="space-y-3 pt-3.5 border-t border-gray-100 dark:border-slate-800">
 
               <div className="grid grid-cols-2 gap-2 mb-1">
-                <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all h-[36px] flex items-center justify-center gap-1.5 ${source === 'purchase' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-200 bg-white dark:bg-slate-800 dark:border-slate-700 hover:border-[#795548]'}`}>
+                <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all h-[36px] flex items-center justify-center gap-1.5 ${source === 'purchase' ? 'border-brand-500 bg-brand-500/10' : 'border-gray-200 bg-white dark:bg-slate-800 dark:border-slate-700 hover:border-brand-500'}`}>
                   <input type="radio" name="source" value="purchase" checked={source === 'purchase'} onChange={() => setSource('purchase')} className="hidden" />
-                  <span className={`font-bold text-xs ${source === 'purchase' ? 'text-[#795548]' : 'text-gray-650 dark:text-gray-300'}`}>شراء</span>
+                  <span className={`font-bold text-xs ${source === 'purchase' ? 'text-brand-500' : 'text-gray-700 dark:text-gray-300'}`}>{tr("شراء")}</span>
                 </label>
 
-                <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all h-[36px] flex items-center justify-center gap-1.5 ${source === 'born' ? 'border-[#795548] bg-[#795548]/10' : 'border-gray-200 bg-white dark:bg-slate-800 dark:border-slate-700 hover:border-[#795548]'}`}>
+                <label className={`cursor-pointer relative overflow-hidden rounded-xl border transition-all h-[36px] flex items-center justify-center gap-1.5 ${source === 'born' ? 'border-brand-500 bg-brand-500/10' : 'border-gray-200 bg-white dark:bg-slate-800 dark:border-slate-700 hover:border-brand-500'}`}>
                   <input type="radio" name="source" value="born" checked={source === 'born'} onChange={() => setSource('born')} className="hidden" />
-                  <span className={`font-bold text-xs ${source === 'born' ? 'text-[#795548]' : 'text-gray-650 dark:text-gray-300'}`}>مولود</span>
+                  <span className={`font-bold text-xs ${source === 'born' ? 'text-brand-500' : 'text-gray-700 dark:text-gray-300'}`}>{tr("مولود")}</span>
                 </label>
               </div>
 
               {source === 'purchase' && (
                 <div className="grid grid-cols-2 gap-3 animate-fade-in bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-gray-100 dark:border-slate-700 shadow-sm">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-right mb-1">سعر الشراء</label>
+                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-start mb-1">{tr("سعر الشراء")}</label>
                     <input
                       type="number"
                       required
@@ -734,17 +736,17 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                       value={purchaseAmount}
                       onChange={(e) => setPurchaseAmount(e.target.value)}
                       placeholder="0"
-                      className="w-full h-[36px] px-2 bg-white dark:bg-slate-900 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[#795548] outline-none transition-all shadow-sm text-center font-bold text-xs"
+                      className="w-full h-[36px] px-2 bg-white dark:bg-slate-900 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all shadow-sm text-center font-bold text-xs"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-right mb-1">تاريخ الشراء</label>
+                    <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block text-start mb-1">{tr("تاريخ الشراء")}</label>
                     <input
                       type="date"
                       required
                       value={purchaseDate}
                       onChange={(e) => setPurchaseDate(e.target.value)}
-                      className="w-full h-[36px] px-2 bg-white dark:bg-slate-900 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[#795548] outline-none transition-all font-bold text-center text-xs shadow-sm"
+                      className="w-full h-[36px] px-2 bg-white dark:bg-slate-900 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all font-bold text-center text-xs shadow-sm"
                     />
                   </div>
                 </div>
@@ -752,7 +754,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
 
               {source === 'born' && (
                 <>
-                  <label className="text-[10px] font-bold text-gray-550 dark:text-gray-300 block mb-1">بيانات الأب والأم <span className="text-[9px] text-gray-400 font-normal">(اختياري)</span></label>
+                  <label className="text-[10px] font-bold text-gray-600 dark:text-gray-300 block mb-1">{tr("بيانات الأب والأم")} <span className="text-[9px] text-gray-400 font-normal">{tr("(اختياري)")}</span></label>
 
                   <div className="grid grid-cols-2 gap-3">
                     {/* Mother Selector */}
@@ -767,7 +769,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
 
                       return (
                         <div className="space-y-1.5 relative group/parent">
-                          <label className="text-[10px] font-bold text-pink-400 block text-center mb-0.5">الأم</label>
+                          <label className="text-[10px] font-bold text-pink-400 block text-center mb-0.5">{tr("الأم")}</label>
                           <div className="flex flex-col gap-2">
                             {/* Number Input with Tooltip */}
                             <div className="relative w-full">
@@ -790,19 +792,19 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                                     setMotherId(exactMatches[0].id);
                                   }
                                 }}
-                                placeholder="رقم الأم"
+                                placeholder={tr("رقم الأم")}
                                 className={`w-full h-[36px] px-2 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border ${selectedMother ? 'border-pink-500 ring-1 ring-pink-500/20' : 'border-gray-200 dark:border-slate-700'} rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-center font-bold text-sm shadow-sm placeholder:text-gray-300 dark:placeholder:text-slate-500 transition-all`}
                               />
                               {selectedMother && (
                                 <>
                                   <div
-                                    className="absolute left-2.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full shadow-sm ring-1 ring-white dark:ring-slate-900"
+                                    className="absolute end-2.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full shadow-sm ring-1 ring-white dark:ring-slate-900"
                                     style={{ backgroundColor: selectedMother.tagColor || '#e5e7eb' }}
                                   />
                                   {/* Tooltip */}
                                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/parent:block z-50 whitespace-nowrap">
                                     <div className="bg-gray-800 text-white text-xs px-2 py-1 rounded shadow-lg flex items-center gap-2">
-                                      <span>{pens.find(p => p.id === selectedMother.penId)?.name || 'غير معروف'}</span>
+                                      <span>{pens.find(p => p.id === selectedMother.penId)?.name || tr("غير معروف")}</span>
                                       {selectedMother.tagColor && (
                                         <span className="w-2 h-2 rounded-full ring-1 ring-white/50" style={{ backgroundColor: selectedMother.tagColor }}></span>
                                       )}
@@ -816,7 +818,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
 
                           {/* Dropdown for Matches */}
                           {!motherId && matches.length > 0 && (
-                            <div className="absolute top-[40px] left-0 right-0 z-30 mt-1 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl shadow-xl p-1 flex flex-col gap-0.5 animate-scale-in max-h-48 overflow-y-auto custom-scrollbar">
+                            <div className="absolute top-[40px] end-0 start-0 z-30 mt-1 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl shadow-xl p-1 flex flex-col gap-0.5 animate-scale-in max-h-48 overflow-y-auto custom-scrollbar">
                               {matches.map(match => (
                                 <button
                                   key={match.id}
@@ -825,10 +827,10 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                                     setMotherSearchQuery(match.serialNumber);
                                     setMotherId(match.id);
                                   }}
-                                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg border border-gray-50 dark:border-slate-700 hover:bg-pink-50 hover:border-pink-200 dark:hover:bg-pink-950/20 hover:text-pink-700 dark:hover:text-pink-400 transition-all text-xs group w-full text-right cursor-pointer"
+                                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg border border-gray-50 dark:border-slate-700 hover:bg-pink-50 hover:border-pink-200 dark:hover:bg-pink-950/20 hover:text-pink-700 dark:hover:text-pink-400 transition-all text-xs group w-full text-start cursor-pointer"
                                 >
                                   <div className={`w-2 h-2 rounded-full ring-1 ring-gray-100 dark:ring-slate-700 shrink-0 ${match.tagColor ? '' : 'bg-gray-200'}`} style={{ backgroundColor: match.tagColor || undefined }} />
-                                  <span className="font-bold text-gray-700 dark:text-gray-200 group-hover:text-pink-700 dark:group-hover:text-pink-450 truncate flex-1">
+                                  <span className="font-bold text-gray-700 dark:text-gray-200 group-hover:text-pink-700 dark:group-hover:text-pink-500 truncate flex-1">
                                     {match.serialNumber}
                                   </span>
                                   <span className="text-[10px] text-gray-400 dark:text-gray-500 group-hover:text-pink-400">
@@ -839,9 +841,9 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                             </div>
                           )}
                           {!motherId && matches.length === 0 && motherSearchQuery.length >= 2 && (
-                            <div className="absolute top-[40px] left-0 right-0 z-30 mt-1 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl shadow-sm p-2 text-center">
-                              <p className="text-xs font-bold text-gray-800 dark:text-gray-250">لا يوجد نتائج</p>
-                              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">تأكد من رقم الأم</p>
+                            <div className="absolute top-[40px] end-0 start-0 z-30 mt-1 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl shadow-sm p-2 text-center">
+                              <p className="text-xs font-bold text-gray-800 dark:text-gray-300">{tr("لا يوجد نتائج")}</p>
+                              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{tr("تأكد من رقم الأم")}</p>
                             </div>
                           )}
                         </div>
@@ -860,7 +862,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
 
                       return (
                         <div className="space-y-1.5 relative group/parent">
-                          <label className="text-[10px] font-bold text-blue-400 block text-center mb-0.5">الأب</label>
+                          <label className="text-[10px] font-bold text-blue-400 block text-center mb-0.5">{tr("الأب")}</label>
                           <div className="flex flex-col gap-2">
                             {/* Number Input with Tooltip */}
                             <div className="relative w-full">
@@ -882,19 +884,19 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                                     setFatherId(exactMatches[0].id);
                                   }
                                 }}
-                                placeholder="رقم الأب"
+                                placeholder={tr("رقم الأب")}
                                 className={`w-full h-[36px] px-2 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border ${selectedFather ? 'border-blue-500 ring-1 ring-blue-500/20' : 'border-gray-200 dark:border-slate-700'} rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-center font-bold text-sm shadow-sm placeholder:text-gray-300 dark:placeholder:text-slate-500 transition-all`}
                               />
                               {selectedFather && (
                                 <>
                                   <div
-                                    className="absolute left-2.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full shadow-sm ring-1 ring-white dark:ring-slate-900"
+                                    className="absolute end-2.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full shadow-sm ring-1 ring-white dark:ring-slate-900"
                                     style={{ backgroundColor: selectedFather.tagColor || '#e5e7eb' }}
                                   />
                                   {/* Tooltip */}
                                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/parent:block z-50 whitespace-nowrap">
                                     <div className="bg-gray-800 text-white text-xs px-2 py-1 rounded shadow-lg flex items-center gap-2">
-                                      <span>{pens.find(p => p.id === selectedFather.penId)?.name || 'غير معروف'}</span>
+                                      <span>{pens.find(p => p.id === selectedFather.penId)?.name || tr("غير معروف")}</span>
                                       {selectedFather.tagColor && (
                                         <span className="w-2 h-2 rounded-full ring-1 ring-white/50" style={{ backgroundColor: selectedFather.tagColor }}></span>
                                       )}
@@ -908,7 +910,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
 
                           {/* Dropdown for Matches */}
                           {!fatherId && matches.length > 0 && (
-                            <div className="absolute top-[40px] left-0 right-0 z-30 mt-1 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl shadow-xl p-1 flex flex-col gap-0.5 animate-scale-in max-h-48 overflow-y-auto custom-scrollbar">
+                            <div className="absolute top-[40px] end-0 start-0 z-30 mt-1 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl shadow-xl p-1 flex flex-col gap-0.5 animate-scale-in max-h-48 overflow-y-auto custom-scrollbar">
                               {matches.map(match => (
                                 <button
                                   key={match.id}
@@ -917,7 +919,7 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                                     setFatherSearchQuery(match.serialNumber);
                                     setFatherId(match.id);
                                   }}
-                                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg border border-gray-50 dark:border-slate-700 hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/20 hover:text-blue-700 dark:hover:text-blue-400 transition-all text-xs group w-full text-right cursor-pointer"
+                                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg border border-gray-50 dark:border-slate-700 hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/20 hover:text-blue-700 dark:hover:text-blue-400 transition-all text-xs group w-full text-start cursor-pointer"
                                 >
                                   <div className={`w-2 h-2 rounded-full ring-1 ring-gray-100 dark:ring-slate-700 shrink-0 ${match.tagColor ? '' : 'bg-gray-200'}`} style={{ backgroundColor: match.tagColor || undefined }} />
                                   <span className="font-bold text-gray-700 dark:text-gray-200 group-hover:text-blue-700 truncate flex-1">
@@ -931,9 +933,9 @@ export const SheepModal: React.FC<SheepModalProps> = ({
                             </div>
                           )}
                           {!fatherId && matches.length === 0 && fatherSearchQuery.length >= 2 && (
-                            <div className="absolute top-[40px] left-0 right-0 z-30 mt-1 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl shadow-sm p-2 text-center">
-                              <p className="text-xs font-bold text-gray-800 dark:text-gray-250">لا يوجد نتائج</p>
-                              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">تأكد من رقم الأب</p>
+                            <div className="absolute top-[40px] end-0 start-0 z-30 mt-1 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl shadow-sm p-2 text-center">
+                              <p className="text-xs font-bold text-gray-800 dark:text-gray-300">{tr("لا يوجد نتائج")}</p>
+                              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{tr("تأكد من رقم الأب")}</p>
                             </div>
                           )}
                         </div>
@@ -952,16 +954,16 @@ export const SheepModal: React.FC<SheepModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 h-[38px] rounded-xl border border-gray-200 text-gray-700 font-bold hover:bg-[#fcfbf4] hover:border-gray-300 transition-all text-xs cursor-pointer"
+              className="px-4 h-[38px] rounded-xl border border-gray-200 text-gray-700 font-bold hover:bg-paper hover:border-gray-300 transition-all text-xs cursor-pointer"
             >
-              إلغاء
+              {tr("إلغاء")}
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 h-[38px] rounded-xl bg-[#795548] text-white font-bold hover:bg-[#5D4037] transition-all shadow-md flex items-center justify-center gap-1.5 text-xs cursor-pointer"
+              className="flex-1 px-4 h-[38px] rounded-xl bg-brand-500 text-white font-bold hover:bg-brand-700 transition-all shadow-md flex items-center justify-center gap-1.5 text-xs cursor-pointer"
             >
               <Save size={16} />
-              <span>حفظ البيانات</span>
+              <span>{tr("حفظ البيانات")}</span>
             </button>
           </div>
         </form>

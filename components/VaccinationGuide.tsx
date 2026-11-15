@@ -4,6 +4,8 @@ import { Sheep } from '../types';
 import { getAnimalMetadata } from '../utils/animalHelpers';
 import { translations } from '../constants/translations';
 
+import { tr } from '../constants/i18n';
+
 interface VaccinationGuideProps {
   sheepList?: Sheep[];
   animalType?: string;
@@ -52,39 +54,39 @@ export const VaccinationGuide: React.FC<VaccinationGuideProps> = ({ sheepList = 
           className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg transition-all duration-300 font-black text-xs uppercase tracking-wider ${activeTab === 'log' ? 'bg-purple-600 text-white shadow-sm premium-shadow' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
         >
           <FileText size={16} />
-          {language === 'en' ? 'Operation Log' : 'سجل العمليات'} ({medicalHistory.length})
+          {language === 'en' ? 'Operation Log' : tr("سجل العمليات")} ({medicalHistory.length})
         </button>
         <button
           onClick={() => setActiveTab('guide')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg transition-all duration-300 font-black text-xs uppercase tracking-wider ${activeTab === 'guide' ? 'bg-purple-600 text-white shadow-sm premium-shadow' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
         >
           <BookOpen size={16} />
-          {language === 'en' ? 'Vaccination Guide' : 'دليل التحصين'}
+          {language === 'en' ? 'Vaccination Guide' : tr("دليل التحصين")}
         </button>
       </div>
 
       {activeTab === 'guide' && (
-        <div className="bg-[#FCFBF4] rounded-[2.5rem] shadow-2xl border border-gray-100/50 overflow-hidden animate-scale-in dark:border-slate-800 dark:bg-slate-900">
+        <div className="bg-paper rounded-[2.5rem] shadow-2xl border border-gray-100/50 overflow-hidden animate-scale-in dark:border-slate-800 dark:bg-slate-900">
           <div className="bg-gradient-to-br from-purple-600 to-indigo-700 p-8 text-white relative overflow-hidden flex flex-col items-center text-center">
             <div className="relative z-10 flex flex-col items-center">
               <h2 className="text-2xl font-black flex items-center gap-3 tracking-tighter justify-center">
                 <ShieldCheck className="w-10 h-10" />
-                دليل التطعيمات
+                {tr("دليل التطعيمات")}
               </h2>
-              <p className="text-purple-100 mt-3 text-sm font-bold opacity-90 max-w-xs">الجدول الاسترشادي للتحصينات الدورية للأغنام والماعز</p>
+              <p className="text-purple-100 mt-3 text-sm font-bold opacity-90 max-w-xs">{tr("الجدول الاسترشادي للتحصينات الدورية للأغنام والماعز")}</p>
             </div>
-            <Syringe className="absolute -right-8 -bottom-8 w-40 h-40 text-white/10 rotate-12" />
+            <Syringe className="absolute -start-8 -bottom-8 w-40 h-40 text-white/10 rotate-12" />
           </div>
 
           <div className="p-4 sm:p-8">
             <div className="overflow-x-auto overflow-y-auto max-h-[50vh] rounded-2xl border border-gray-50 dark:border-slate-800">
-              <table className="w-full text-right border-collapse">
+              <table className="w-full text-start border-collapse">
                 <thead>
                   <tr className="bg-purple-50/50 text-purple-900 border-b border-purple-100/30 dark:bg-purple-900/10 dark:text-purple-300 dark:border-purple-800/30">
-                    <th className="p-3 font-black text-[10px] uppercase tracking-widest whitespace-nowrap text-center">المرض / اللقاح</th>
-                    <th className="p-3 font-black text-[10px] uppercase tracking-widest whitespace-nowrap text-center">العمر</th>
-                    <th className="p-3 font-black text-[10px] uppercase tracking-widest whitespace-nowrap text-center">التكرار</th>
-                    <th className="p-3 font-black text-[10px] uppercase tracking-widest text-center">ملاحظات</th>
+                    <th className="p-3 font-black text-[10px] uppercase tracking-widest whitespace-nowrap text-center">{tr("المرض / اللقاح")}</th>
+                    <th className="p-3 font-black text-[10px] uppercase tracking-widest whitespace-nowrap text-center">{tr("العمر")}</th>
+                    <th className="p-3 font-black text-[10px] uppercase tracking-widest whitespace-nowrap text-center">{tr("التكرار")}</th>
+                    <th className="p-3 font-black text-[10px] uppercase tracking-widest text-center">{tr("ملاحظات")}</th>
                   </tr>
                 </thead>
                 <tbody className="text-gray-700 dark:text-gray-300">
@@ -95,17 +97,17 @@ export const VaccinationGuide: React.FC<VaccinationGuideProps> = ({ sheepList = 
                            <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
                              <Syringe size={14} />
                            </div>
-                           {v.name}
+                           {tr(v.name)}
                         </div>
                       </td>
-                      <td className="p-3 font-bold text-xs text-center">{v.age}</td>
+                      <td className="p-3 font-bold text-xs text-center">{tr(v.age)}</td>
                       <td className="p-3 text-xs text-center">
                         <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-[10px] font-black uppercase dark:bg-indigo-900/20 dark:text-indigo-300">
-                          {v.frequency}
+                          {tr(v.frequency)}
                         </span>
                       </td>
                       <td className="p-3 text-[9px] text-gray-500 leading-relaxed dark:text-gray-400 text-center">
-                        {v.notes}
+                        {tr(v.notes)}
                       </td>
                     </tr>
                   ))}
@@ -117,23 +119,23 @@ export const VaccinationGuide: React.FC<VaccinationGuideProps> = ({ sheepList = 
       )}
 
       {activeTab === 'log' && (
-        <div className="bg-[#FCFBF4] rounded-[2.5rem] shadow-2xl border border-gray-100/50 overflow-hidden dark:bg-slate-900 dark:border-slate-800">
+        <div className="bg-paper rounded-[2.5rem] shadow-2xl border border-gray-100/50 overflow-hidden dark:bg-slate-900 dark:border-slate-800">
           <div className="p-4 sm:p-5 border-b border-gray-50 flex flex-col md:flex-row items-center justify-between gap-4 dark:border-slate-800">
             <div>
               <h2 className="text-lg font-black text-gray-900 dark:text-gray-100 flex items-center gap-2 tracking-tighter">
                 <FileText className="text-purple-600 w-5 h-5" />
-                سجل العمليات
+                {tr("سجل العمليات")}
               </h2>
             </div>
 
             <div className="relative w-full md:w-80">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
-                placeholder="بحث برقم الرأس أو نوع الإجراء..."
+                placeholder={tr("بحث برقم الرأس أو نوع الإجراء...")}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pr-10 pl-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-purple-500/10 focus:border-purple-500 outline-none transition-all dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                className="w-full ps-10 pe-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-purple-500/10 focus:border-purple-500 outline-none transition-all dark:bg-slate-800 dark:border-slate-700 dark:text-white"
               />
             </div>
           </div>
@@ -144,19 +146,19 @@ export const VaccinationGuide: React.FC<VaccinationGuideProps> = ({ sheepList = 
                 <div className="bg-purple-50 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 dark:bg-purple-900/20">
                   <Activity className="text-purple-300 w-10 h-10" />
                 </div>
-                <p className="text-gray-800 font-black text-xl dark:text-gray-200">لا يوجد سجلات حتى الآن</p>
-                <p className="text-sm text-gray-400 mt-2 font-bold">ابدأ بإضافة تحصين أو علاج من بطاقة الحيوان</p>
+                <p className="text-gray-800 font-black text-xl dark:text-gray-200">{tr("لا يوجد سجلات حتى الآن")}</p>
+                <p className="text-sm text-gray-400 mt-2 font-bold">{tr("ابدأ بإضافة تحصين أو علاج من بطاقة الحيوان")}</p>
               </div>
             ) : (
               <div className="overflow-x-auto overflow-y-auto max-h-[55vh]">
-                <table className="w-full text-right border-collapse">
+                <table className="w-full text-start border-collapse">
                   <thead>
                     <tr className="bg-gray-50/50 dark:bg-slate-800 text-gray-400">
-                      <th className="p-2 font-black text-[9px] uppercase tracking-widest whitespace-nowrap">رقم الرأس</th>
-                      <th className="p-2 font-black text-[9px] uppercase tracking-widest whitespace-nowrap">الإجراء</th>
-                      <th className="p-2 font-black text-[9px] uppercase tracking-widest whitespace-nowrap">الاسم</th>
-                      <th className="p-2 font-black text-[9px] uppercase tracking-widest whitespace-nowrap">التاريخ</th>
-                      <th className="p-2 font-black text-[9px] uppercase tracking-widest">ملاحظات</th>
+                      <th className="p-2 font-black text-[9px] uppercase tracking-widest whitespace-nowrap">{tr("رقم الرأس")}</th>
+                      <th className="p-2 font-black text-[9px] uppercase tracking-widest whitespace-nowrap">{tr("الإجراء")}</th>
+                      <th className="p-2 font-black text-[9px] uppercase tracking-widest whitespace-nowrap">{tr("الاسم")}</th>
+                      <th className="p-2 font-black text-[9px] uppercase tracking-widest whitespace-nowrap">{tr("التاريخ")}</th>
+                      <th className="p-2 font-black text-[9px] uppercase tracking-widest">{tr("ملاحظات")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-slate-800 text-[10px]">
@@ -176,7 +178,7 @@ export const VaccinationGuide: React.FC<VaccinationGuideProps> = ({ sheepList = 
                             <span className={`px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-tighter ${record.type === 'vaccine' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30' :
                               record.type === 'treatment' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30'
                               }`}>
-                              {record.type === 'vaccine' ? (language === 'en' ? 'Vaccine' : 'تحصين') : (record.type === 'treatment' ? (language === 'en' ? 'Treatment' : 'علاج') : (language === 'en' ? 'Checkup' : 'فحص'))}
+                              {record.type === 'vaccine' ? (language === 'en' ? 'Vaccine' : tr("تحصين")) : (record.type === 'treatment' ? (language === 'en' ? 'Treatment' : tr("علاج")) : (language === 'en' ? 'Checkup' : tr("فحص")))}
                             </span>
                           </td>
                           <td className="p-1.5 font-black text-[11px] text-gray-800 dark:text-gray-200">
@@ -196,7 +198,7 @@ export const VaccinationGuide: React.FC<VaccinationGuideProps> = ({ sheepList = 
                     ) : (
                       <tr>
                         <td colSpan={5} className="p-10 text-center text-gray-400 font-bold">
-                          عذراً، لم نجد نتائج تطابق بحثك...
+                          {tr("عذراً، لم نجد نتائج تطابق بحثك...")}
                         </td>
                       </tr>
                     )}

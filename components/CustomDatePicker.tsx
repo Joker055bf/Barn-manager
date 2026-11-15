@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
+import { tr, isEnglish } from '../constants/i18n';
+
 interface CustomDatePickerProps {
     label?: string;
     value: string; // YYYY-MM-DD
@@ -9,11 +11,11 @@ interface CustomDatePickerProps {
     required?: boolean;
 }
 
-const DAYS = ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'];
+const DAYS = ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'].map(d => tr(d));
 const MONTHS = [
     'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
     'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
-];
+].map(m => tr(m));
 
 export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
     label,
@@ -79,7 +81,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
                     onClick={() => handleDateSelect(i)}
                     className={`w-10 h-10 flex items-center justify-center rounded-full text-sm font-bold transition-all ${
                         isSelected 
-                            ? 'bg-[#795548] text-white shadow-md' 
+                            ? 'bg-brand-500 text-white shadow-md' 
                             : isToday
                                 ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
                                 : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-700'
@@ -94,25 +96,25 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
     };
 
     return (
-        <div className={`space-y-1 ${className}`} dir="rtl">
+        <div className={`space-y-1 ${className}`} dir={isEnglish ? 'ltr' : 'rtl'}>
             {label && <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1">{label} {required && <span className="text-red-500">*</span>}</label>}
             
             <button
                 type="button"
                 onClick={() => setIsOpen(true)}
-                className="w-full px-4 py-3.5 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-[#795548] outline-none transition-all font-bold text-sm flex items-center justify-between shadow-sm"
+                className="w-full px-4 py-3.5 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-brand-500 outline-none transition-all font-bold text-sm flex items-center justify-between shadow-sm"
             >
                 <span className={value ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}>
-                    {value ? value.replace(/-/g, '/') : 'اختر التاريخ'}
+                    {value ? value.replace(/-/g, '/') : tr("اختر التاريخ")}
                 </span>
                 <CalendarIcon size={18} className="text-gray-400" />
             </button>
 
             {isOpen && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir={isEnglish ? 'ltr' : 'rtl'}>
                     <div className="bg-white dark:bg-slate-800 w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden animate-scale-in flex flex-col">
                         <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-slate-700">
-                            <h3 className="font-bold text-lg text-gray-900 dark:text-white">اختر التاريخ</h3>
+                            <h3 className="font-bold text-lg text-gray-900 dark:text-white">{tr("اختر التاريخ")}</h3>
                             <button onClick={() => setIsOpen(false)} className="p-2 bg-gray-100 dark:bg-slate-700 rounded-full text-gray-500 dark:text-gray-400">
                                 <X size={20} />
                             </button>
@@ -155,7 +157,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
                             </div>
                         </div>
                         
-                        <div className="p-4 bg-gray-50 dark:bg-slate-750 border-t border-gray-100 dark:border-slate-700">
+                        <div className="p-4 bg-gray-50 dark:bg-slate-700 border-t border-gray-100 dark:border-slate-700">
                             <button 
                                 onClick={() => {
                                     const today = new Date();
@@ -163,7 +165,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
                                 }}
                                 className="w-full py-3 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-600 transition"
                             >
-                                اختيار اليوم
+                                {tr("اختيار اليوم")}
                             </button>
                         </div>
                     </div>

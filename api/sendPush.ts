@@ -1,5 +1,7 @@
 import { getApps, initializeApp, cert } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const parsePrivateKey = (key: string | undefined): string | undefined => {
@@ -92,31 +94,34 @@ if (!getApps().length) {
   }
 }
 
+// Resolves the Firebase Auth caller to their users doc (same mapping the Firestore rules use).
+const resolveCaller = async (idToken: string) => {
+  const decoded = await getAuth().verifyIdToken(idToken);
+  const db = getFirestore();
+  const link = await db.collection('auth_links').doc(decoded.uid).get();
+  if (!link.exists) return null;
+  const userId = link.data()!.userId as string;
+  const user = await db.collection('users').doc(userId).get();
+  if (!user.exists || user.data()!.authUid !== decoded.uid) return null;
+  const data = user.data()!;
+  return { userId, farmId: data.role === 'owner' ? userId : data.ownerId as string };
+};
+
+const clip = (v: unknown, max: number) => String(v ?? '').slice(0, max);
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS configuration
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  // Callers authenticate with a Firebase ID token, so any origin (GitHub Pages, Android) may call.
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
+  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
 
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
+    res.status(204).end();
     return;
   }
-
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
-
-  const { token, title, body } = req.body;
-
-  if (!token || !title || !body) {
-    return res.status(400).json({ error: 'Missing required fields' });
-  }
-
   if (!getApps().length) {
     return res.status(500).json({
       error: 'Firebase Admin SDK not initialized',
@@ -124,16 +129,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  try {
-    const message = {
-      notification: {
-        title,
-        body,
-      },
-      token,
-    };
+  const authHeader = req.headers.authorization || '';
+  const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (!idToken) return res.status(401).json({ error: 'Missing Authorization bearer token' });
 
-    const response = await getMessaging().send(message);
+  const { receiverId, title, body } = req.body || {};
+  if (!receiverId || !title || !body) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    const caller = await resolveCaller(idToken).catch(() => null);
+    if (!caller) return res.status(401).json({ error: 'Invalid session' });
+
+    const receiverSnap = await getFirestore().collection('users').doc(String(receiverId)).get();
+    if (!receiverSnap.exists) return res.status(404).json({ error: 'Receiver not found' });
+    const receiver = receiverSnap.data()!;
+    const receiverFarm = receiver.role === 'owner' ? receiverSnap.id : receiver.ownerId;
+    if (receiverFarm !== caller.farmId) return res.status(403).json({ error: 'Receiver is not in your farm' });
+    if (!receiver.fcmToken) return res.status(409).json({ error: 'Receiver has no registered device' });
+
+    const notification = { title: clip(title, 120), body: clip(body, 500) };
+    const response = await getMessaging().send({
+      token: receiver.fcmToken,
+      notification,
+      webpush: {
+        // Web push needs an absolute icon URL; set APP_ICON_URL on Vercel (e.g. https://<site>/assets/logo.jpg).
+        notification: { ...notification, dir: 'rtl' as const, ...(process.env.APP_ICON_URL ? { icon: process.env.APP_ICON_URL } : {}) },
+      },
+      android: { priority: 'high' },
+    });
     res.status(200).json({ success: true, response });
   } catch (error: any) {
     console.error('Error sending message:', error);

@@ -4,6 +4,8 @@ import { Wheat, Package, Trash2, History, AlertTriangle, CalendarDays, ChevronDo
 import { FeedItem, FeedLogEntry } from '../types';
 import { FeedModal } from './FeedModal';
 
+import { tr } from '../constants/i18n';
+
 interface FeedManagerProps {
   items: FeedItem[];
   onUpdate: (items: FeedItem[]) => void;
@@ -11,13 +13,12 @@ interface FeedManagerProps {
   penId?: string | null;
   animalType?: string;
   onAddExpense?: any;
-  isOwner?: boolean;
-  canEdit?: boolean;
+  canEdit: boolean;
   onShowAlert?: any;
   onShowConfirm?: any;
 }
 
-export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, currentUser, onShowConfirm }) => {
+export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, currentUser, onShowConfirm, canEdit }) => {
   const [activeTab, setActiveTab] = useState<'all' | 'grain' | 'fodder'>('all');
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   
@@ -64,11 +65,11 @@ export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, curre
     e.stopPropagation();
     if (onShowConfirm) {
       onShowConfirm(
-        'حذف الصنف',
-        'هل أنت متأكد من حذف هذا الصنف من المخزون؟',
+        tr("حذف الصنف"),
+        tr("هل أنت متأكد من حذف هذا الصنف من المخزون؟"),
         () => onUpdate(items.filter(i => i.id !== id))
       );
-    } else if (confirm('هل أنت متأكد من حذف هذا الصنف من المخزون؟')) {
+    } else if (confirm(tr("هل أنت متأكد من حذف هذا الصنف من المخزون؟"))) {
       onUpdate(items.filter(i => i.id !== id));
     }
   };
@@ -99,21 +100,21 @@ export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, curre
       
       {/* Header Section */}
       <div className="flex justify-between items-center px-2">
-         <div className="text-right flex flex-col items-end">
+         <div className="text-start flex flex-col items-end">
            <h2 className="text-sm font-extrabold text-gray-800 flex items-center gap-1.5">
-             إدارة الأعلاف والمخزون
-             <Wheat className="text-[#765341]" size={14} />
+             {tr("إدارة الأعلاف والمخزون")}
+             <Wheat className="text-brand-600" size={14} />
            </h2>
-           <p className="text-[9px] font-bold text-gray-400 mt-0.5">متابعة وإدارة استهلاك الأعلاف والحبوب</p>
+           <p className="text-[9px] font-bold text-gray-400 mt-0.5">{tr("متابعة وإدارة استهلاك الأعلاف والحبوب")}</p>
          </div>
 
-         <button 
+         {canEdit && <button
            onClick={() => { setEditingItem(undefined); setIsModalOpen(true); }}
-           className="w-10 h-10 bg-[#765341] hover:bg-[#5D4037] text-white rounded-xl transition shadow-md flex items-center justify-center font-bold text-sm shrink-0"
-           title="إضافة أعلاف"
+           className="w-10 h-10 bg-brand-600 hover:bg-brand-700 text-white rounded-xl transition shadow-md flex items-center justify-center font-bold text-sm shrink-0"
+           title={tr("إضافة أعلاف")}
          >
            <Plus size={20} />
-         </button>
+         </button>}
       </div>
 
       {/* Tabs */}
@@ -122,19 +123,19 @@ export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, curre
           onClick={() => setActiveTab('fodder')}
           className={`flex-1 py-3 rounded-xl transition font-bold text-sm ${activeTab === 'fodder' ? 'bg-white shadow-sm border border-gray-100 text-gray-800' : 'text-gray-400'}`}
         >
-          أعلاف
+          {tr("أعلاف")}
         </button>
         <button
           onClick={() => setActiveTab('grain')}
           className={`flex-1 py-3 rounded-xl transition font-bold text-sm ${activeTab === 'grain' ? 'bg-white shadow-sm border border-gray-100 text-gray-800' : 'text-gray-400'}`}
         >
-          حبوب
+          {tr("حبوب")}
         </button>
         <button
           onClick={() => setActiveTab('all')}
           className={`flex-1 py-3 rounded-xl transition font-bold text-sm ${activeTab === 'all' ? 'bg-white shadow-sm border border-gray-100 text-gray-800' : 'text-gray-400'}`}
         >
-          الكل
+          {tr("الكل")}
         </button>
       </div>
 
@@ -143,8 +144,8 @@ export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, curre
         {filteredItems.length === 0 && (
            <div className="flex flex-col items-center justify-center py-20 text-gray-400 bg-white rounded-3xl border-2 border-dashed border-gray-200">
               <Package size={64} className="mb-4 opacity-20" />
-              <p className="text-lg font-bold">لا توجد أصناف هنا</p>
-              <p className="text-sm">اضغط على زر إضافة أعلاف للبدء</p>
+              <p className="text-lg font-bold">{tr("لا توجد أصناف هنا")}</p>
+              <p className="text-sm">{tr("اضغط على زر إضافة أعلاف للبدء")}</p>
            </div>
         )}
 
@@ -179,22 +180,22 @@ export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, curre
                    {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                  </div>
 
-                 <div className="flex items-center gap-4 text-right">
+                 <div className="flex items-center gap-4 text-start">
                    <div className="flex flex-col items-end">
                      <h3 className="font-extrabold text-xl text-gray-800">{item.name}</h3>
                       <div className="flex items-center gap-2 mt-1 flex-wrap justify-end">
-                        <span className="text-xs text-gray-400 font-medium">{displayQty} {isGrain ? 'كجم' : 'حزمة'}</span>
+                        <span className="text-xs text-gray-400 font-medium">{displayQty} {isGrain ? tr("كجم") : tr("حزمة")}</span>
                         {isLow ? (
                           <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-red-50 text-red-600 border border-red-100 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/30">
-                            نفد
+                            {tr("نفد")}
                           </span>
                         ) : daysLeft !== null && daysLeft <= 15 ? (
                           <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-50 text-amber-600 border border-amber-200 animate-pulse flex items-center gap-0.5 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/30 shadow-sm">
-                            ⚠️ ينتهي خلال {daysLeft} {daysLeft >= 3 && daysLeft <= 10 ? 'أيام' : 'يوم'}
+                            {tr("⚠️ ينتهي خلال")} {daysLeft} {daysLeft >= 3 && daysLeft <= 10 ? tr("أيام") : tr("يوم")}
                           </span>
                         ) : (
                           <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-green-50 text-green-600 border border-green-100 dark:bg-green-950/40 dark:text-green-400 dark:border-green-900/30">
-                            متوفر
+                            {tr("متوفر")}
                           </span>
                         )}
                         {(() => {
@@ -206,7 +207,7 @@ export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, curre
                           
                           return (
                             <span className="text-[9px] font-black text-amber-800 bg-amber-50/80 px-2 py-0.5 rounded-full border border-amber-200/60 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/40 shrink-0 leading-none shadow-sm">
-                              {todayAr}: {todayConsumption} {isGrain ? 'كجم' : 'حزمة'}
+                              {todayAr}: {todayConsumption} {isGrain ? tr("كجم") : tr("حزمة")}
                             </span>
                           );
                         })()}
@@ -224,59 +225,59 @@ export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, curre
                     
                     {/* Actions */}
                     <div className="flex justify-between items-center mb-6">
-                       <button 
+                       {canEdit && <button
                          onClick={(e) => handleDelete(item.id, e)}
                          className="flex items-center gap-1 text-red-400 hover:text-red-600 transition text-[11px] font-bold px-3 py-1.5 rounded-lg hover:bg-red-50"
                        >
-                         <Trash2 size={14} /> حذف الصنف
-                       </button>
-                       <button 
+                         <Trash2 size={14} /> {tr("حذف الصنف")}
+                       </button>}
+                       {canEdit && <button
                          onClick={(e) => openEditModal(item, e)}
                          className="flex items-center gap-1 text-blue-400 hover:text-blue-600 transition text-[11px] font-bold px-3 py-1.5 rounded-lg hover:bg-blue-50"
                        >
-                         تحديث الاستهلاك <Edit2 size={14} />
-                       </button>
+                         {tr("تحديث الاستهلاك")} <Edit2 size={14} />
+                       </button>}
                     </div>
 
                     {/* Current Balance */}
                     <div className="bg-gray-50 rounded-2xl p-4 flex items-center justify-between mb-4 border border-gray-100">
                        <div className="font-black text-gray-800 text-lg flex items-baseline gap-1">
-                          {isGrain ? (displayQty / 50).toFixed(1) : displayQty} <span className="text-[11px] text-gray-500 font-medium">{isGrain ? 'كيس' : 'حزمة'}</span>
+                          {isGrain ? (displayQty / 50).toFixed(1) : displayQty} <span className="text-[11px] text-gray-500 font-medium">{isGrain ? tr("كيس") : tr("حزمة")}</span>
                        </div>
-                       <span className="text-xs font-bold text-gray-500">الرصيد الحالي:</span>
+                       <span className="text-xs font-bold text-gray-500">{tr("الرصيد الحالي:")}</span>
                     </div>
 
                     {/* Summary Cards */}
                     <div className="grid grid-cols-2 gap-3 mb-6">
                        <div className="bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100 flex flex-col items-center justify-center text-center">
                           <p className="text-emerald-500 text-[9.5px] mb-0.5 font-bold flex items-center gap-1">
-                            <CalendarDays size={12} /> يكفي لمدة
+                            <CalendarDays size={12} /> {tr("يكفي لمدة")}
                           </p>
                           <p className="font-black text-emerald-700 text-lg">
-                             {daysLeft !== null && daysLeft !== Infinity ? daysLeft : '-'} <span className="text-[10px] font-medium text-emerald-600">يوم</span>
+                             {daysLeft !== null && daysLeft !== Infinity ? daysLeft : '-'} <span className="text-[10px] font-medium text-emerald-600">{tr("يوم")}</span>
                           </p>
                        </div>
 
                        <div className="bg-orange-50/50 p-2.5 rounded-xl border border-orange-100 flex flex-col items-center justify-center text-center relative overflow-hidden">
-                          <div className="absolute top-1.5 left-1.5 text-orange-400">
+                          <div className="absolute top-1.5 end-1.5 text-orange-400">
                              <Clock size={10} />
                           </div>
                           <p className="text-orange-500 text-[9.5px] mb-0.5 font-bold flex items-center gap-1">
-                            استهلاك تلقائي <Droplets size={10} />
+                            {tr("استهلاك تلقائي")} <Droplets size={10} />
                           </p>
                           {isVaried ? (
-                             <p className="font-black text-gray-800 text-xs">حسب اليوم</p>
+                             <p className="font-black text-gray-800 text-xs">{tr("حسب اليوم")}</p>
                           ) : (
                              <p className="font-black text-gray-800 text-base">{dailyAvg > 0 ? dailyAvg : '-'} <span className="text-[9px] font-medium">{displayUnit}</span></p>
                           )}
-                          <p className="text-[8px] text-orange-400 mt-0.5 font-bold">يومياً 8:00 ص</p>
+                          <p className="text-[8px] text-orange-400 mt-0.5 font-bold">{tr("يومياً 8:00 ص")}</p>
                        </div>
                     </div>
 
                     {/* Varied Consumption Details (if applicable) */}
                     {isVaried && item.variedDailyConsumption && (
                       <div className="mb-6 bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                         <h4 className="text-[11px] font-bold text-gray-500 mb-3 text-right">جدول الاستهلاك المتغير (كجم/يوم)</h4>
+                         <h4 className="text-[11px] font-bold text-gray-500 mb-3 text-start">{tr("جدول الاستهلاك المتغير (كجم/يوم)")}</h4>
                          <div className="grid grid-cols-4 gap-2">
                             {(Object.entries(item.variedDailyConsumption) as [string, number][]).map(([dayId, val]) => (
                                val > 0 && (
@@ -293,19 +294,19 @@ export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, curre
                     {/* Logs */}
                     <div>
                        <h4 className="text-xs font-bold text-gray-500 mb-3 flex items-center justify-end gap-1">
-                          سجل العمليات <History size={14} />
+                          {tr("سجل العمليات")} <History size={14} />
                        </h4>
                        <div className="bg-white rounded-2xl p-1 max-h-40 overflow-y-auto custom-scrollbar">
                           {(item.logs && item.logs.length > 0) ? (
                             <div className="divide-y divide-gray-50">
                               {item.logs.map(log => (
                                 <div key={log.id} className="flex justify-between items-center py-2.5 px-2">
-                                   <div className="text-left text-[9px] text-gray-400 font-medium">
+                                   <div className="text-end text-[9px] text-gray-400 font-medium">
                                      {new Date(log.date).toLocaleDateString('en-GB')}
                                    </div>
-                                   <div className="flex items-center gap-2 text-right">
+                                   <div className="flex items-center gap-2 text-start">
                                      <span className={`font-bold text-[11px] ${log.type === 'add' ? 'text-gray-800' : 'text-gray-600'}`}>
-                                       {log.type === 'add' ? 'إضافة' : 'استهلاك'} {log.amount} {isGrain && log.type === 'add' ? 'كجم' : ''}
+                                       {log.type === 'add' ? tr("إضافة") : tr("استهلاك")} {log.amount} {isGrain && log.type === 'add' ? tr("كجم") : ''}
                                      </span>
                                      <div className={`w-1.5 h-1.5 rounded-full ${log.type === 'add' ? 'bg-emerald-500' : 'bg-orange-500'}`}></div>
                                    </div>
@@ -313,7 +314,7 @@ export const FeedManager: React.FC<FeedManagerProps> = ({ items, onUpdate, curre
                               ))}
                             </div>
                           ) : (
-                            <p className="text-center text-gray-400 text-[10px] py-4">لا توجد عمليات</p>
+                            <p className="text-center text-gray-400 text-[10px] py-4">{tr("لا توجد عمليات")}</p>
                           )}
                        </div>
                     </div>

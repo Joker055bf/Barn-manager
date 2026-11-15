@@ -3,6 +3,8 @@ import { X, Syringe, Plus, Calendar, Activity, Info, ShieldCheck, AlertTriangle 
 import { Sheep, MedicalRecord } from '../types';
 import { getAnimalMetadata } from '../utils/animalHelpers';
 
+import { tr, isEnglish } from '../constants/i18n';
+
 interface MedicalModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -126,14 +128,14 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden max-h-[90vh] flex flex-col" dir="rtl">
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden max-h-[90vh] flex flex-col" dir={isEnglish ? 'ltr' : 'rtl'}>
         <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-purple-50">
           <div>
             <h2 className="text-xl font-bold text-purple-900 flex items-center gap-2">
               <Activity size={24} className="text-purple-600" />
-              السجل الطبي
+              {tr("السجل الطبي")}
             </h2>
-            <p className="text-sm text-purple-600 mt-1">رقم الرأس: #{sheep.serialNumber}</p>
+            <p className="text-sm text-purple-600 mt-1">{tr("رقم الرأس: #")}{sheep.serialNumber}</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer">
             <X size={24} />
@@ -150,7 +152,7 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({
                 : 'text-gray-400 border-transparent hover:text-gray-600'
             }`}
           >
-            تاريخ التحصين ({records.length})
+            {tr("تاريخ التحصين (")}{records.length})
           </button>
           <button
             onClick={() => setActiveTab('guide')}
@@ -160,7 +162,7 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({
                 : 'text-gray-400 border-transparent hover:text-gray-600'
             }`}
           >
-            دليل التحصين ({takenVaccines.length})
+            {tr("دليل التحصين (")}{takenVaccines.length})
           </button>
           <button
             onClick={() => setActiveTab('add')}
@@ -170,7 +172,7 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({
                 : 'text-gray-400 border-transparent hover:text-gray-600'
             }`}
           >
-            إضافة جديد
+            {tr("إضافة جديد")}
           </button>
         </div>
 
@@ -178,49 +180,49 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({
           {activeTab === 'add' ? (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1.5">نوع الإجراء</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">{tr("نوع الإجراء")}</label>
                 <div className="flex gap-2">
-                   <button type="button" onClick={() => setRecordType('vaccine')} className={`flex-1 py-2 rounded-lg text-xs font-bold border transition cursor-pointer ${recordType === 'vaccine' ? 'bg-purple-100 border-purple-500 text-purple-750' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>تطعيم</button>
-                   <button type="button" onClick={() => setRecordType('treatment')} className={`flex-1 py-2 rounded-lg text-xs font-bold border transition cursor-pointer ${recordType === 'treatment' ? 'bg-blue-100 border-blue-500 text-blue-750' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>علاج</button>
-                   <button type="button" onClick={() => setRecordType('checkup')} className={`flex-1 py-2 rounded-lg text-xs font-bold border transition cursor-pointer ${recordType === 'checkup' ? 'bg-green-100 border-green-500 text-green-750' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>فحص</button>
+                   <button type="button" onClick={() => setRecordType('vaccine')} className={`flex-1 py-2 rounded-lg text-xs font-bold border transition cursor-pointer ${recordType === 'vaccine' ? 'bg-purple-100 border-purple-500 text-purple-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>{tr("تطعيم")}</button>
+                   <button type="button" onClick={() => setRecordType('treatment')} className={`flex-1 py-2 rounded-lg text-xs font-bold border transition cursor-pointer ${recordType === 'treatment' ? 'bg-blue-100 border-blue-500 text-blue-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>{tr("علاج")}</button>
+                   <button type="button" onClick={() => setRecordType('checkup')} className={`flex-1 py-2 rounded-lg text-xs font-bold border transition cursor-pointer ${recordType === 'checkup' ? 'bg-green-100 border-green-500 text-green-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>{tr("فحص")}</button>
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                    {recordType === 'vaccine' ? 'اسم اللقاح' : (recordType === 'treatment' ? 'اسم الدواء' : 'نتيجة الفحص')}
+                    {recordType === 'vaccine' ? tr("اسم اللقاح") : (recordType === 'treatment' ? tr("اسم الدواء") : tr("نتيجة الفحص"))}
                 </label>
                 <input
                   required={!allowNoName}
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder={recordType === 'vaccine' ? 'مثال: معوي، جدري' : '...'}
-                  className="w-full h-[40px] px-3 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-purple-500 focus:bg-white outline-none transition-all font-medium shadow-sm text-sm"
+                  placeholder={recordType === 'vaccine' ? tr("مثال: معوي، جدري") : '...'}
+                  className="w-full h-[40px] px-3 bg-paper text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-purple-500 focus:bg-white outline-none transition-all font-medium shadow-sm text-sm"
                 />
 
 
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1.5">التاريخ</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">{tr("التاريخ")}</label>
                 <input
                   required
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="w-full h-[40px] px-3 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-purple-500 focus:bg-white outline-none transition-all font-bold shadow-sm text-sm"
+                  className="w-full h-[40px] px-3 bg-paper text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-purple-500 focus:bg-white outline-none transition-all font-bold shadow-sm text-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1.5">ملاحظات</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">{tr("ملاحظات")}</label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={2}
-                  placeholder="اختياري"
-                  className="w-full p-3 bg-[#fcfbf4] text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-purple-500 focus:bg-white outline-none transition-all text-sm resize-none shadow-sm"
+                  placeholder={tr("اختياري")}
+                  className="w-full p-3 bg-paper text-gray-900 border border-gray-200 rounded-lg focus:ring-1 focus:ring-purple-500 focus:bg-white outline-none transition-all text-sm resize-none shadow-sm"
                 ></textarea>
               </div>
 
@@ -229,7 +231,7 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({
                 className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-black py-3 px-4 rounded-xl transition shadow-lg mt-4 cursor-pointer hover:shadow-xl active:scale-95"
               >
                 <Plus size={18} />
-                <span>حفظ في السجل</span>
+                <span>{tr("حفظ في السجل")}</span>
               </button>
             </form>
           ) : activeTab === 'guide' ? (
@@ -237,7 +239,7 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({
               <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-4 rounded-xl border border-purple-100/50 flex items-start gap-3">
                 <ShieldCheck size={20} className="text-purple-600 shrink-0 mt-0.5 animate-bounce-subtle" />
                 <p className="text-[11px] font-bold text-purple-950 leading-relaxed">
-                  يعرض هذا التبويب <strong>التطبيعات الفعّالة والمأخوذة</strong> لهذا الحيوان من دليل التحصين المعتمد لـ <strong>{metadata.label.plural}</strong>.
+                  {tr("يعرض هذا التبويب")} <strong>{tr("التطبيعات الفعّالة والمأخوذة")}</strong> {tr("لهذا الحيوان من دليل التحصين المعتمد لـ")} <strong>{tr(metadata.label.plural)}</strong>.
                 </p>
               </div>
 
@@ -246,21 +248,21 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({
                 <div className="space-y-3 bg-amber-50/50 p-4 rounded-[1.5rem] border border-amber-100">
                   <div className="flex items-center gap-2 mb-1">
                     <AlertTriangle size={16} className="text-amber-600 shrink-0" />
-                    <h4 className="text-[11px] font-black text-amber-800">تطعيمات متبقية/مطلوبة (لم يتم أخذها):</h4>
+                    <h4 className="text-[11px] font-black text-amber-800">{tr("تطعيمات متبقية/مطلوبة (لم يتم أخذها):")}</h4>
                   </div>
                   <div className="space-y-2">
                     {untakenVaccines.map((v, idx) => (
                       <div key={idx} className="bg-white rounded-xl p-3 border border-amber-100 flex items-center justify-between gap-3 shadow-sm">
                         <div className="space-y-0.5">
-                          <h5 className="font-extrabold text-gray-800 text-xs">{v.name}</h5>
-                          <p className="text-[9px] text-gray-400">العمر المستهدف: {v.age} • التكرار: {v.frequency || 'مرة واحدة'}</p>
+                          <h5 className="font-extrabold text-gray-800 text-xs">{tr(v.name)}</h5>
+                          <p className="text-[9px] text-gray-400">{tr("العمر المستهدف:")} {tr(v.age)} {tr("• التكرار:")} {tr(v.frequency) || tr("مرة واحدة")}</p>
                         </div>
                         <button
                           type="button"
                           onClick={() => handleQuickRegister(v.name)}
                           className="px-2.5 py-1.5 text-[9px] font-black bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all shadow-sm active:scale-95 whitespace-nowrap cursor-pointer"
                         >
-                          + تسجيل سريع
+                          {tr("+ تسجيل سريع")}
                         </button>
                       </div>
                     ))}
@@ -272,8 +274,8 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({
                 {takenVaccines.length === 0 ? (
                   <div className="text-center py-10 bg-gray-50/50 rounded-2xl border border-gray-100 text-gray-400">
                     <Info size={36} className="mx-auto mb-2 opacity-20" />
-                    <p className="text-xs font-bold">لم يتم تسجيل أي تطعيم مأخوذ بعد.</p>
-                    <p className="text-[10px] text-gray-300 mt-1">تظهر هنا فقط التطعيمات التي تم إعطاؤها للحيوان.</p>
+                    <p className="text-xs font-bold">{tr("لم يتم تسجيل أي تطعيم مأخوذ بعد.")}</p>
+                    <p className="text-[10px] text-gray-300 mt-1">{tr("تظهر هنا فقط التطعيمات التي تم إعطاؤها للحيوان.")}</p>
                   </div>
                 ) : (
                   takenVaccines.map((v, idx) => (
@@ -284,15 +286,15 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({
                           {v.name}
                         </h4>
                         <div className="text-[10px] text-gray-500 flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span>العمر المستهدف: <strong className="text-gray-700">{v.age}</strong></span>
+                          <span>{tr("العمر المستهدف:")} <strong className="text-gray-700">{v.age}</strong></span>
                           <span>•</span>
-                          <span>التكرار: <strong className="text-gray-700">{v.frequency || 'مرة واحدة'}</strong></span>
+                          <span>{tr("التكرار:")} <strong className="text-gray-700">{v.frequency || tr("مرة واحدة")}</strong></span>
                         </div>
                         {v.notes && <p className="text-[9px] text-gray-400 mt-1 italic">{v.notes}</p>}
                       </div>
 
                       <span className="px-2.5 py-1 text-[9px] font-black bg-green-50 text-green-700 border border-green-100 rounded-lg whitespace-nowrap shrink-0">
-                        ✓ تم إعطاؤه
+                        {tr("✓ تم إعطاؤه")}
                       </span>
                     </div>
                   ))
@@ -303,11 +305,11 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({
             <div className="space-y-5">
               {/* General Records History */}
               <div className="space-y-3">
-                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">سجل التطعيمات والعلاجات السابقة:</h4>
+                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">{tr("سجل التطعيمات والعلاجات السابقة:")}</h4>
                 {records.length === 0 ? (
                   <div className="text-center py-10 text-gray-400 bg-gray-50/50 rounded-2xl border border-gray-100">
                     <Syringe size={40} className="mx-auto mb-2 opacity-20" />
-                    <p className="text-xs font-bold">لا توجد سجلات طبية مسجلة</p>
+                    <p className="text-xs font-bold">{tr("لا توجد سجلات طبية مسجلة")}</p>
                   </div>
                 ) : (
                   records.map((rec) => (
@@ -321,12 +323,12 @@ export const MedicalModal: React.FC<MedicalModalProps> = ({
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start gap-2">
                           <h4 className="font-extrabold text-gray-800 text-xs truncate">{rec.name}</h4>
-                          <span className="text-[10px] text-gray-400 bg-white px-2 py-0.5 rounded-md border border-gray-150 shrink-0 font-bold">
+                          <span className="text-[10px] text-gray-400 bg-white px-2 py-0.5 rounded-md border border-gray-200 shrink-0 font-bold">
                             {rec.date ? (rec.date.includes('T') ? rec.date.split('T')[0] : rec.date) : ''}
                           </span>
                         </div>
                         <p className="text-[10px] text-gray-400 mt-1">
-                            {rec.type === 'vaccine' ? 'تطعيم' : (rec.type === 'treatment' ? 'علاج' : 'فحص دوري')}
+                            {rec.type === 'vaccine' ? tr("تطعيم") : (rec.type === 'treatment' ? tr("علاج") : tr("فحص دوري"))}
                         </p>
                         {rec.notes && <p className="text-xs text-gray-600 mt-2 bg-white p-2.5 rounded-lg border border-gray-100/50 leading-relaxed">{rec.notes}</p>}
                       </div>

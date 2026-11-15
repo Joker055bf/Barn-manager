@@ -3,6 +3,8 @@ import { X, Wheat, Layers, Save, Check, Plus } from 'lucide-react';
 import { CustomSelect } from './CustomSelect';
 import { FeedItem, FeedLogEntry } from '../types';
 
+import { tr } from '../constants/i18n';
+
 interface FeedModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -160,14 +162,14 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
 
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-[#Fdfcf7] rounded-[2.5rem] w-full max-w-md shadow-2xl border border-[#E0D9D0]/50 animate-scale-in my-auto">
+      <div className="bg-[#Fdfcf7] rounded-[2.5rem] w-full max-w-md shadow-2xl border border-paper-edge/50 animate-scale-in my-auto">
         {/* Header */}
         <div className="flex justify-between items-center bg-white px-6 py-5 rounded-t-[2.5rem] border-b border-gray-100">
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition p-1 hover:bg-gray-100 rounded-lg">
             <X size={20} />
           </button>
           <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            {initialData ? 'تحديث مخزون' : 'إضافة مخزون'}
+            {initialData ? tr("تحديث مخزون") : tr("إضافة مخزون")}
             <Wheat className="text-orange-600" />
           </h2>
         </div>
@@ -187,7 +189,7 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
                    : 'text-gray-400 hover:text-gray-600'
                } ${!!initialData ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
              >
-               <Wheat size={18} /> حبوب
+               <Wheat size={18} /> {tr("حبوب")}
              </button>
              <button
                type="button"
@@ -199,23 +201,23 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
                    : 'text-gray-400 hover:text-gray-600'
                } ${!!initialData ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
              >
-               <Layers size={18} /> أعلاف
+               <Layers size={18} /> {tr("أعلاف")}
              </button>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-500 mb-2 text-right font-bold">
-              اسم الصنف
+            <label className="block text-xs font-bold text-gray-500 mb-2 text-start font-bold">
+              {tr("اسم الصنف")}
             </label>
             {initialData ? (
-              <div className="w-full px-5 py-4 bg-gray-50 text-gray-400 border border-gray-200 rounded-2xl text-sm font-bold text-right shadow-sm cursor-not-allowed">
+              <div className="w-full px-5 py-4 bg-gray-50 text-gray-400 border border-gray-200 rounded-2xl text-sm font-bold text-start shadow-sm cursor-not-allowed">
                 {name}
               </div>
             ) : (
               <>
                 <CustomSelect
                   required
-                  placeholder="اختر الصنف"
+                  placeholder={tr("اختر الصنف")}
                   value={isCustomName ? 'other' : name}
                   onChange={(val) => {
                     if (val === 'other') {
@@ -228,7 +230,7 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
                   }}
                   options={[
                     ...(category === 'grain' ? GRAIN_OPTIONS : FODDER_OPTIONS).map(opt => ({ value: opt, label: opt })),
-                    { value: 'other', label: 'أخرى (كتابة يدوية)' }
+                    { value: 'other', label: tr("أخرى (كتابة يدوية)") }
                   ]}
                 />
                 
@@ -238,8 +240,8 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="اكتب اسم الصنف هنا..."
-                    className="w-full mt-3 px-5 py-4 bg-white text-gray-800 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none text-sm font-bold text-right shadow-sm transition animate-fade-in"
+                    placeholder={tr("اكتب اسم الصنف هنا...")}
+                    className="w-full mt-3 px-5 py-4 bg-white text-gray-800 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none text-sm font-bold text-start shadow-sm transition animate-fade-in"
                   />
                 )}
               </>
@@ -248,8 +250,8 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
 
           {!initialData && (
             <div>
-              <label className="block text-xs font-bold text-gray-500 mb-2 text-right">
-                {category === 'grain' ? 'الكمية المراد إضافتها (أكياس)' : 'الكمية المراد إضافتها (حزم)'}
+              <label className="block text-xs font-bold text-gray-500 mb-2 text-start">
+                {category === 'grain' ? tr("الكمية المراد إضافتها (أكياس)") : tr("الكمية المراد إضافتها (حزم)")}
               </label>
               <input
                 type="number"
@@ -258,15 +260,15 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 placeholder="0"
-                className="w-full px-5 py-4 bg-white text-gray-800 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none text-sm font-bold text-right shadow-sm transition"
+                className="w-full px-5 py-4 bg-white text-gray-800 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none text-sm font-bold text-start shadow-sm transition"
               />
             </div>
           )}
 
           {/* Consumption Method Settings */}
           <div className="pt-2 border-t border-gray-100">
-             <label className="block text-xs font-bold text-gray-600 mb-3 text-right">
-                إعدادات طريقة الاستهلاك اليومي
+             <label className="block text-xs font-bold text-gray-600 mb-3 text-start">
+                {tr("إعدادات طريقة الاستهلاك اليومي")}
              </label>
              <div className="flex p-1 bg-gray-50 rounded-2xl border border-gray-100 mb-4">
                 <button
@@ -274,26 +276,26 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
                   onClick={() => setConsumptionMethod('uniform')}
                   className={`flex-1 py-3 rounded-xl text-[11px] font-bold transition ${consumptionMethod === 'uniform' ? 'bg-white text-orange-600 shadow-sm border border-orange-100' : 'text-gray-400 hover:text-gray-600'}`}
                 >
-                  استهلاك يومي موحد
+                  {tr("استهلاك يومي موحد")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setConsumptionMethod('varied')}
                   className={`flex-1 py-3 rounded-xl text-[11px] font-bold transition ${consumptionMethod === 'varied' ? 'bg-white text-orange-600 shadow-sm border border-orange-100' : 'text-gray-400 hover:text-gray-600'}`}
                 >
-                  يختلف استهلاك اليوم
+                  {tr("يختلف استهلاك اليوم")}
                 </button>
              </div>
 
              {consumptionMethod === 'uniform' ? (
                <div className="flex gap-3">
                  <div className="flex-1 bg-gray-50 rounded-2xl p-3 border border-gray-100 flex flex-col items-center justify-center">
-                    <span className="text-[10px] text-gray-400 font-bold mb-1">يكفي لمدة (يوم)</span>
+                    <span className="text-[10px] text-gray-400 font-bold mb-1">{tr("يكفي لمدة (يوم)")}</span>
                     <span className="text-xl font-black text-gray-400">{calculatedDaysLeft()}</span>
                  </div>
                  <div className="flex-1">
-                    <label className="block text-[10px] font-bold text-gray-500 mb-1 text-right">
-                      كم يتم استهلاكه في اليوم
+                    <label className="block text-[10px] font-bold text-gray-500 mb-1 text-start">
+                      {tr("كم يتم استهلاكه في اليوم")}
                     </label>
                     <input
                       type="number"
@@ -301,7 +303,7 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
                       step="0.1"
                       value={dailyConsumption}
                       onChange={(e) => setDailyConsumption(e.target.value)}
-                      placeholder={category === 'grain' ? 'مثال: 5 كجم' : 'مثال: 2 حزمة'}
+                      placeholder={category === 'grain' ? tr("مثال: 5 كجم") : tr("مثال: 2 حزمة")}
                       className="w-full px-4 py-3 bg-white text-gray-800 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none text-sm font-bold text-center shadow-sm transition"
                     />
                  </div>
@@ -310,7 +312,7 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 grid grid-cols-2 gap-3 max-h-48 overflow-y-auto">
                  {DAYS.map(day => (
                    <div key={day.id} className="flex flex-col">
-                     <label className="text-[10px] font-bold text-gray-500 mb-1 text-right">{day.name}</label>
+                     <label className="text-[10px] font-bold text-gray-500 mb-1 text-start">{day.name}</label>
                      <div className="relative">
                        <input
                          type="number"
@@ -319,9 +321,9 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
                          value={variedConsumption[day.id] || ''}
                          onChange={(e) => handleVariedChange(day.id, e.target.value)}
                          placeholder="0"
-                         className="w-full pr-4 pl-10 py-2.5 bg-white text-gray-800 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-sm font-bold text-right shadow-sm transition"
+                         className="w-full ps-4 pe-10 py-2.5 bg-white text-gray-800 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-sm font-bold text-start shadow-sm transition"
                        />
-                       <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-400">{category === 'grain' ? 'كجم' : 'حزمة'}</span>
+                       <span className="absolute end-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-400">{category === 'grain' ? tr("كجم") : tr("حزمة")}</span>
                      </div>
                    </div>
                  ))}
@@ -332,10 +334,10 @@ export const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, onSave, i
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 bg-[#765341] hover:bg-[#5D4037] text-white font-bold py-4 px-4 rounded-2xl transition shadow-lg shadow-orange-900/20 transform hover:-translate-y-0.5 cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-4 px-4 rounded-2xl transition shadow-lg shadow-orange-900/20 transform hover:-translate-y-0.5 cursor-pointer"
             >
               {initialData ? <Save size={20} /> : <Plus size={20} />}
-              <span>{initialData ? 'حفظ التعديلات' : 'إضافة للمخزون'}</span>
+              <span>{initialData ? tr("حفظ التعديلات") : tr("إضافة للمخزون")}</span>
             </button>
           </div>
         </form>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircle, AlertTriangle, AlertCircle, X } from 'lucide-react';
 
+import { tr, isEnglish } from '../constants/i18n';
 export type AlertType = 'success' | 'warning' | 'error' | 'confirm';
 
 interface CustomAlertProps {
@@ -21,8 +22,8 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
   message,
   onConfirm,
   onCancel,
-  confirmLabel = 'تم',
-  cancelLabel = 'إلغاء'
+  confirmLabel = tr('تم'),
+  cancelLabel = tr('إلغاء')
 }) => {
   if (!isOpen) return null;
 
@@ -46,12 +47,12 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
       case 'warning':
       case 'confirm': return 'bg-amber-500';
       case 'error': return 'bg-red-500';
-      default: return 'bg-[#795548]';
+      default: return 'bg-brand-500';
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[999] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl">
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-fade-in" dir={isEnglish ? 'ltr' : 'rtl'}>
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-sm shadow-2xl overflow-hidden animate-scale-in border border-white/20">
         <div className="p-8 flex flex-col items-center text-center">
           <div className="mb-6 animate-bounce-subtle">

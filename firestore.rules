@@ -1,0 +1,166 @@
+rules_version = '2';
+
+// Security rules for Rai / Barn manager.
+// Deploy:  Firebase Console → Firestore Database → Rules → paste this file → Publish
+//     or:  firebase deploy --only firestore:rules
+//
+// Identity model (see services/authService.ts):
+//   auth_links/{authUid} -> { userId }     maps a Firebase Auth account to its users doc
+//   users/{userId}.authUid                 the ONLY Auth account allowed to act as that user
+//   farm id = the owner's users doc id     workers carry it in users/{id}.ownerId
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function linkPath() { return /databases/$(database)/documents/auth_links/$(request.auth.uid); }
+    function myId() { return get(linkPath()).data.userId; }
+    function userDoc(id) { return get(/databases/$(database)/documents/users/$(id)).data; }
+    function me() { return userDoc(myId()); }
+    // Signed in, linked, and still the current Auth account of that user (a reset password or
+    // deleted worker makes the old account fail here).
+    function valid() { return signedIn() && exists(linkPath()) && me().authUid == request.auth.uid; }
+    function isOwner() { return valid() && me().role == 'owner'; }
+    function myFarm() { return me().role == 'owner' ? myId() : me().ownerId; }
+    function inFarm(farmId) { return valid() && myFarm() == farmId; }
+    function isOwnerOf(farmId) { return isOwner() && myId() == farmId; }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+
+    // ---------- accounts ----------
+    match /users/{userId} {
+      allow get: if valid() && (myId() == userId || resource.data.ownerId == myFarm() || userId == myFarm());
+
+      // Farm members list their farm's accounts.
+      // TEMPORARY (migration): signed-out single-document lookups by username, used to move
+      // accounts that still hold a plaintext password to Firebase Auth. Remove the second line
+      // once every account has signed in once (no users doc has a `password` field any more).
+      allow list: if (valid() && resource.data.ownerId == myFarm())
+                  || request.query.limit <= 1;
+
+      allow create: if signedIn() && !('password' in request.resource.data) && (
+        // owner self-registration
+        (request.resource.data.role == 'owner'
+          && request.resource.data.authUid == request.auth.uid
+          && request.resource.data.ownerId == userId)
+        // owner adding a worker to their own farm
+        || (request.resource.data.role == 'worker' && isOwnerOf(request.resource.data.ownerId))
+      );
+
+      allow update: if
+        // a user editing their own profile: no role, farm, identity or permission changes
+        (valid() && myId() == userId
+          && !changed().hasAny(['role', 'ownerId', 'authUid', 'permissions', 'permissionsPerBarn',
+                                'accessiblePens', 'settingsPin', 'password']))
+        // the owner managing one of their workers (including a password reset = new authUid)
+        || (resource.data.role == 'worker' && isOwnerOf(resource.data.ownerId)
+          && request.resource.data.role == 'worker'
+          && request.resource.data.ownerId == resource.data.ownerId
+          && !('password' in request.resource.data))
+        // MIGRATION: a legacy account claims an Auth identity by proving its stored password
+        || (signedIn() && !('authUid' in resource.data) && ('password' in resource.data)
+          && request.resource.data.legacyClaim == resource.data.password
+          && request.resource.data.authUid == request.auth.uid
+          && !('password' in request.resource.data)
+          && changed().hasOnly(['authUid', 'authEmail', 'legacyClaim', 'password']));
+
+      allow delete: if resource.data.role == 'worker' && isOwnerOf(resource.data.ownerId);
+    }
+
+    match /auth_links/{authUid} {
+      allow get: if signedIn() && request.auth.uid == authUid;
+      // Only a link that matches users/{userId}.authUid can be written, so it can't be pointed elsewhere.
+      allow create, update: if signedIn()
+        && userDoc(request.resource.data.userId).authUid == authUid
+        && (request.auth.uid == authUid || isOwnerOf(userDoc(request.resource.data.userId).ownerId));
+      allow delete: if false;
+    }
+
+    // username -> sign-in email. Public on purpose: the login screen reads it before sign-in.
+    match /usernames/{name} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if valid()
+        && userDoc(request.resource.data.userId).username.lower() == name
+        && userDoc(request.resource.data.userId).authEmail == request.resource.data.authEmail
+        && (request.resource.data.userId == myId()
+            || isOwnerOf(userDoc(request.resource.data.userId).ownerId));
+      allow delete: if valid()
+        && (resource.data.userId == myId() || isOwnerOf(userDoc(resource.data.userId).ownerId));
+    }
+
+    // ---------- farm data ----------
+    // Everything under farms/{farmId} belongs to that farm's owner and workers.
+    // Destructive actions also need the worker permission, resolved like can() in App.tsx:
+    // per-barn setting, else the worker's general setting, else denied (all delete defaults are off).
+    function workerPerm(key, barnId) {
+      return me().get('permissionsPerBarn', {}).get(barnId, {})
+                 .get(key, me().get('permissions', {}).get(key, false));
+    }
+    function can(key, barnId) { return isOwner() || workerPerm(key, barnId); }
+    function penPath(farmId, penId) { return /databases/$(database)/documents/farms/$(farmId)/pens/$(penId); }
+    // A section's barn is its parent; a barn (or unknown id) is itself.
+    function barnOf(farmId, penId) {
+      return exists(penPath(farmId, penId)) ? get(penPath(farmId, penId)).data.get('parentId', penId) : penId;
+    }
+
+    match /farms/{farmId} {
+      allow read, write: if inFarm(farmId);
+
+      match /sheep/{id} {
+        allow read, create, update: if inFarm(farmId);
+        allow delete: if inFarm(farmId) && can('canDeleteAnimals', barnOf(farmId, resource.data.penId));
+      }
+      match /expenses/{id} {
+        allow read, create, update: if inFarm(farmId);
+        allow delete: if inFarm(farmId) && can('canDeleteExpenses', resource.data.get('penId', ''));
+      }
+      match /sales/{id} {
+        allow read, create, update: if inFarm(farmId);
+        allow delete: if inFarm(farmId) && can('canDeleteExpenses', resource.data.get('penId', ''));
+      }
+      match /pens/{id} {
+        allow read, create, update: if inFarm(farmId);
+        allow delete: if inFarm(farmId) && (
+          resource.data.get('parentId', null) == null
+            ? can('canDeleteBarns', id)
+            : (can('canDeletePens', resource.data.parentId) || can('canDeleteBarns', resource.data.parentId)));
+      }
+      match /feed/{id} {
+        allow read, create, update: if inFarm(farmId);
+        allow delete: if inFarm(farmId) && can('canEditFeed', resource.data.get('penId', ''));
+      }
+      // Exclusion/death history and the activity log can't be erased by workers.
+      match /deaths/{id} {
+        allow read, create, update: if inFarm(farmId);
+        allow delete: if isOwnerOf(farmId);
+      }
+      match /activity/{id} {
+        allow read, create: if inFarm(farmId);
+        allow update, delete: if isOwnerOf(farmId);
+      }
+      // Anything else (e.g. meta/push_alerts)
+      match /{coll}/{docId=**} {
+        allow read, write: if inFarm(farmId)
+          && !(coll in ['sheep', 'expenses', 'sales', 'pens', 'feed', 'deaths', 'activity']);
+      }
+    }
+
+    // ---------- chat ----------
+    match /chat_messages/{messageId} {
+      allow read: if valid() && (resource.data.receiverId == myId()
+                              || resource.data.senderId == myId()
+                              || myId() in resource.data.chatId.split('_'));
+      allow create: if valid() && request.resource.data.senderId == myId()
+                    && inFarm(userDoc(request.resource.data.receiverId).role == 'owner'
+                               ? request.resource.data.receiverId
+                               : userDoc(request.resource.data.receiverId).ownerId);
+      // the receiver marks a message as read
+      allow update: if valid() && resource.data.receiverId == myId() && changed().hasOnly(['read']);
+      allow delete: if false;
+    }
+
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

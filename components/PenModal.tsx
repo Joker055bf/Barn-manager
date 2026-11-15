@@ -3,6 +3,8 @@ import { X, Save } from 'lucide-react';
 import { CustomSelect } from './CustomSelect';
 import { Pen } from '../types';
 
+import { tr } from '../constants/i18n';
+
 interface PenModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -63,63 +65,63 @@ export const PenModal: React.FC<PenModalProps> = ({ isOpen, onClose, onSave, ini
 
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#F4F0EA] rounded-[2.5rem] w-full max-w-sm shadow-2xl border border-[#E0D9D0]/50 animate-scale-in">
+      <div className="bg-paper-tint rounded-[2.5rem] w-full max-w-sm shadow-2xl border border-paper-edge/50 animate-scale-in">
         {/* Header */}
-        <div className="flex justify-between items-center bg-[#5D4037] px-6 py-5 rounded-t-[2.5rem]">
+        <div className="flex justify-between items-center bg-brand-700 px-6 py-5 rounded-t-[2.5rem]">
           <button onClick={onClose} className="text-white/80 hover:text-white transition p-1 hover:bg-white/10 rounded-lg">
             <X size={20} />
           </button>
-          <h2 className="text-xl font-bold text-white text-right">
+          <h2 className="text-xl font-bold text-white text-start">
             {initialData 
-              ? (isGroupMode ? 'تعديل الحظيرة' : 'تعديل القسم') 
-              : (isGroupMode ? 'حظيرة جديدة' : 'قسم جديد')}
+              ? (isGroupMode ? tr("تعديل الحظيرة") : tr("تعديل القسم")) 
+              : (isGroupMode ? tr("حظيرة جديدة") : tr("قسم جديد"))}
           </h2>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-xs font-bold text-[#8D6E63] mb-1.5 text-right">
-              {isGroupMode ? 'اسم الحظيرة الرئيسية' : 'مسمى القسم'}
+            <label className="block text-xs font-bold text-brand-400 mb-1.5 text-start">
+              {isGroupMode ? tr("اسم الحظيرة الرئيسية") : tr("مسمى القسم")}
             </label>
             <input
               required
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={isGroupMode ? "مثال: الحظيرة الشمالية" : "مثال: قسم أ"}
-              className="w-full px-5 py-3.5 bg-white text-[#5D4037] border border-[#E0D9D0] rounded-2xl focus:ring-2 focus:ring-[#5D4037] focus:border-[#5D4037] outline-none text-sm font-bold text-right shadow-sm placeholder-[#A1887F] transition"
+              placeholder={isGroupMode ? tr("مثال: الحظيرة الشمالية") : tr("مثال: قسم أ")}
+              className="w-full px-5 py-3.5 bg-white text-brand-700 border border-paper-edge rounded-2xl focus:ring-2 focus:ring-brand-700 focus:border-brand-700 outline-none text-sm font-bold text-start shadow-sm placeholder-brand-300 transition"
             />
           </div>
 
           {isGroupMode && (
             <>
               <div>
-                <label className="block text-xs font-bold text-[#8D6E63] mb-1.5 text-right">
-                  اسم المالك
+                <label className="block text-xs font-bold text-brand-400 mb-1.5 text-start">
+                  {tr("اسم المالك")}
                 </label>
                 <input
                   type="text"
                   value={ownerName}
                   onChange={(e) => setOwnerName(e.target.value)}
-                  placeholder="أدخل اسم المالك..."
-                  className="w-full px-5 py-3.5 bg-white text-[#5D4037] border border-[#E0D9D0] rounded-2xl focus:ring-2 focus:ring-[#5D4037] focus:border-[#5D4037] outline-none text-sm font-bold text-right shadow-sm placeholder-[#A1887F] transition"
+                  placeholder={tr("أدخل اسم المالك...")}
+                  className="w-full px-5 py-3.5 bg-white text-brand-700 border border-paper-edge rounded-2xl focus:ring-2 focus:ring-brand-700 focus:border-brand-700 outline-none text-sm font-bold text-start shadow-sm placeholder-brand-300 transition"
                 />
               </div>
 
               {!initialData && (
                 <CustomSelect
-                  label="تصنيف الحيوانات"
+                  label={tr("تصنيف الحيوانات")}
                   value={animalType}
                   onChange={(val) => setAnimalType(val)}
                   options={[
-                    { value: 'sheep', label: 'أغنام (ضأن/ماعز)' },
-                    { value: 'camels', label: 'إبل (قريباً)', disabled: true },
-                    { value: 'cows', label: 'أبقار (قريباً)', disabled: true },
-                    { value: 'chickens', label: 'دواجن (دجاج) (قريباً)', disabled: true },
-                    { value: 'pigeons', label: 'حمام (قريباً)', disabled: true },
-                    { value: 'horses', label: 'خيول (قريباً)', disabled: true },
-                    { value: 'other', label: 'أخرى (قريباً)', disabled: true }
+                    { value: 'sheep', label: tr("أغنام (ضأن/ماعز)") },
+                    { value: 'camels', label: tr("إبل (قريباً)"), disabled: true },
+                    { value: 'cows', label: tr("أبقار (قريباً)"), disabled: true },
+                    { value: 'chickens', label: tr("دواجن (دجاج) (قريباً)"), disabled: true },
+                    { value: 'pigeons', label: tr("حمام (قريباً)"), disabled: true },
+                    { value: 'horses', label: tr("خيول (قريباً)"), disabled: true },
+                    { value: 'other', label: tr("أخرى (قريباً)"), disabled: true }
                   ]}
                 />
               )}
@@ -128,15 +130,15 @@ export const PenModal: React.FC<PenModalProps> = ({ isOpen, onClose, onSave, ini
 
           {!isGroupMode && (
             <div className="bg-[#E5DFD5] rounded-3xl p-5 border border-[#D7CFC4] flex flex-col items-center">
-              <span className="text-xs font-bold text-[#5D4037] mb-3 text-center w-full block">السعة الاستيعابية القصوى</span>
+              <span className="text-xs font-bold text-brand-700 mb-3 text-center w-full block">{tr("السعة الاستيعابية القصوى")}</span>
               <div className="flex items-center justify-between w-full px-2">
-                <span className="text-sm font-bold text-[#8D6E63] shrink-0">رأس</span>
+                <span className="text-sm font-bold text-brand-400 shrink-0">{tr("رأس")}</span>
                 <input
                   type="number"
                   min="1"
                   value={capacity}
                   onChange={(e) => setCapacity(parseInt(e.target.value) || 0)}
-                  className="w-32 py-3 bg-white text-[#5D4037] text-center font-black rounded-2xl shadow-sm outline-none focus:ring-2 focus:ring-[#5D4037] border-0 transition"
+                  className="w-32 py-3 bg-white text-brand-700 text-center font-black rounded-2xl shadow-sm outline-none focus:ring-2 focus:ring-brand-700 border-0 transition"
                 />
               </div>
             </div>
@@ -145,10 +147,10 @@ export const PenModal: React.FC<PenModalProps> = ({ isOpen, onClose, onSave, ini
           <div className="pt-4">
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 bg-[#5D4037] hover:bg-[#4E342E] text-white font-bold py-4 px-4 rounded-2xl transition shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 duration-150"
+              className="w-full flex items-center justify-center gap-2 bg-brand-700 hover:bg-brand-800 text-white font-bold py-4 px-4 rounded-2xl transition shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 duration-150"
             >
               <Save size={18} />
-              <span>إتمام الحفظ</span>
+              <span>{tr("إتمام الحفظ")}</span>
             </button>
           </div>
         </form>

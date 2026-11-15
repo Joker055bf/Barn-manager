@@ -2,6 +2,8 @@ import React from 'react';
 import { X, Skull, ArrowRight, Trash2, Dna, Info } from 'lucide-react';
 import { Sheep, Pen } from '../types';
 
+import { tr, isEnglish } from '../constants/i18n';
+
 interface DeathsModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -29,8 +31,8 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
         let years = now.getFullYear() - birth.getFullYear();
         let months = now.getMonth() - birth.getMonth();
         if (months < 0) { years--; months += 12; }
-        if (years > 0) return `${years} سنة`;
-        return months === 1 ? 'شهر' : `${months} أشهر`;
+        if (years > 0) return tr("{0} سنة", years);
+        return months === 1 ? tr('شهر') : tr("{0} أشهر", months);
     };
 
     const getParentSerial = (id: string | undefined) => {
@@ -82,8 +84,8 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
     });
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" dir="rtl">
-            <div className="bg-[#FCFBF4] rounded-[2.5rem] w-full max-w-lg h-[80vh] shadow-2xl overflow-hidden flex flex-col animate-scale-in dark:bg-slate-900 dark:border dark:border-slate-800">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" dir={isEnglish ? 'ltr' : 'rtl'}>
+            <div className="bg-paper rounded-[2.5rem] w-full max-w-lg h-[80vh] shadow-2xl overflow-hidden flex flex-col animate-scale-in dark:bg-slate-900 dark:border dark:border-slate-800">
                 
                 {/* Header */}
                 <div className="bg-gradient-to-br from-red-900 to-rose-950 p-4.5 px-6 text-white relative overflow-hidden shrink-0">
@@ -97,21 +99,21 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
                         
                         <div className="flex items-center gap-3">
                             <div>
-                                <h2 className="text-xl font-black tracking-tighter">سجل الاستبعاد</h2>
+                                <h2 className="text-xl font-black tracking-tighter">{tr("سجل الاستبعاد")}</h2>
                             </div>
                             <div className="p-2.5 bg-white/10 rounded-xl backdrop-blur-md border border-white/10">
                                 <Skull size={20} className="text-white" />
                             </div>
                         </div>
                     </div>
-                    <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-white/5 rounded-full blur-3xl" />
+                    <div className="absolute -start-10 -bottom-10 w-48 h-48 bg-white/5 rounded-full blur-3xl" />
                 </div>
 
                 <div className="px-6 mt-4 space-y-3 shrink-0">
                     <div className="bg-red-50/50 backdrop-blur-md border border-red-100 p-3 rounded-xl flex items-center justify-between dark:bg-red-900/10 dark:border-red-900/20">
                        <span className="text-[10px] font-black text-red-900 uppercase tracking-widest dark:text-red-400">{barnName}</span>
                        <span className="bg-red-600 text-white text-[9px] px-2.5 py-1 rounded-lg font-black uppercase tracking-tighter">
-                           {filteredDeaths.length} من {deaths.length} حالات استبعاد
+                           {filteredDeaths.length} {tr("من")} {deaths.length} {tr("حالات استبعاد")}
                        </span>
                     </div>
 
@@ -119,14 +121,14 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
                     <div className="space-y-2.5 bg-gray-50/50 dark:bg-slate-800/30 border border-gray-100 dark:border-slate-800/80 p-3 rounded-2xl">
                         {/* Type Filter */}
                         <div className="flex flex-col gap-1.5">
-                            <span className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest text-right">نوع الاستبعاد</span>
+                            <span className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest text-start">{tr("نوع الاستبعاد")}</span>
                             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                                 {[
-                                    { id: 'all', label: 'الكل' },
-                                    { id: 'ذبح', label: 'ذبح' },
-                                    { id: 'ميت', label: 'ميت' },
-                                    { id: 'بيع', label: 'بيع' },
-                                    { id: 'other', label: 'آخر' }
+                                    { id: 'all', label: tr("الكل") },
+                                    { id: 'ذبح', label: tr("ذبح") },
+                                    { id: 'ميت', label: tr("ميت") },
+                                    { id: 'بيع', label: tr("بيع") },
+                                    { id: 'other', label: tr("آخر") }
                                 ].map(t => (
                                     <button
                                         key={t.id}
@@ -146,14 +148,14 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
 
                         {/* Date Filter */}
                         <div className="flex flex-col gap-1.5">
-                            <span className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest text-right">تاريخ الاستبعاد</span>
+                            <span className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest text-start">{tr("تاريخ الاستبعاد")}</span>
                             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                                 {[
-                                    { id: 'all', label: 'الكل' },
-                                    { id: 'day', label: 'يوم' },
-                                    { id: 'week', label: 'أسبوع' },
-                                    { id: 'month', label: 'شهر' },
-                                    { id: 'year', label: 'سنة' }
+                                    { id: 'all', label: tr("الكل") },
+                                    { id: 'day', label: tr("يوم") },
+                                    { id: 'week', label: tr("أسبوع") },
+                                    { id: 'month', label: tr("شهر") },
+                                    { id: 'year', label: tr("سنة") }
                                 ].map(d => (
                                     <button
                                         key={d.id}
@@ -183,7 +185,7 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
                                         <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center text-red-600 relative shrink-0 dark:bg-red-900/20">
                                             <Skull size={18} />
                                             {sheep._count && sheep._count > 1 && (
-                                                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[9px] w-4.5 h-4.5 rounded-md flex items-center justify-center font-black">
+                                                <span className="absolute -top-1 -start-1 bg-red-600 text-white text-[9px] w-4.5 h-4.5 rounded-md flex items-center justify-center font-black">
                                                     {sheep._count}
                                                 </span>
                                             )}
@@ -196,9 +198,9 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
                                                 #{sheep.serialNumber}
                                             </h4>
                                             <div className="text-[9px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1.5 mt-0.5">
-                                                <span>{sheep.type}</span>
+                                                <span>{tr(sheep.type)}</span>
                                                 <span className="text-gray-200">/</span>
-                                                <span>{sheep.gender === 'male' ? 'ذكر' : 'أنثى'}</span>
+                                                <span>{sheep.gender === 'male' ? tr("ذكر") : tr("أنثى")}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -214,13 +216,13 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="bg-gray-50/50 p-3 rounded-xl border border-gray-50 dark:bg-slate-900 dark:border-slate-800">
-                                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-0.5 leading-none">العمر عند الاستبعاد</p>
+                                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-0.5 leading-none">{tr("العمر عند الاستبعاد")}</p>
                                         <p className="text-xs font-black text-gray-800 dark:text-gray-200">
                                             {calculateAgeDisplay(sheep.birthDate)}
                                         </p>
                                     </div>
                                     <div className="bg-gray-50/50 p-3 rounded-xl border border-gray-50 dark:bg-slate-900 dark:border-slate-800">
-                                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-0.5 leading-none">تاريخ الاستبعاد</p>
+                                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-0.5 leading-none">{tr("تاريخ الاستبعاد")}</p>
                                         <p className="text-xs font-black text-red-600">
                                             {sheep.exclusionDate ? new Date(sheep.exclusionDate).toLocaleDateString('en-GB') : '-'}
                                         </p>
@@ -228,20 +230,20 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
                                 </div>
 
                                 <div className="mt-3 p-3 bg-orange-50/30 rounded-xl border border-orange-50 dark:bg-orange-900/5 dark:border-orange-900/10">
-                                    <p className="text-[8px] font-black text-[#795548] uppercase tracking-widest mb-0.5 leading-none">ملاحظات وسبب الاستبعاد</p>
-                                    <p className="text-[11px] font-bold text-gray-600 italic ltr:text-left rtl:text-right dark:text-gray-400">
-                                        "{sheep.notes || 'لم يتم تحديد سبب الاستبعاد بالتفصيل'}"
+                                    <p className="text-[8px] font-black text-brand-500 uppercase tracking-widest mb-0.5 leading-none">{tr("ملاحظات وسبب الاستبعاد")}</p>
+                                    <p className="text-[11px] font-bold text-gray-600 italic ltr:text-end rtl:text-start dark:text-gray-400">
+                                        "{sheep.notes || tr("لم يتم تحديد سبب الاستبعاد بالتفصيل")}"
                                     </p>
                                 </div>
 
-                                <div className="mt-4 flex items-center justify-between text-[8px] font-black uppercase tracking-widest text-gray-400 border-t border-gray-50 pt-3 dark:border-slate-750">
+                                <div className="mt-4 flex items-center justify-between text-[8px] font-black uppercase tracking-widest text-gray-400 border-t border-gray-50 pt-3 dark:border-slate-700">
                                     <div className="flex items-center gap-1.5">
                                         <Dna size={10} className="opacity-40" />
-                                        <span>الأم:{getParentSerial(sheep.motherId)} / الأب:{getParentSerial(sheep.fatherId)}</span>
+                                        <span>{tr("الأم:")}{getParentSerial(sheep.motherId)} {tr("/ الأب:")}{getParentSerial(sheep.fatherId)}</span>
                                     </div>
                                     <div className="flex items-center gap-1 bg-gray-50 px-1.5 py-0.5 rounded-md dark:bg-slate-900">
                                         <Info size={8} />
-                                        <span>الموقع: {pens.find(p => p.id === sheep.penId)?.name || 'غير معروف'}</span>
+                                        <span>{tr("الموقع:")} {pens.find(p => p.id === sheep.penId)?.name || tr("غير معروف")}</span>
                                     </div>
                                 </div>
                             </div>
@@ -251,16 +253,16 @@ export const DeathsModal: React.FC<DeathsModalProps> = ({
                             <div className="bg-gray-50 p-6 rounded-xl mb-4 dark:bg-slate-900">
                                 <Skull size={48} className="text-gray-200 dark:text-slate-700" />
                             </div>
-                            <p className="font-black text-sm text-gray-400 dark:text-gray-500 uppercase tracking-widest">لا توجد نتائج مطابقة</p>
-                            <p className="text-[9px] font-bold text-gray-300 dark:text-gray-600 mt-1">جرب تغيير خيارات الفلترة المحددة</p>
+                            <p className="font-black text-sm text-gray-400 dark:text-gray-500 uppercase tracking-widest">{tr("لا توجد نتائج مطابقة")}</p>
+                            <p className="text-[9px] font-bold text-gray-300 dark:text-gray-600 mt-1">{tr("جرب تغيير خيارات الفلترة المحددة")}</p>
                         </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center py-16 text-gray-400 bg-white border border-gray-100 rounded-2xl dark:bg-slate-800 dark:border-slate-700">
                             <div className="bg-gray-50 p-6 rounded-xl mb-4 dark:bg-slate-900">
                                 <Skull size={48} className="text-gray-100 dark:text-slate-800" />
                             </div>
-                            <p className="font-black text-sm text-gray-400 uppercase tracking-widest">السجل نظيف تماماً</p>
-                            <p className="text-[9px] font-bold text-gray-300 mt-1">لا توجد حالات استبعاد مسجلة في هذه المزرعة</p>
+                            <p className="font-black text-sm text-gray-400 uppercase tracking-widest">{tr("السجل نظيف تماماً")}</p>
+                            <p className="text-[9px] font-bold text-gray-300 mt-1">{tr("لا توجد حالات استبعاد مسجلة في هذه المزرعة")}</p>
                         </div>
                     )}
                 </div>

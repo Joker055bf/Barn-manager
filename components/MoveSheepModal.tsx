@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, ArrowRightLeft, Skull, FileText } from 'lucide-react';
 import { Pen } from '../types';
 
+import { tr } from '../constants/i18n';
+
 interface MoveSheepModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -200,7 +202,7 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
               : 'text-orange-800 dark:text-orange-300'
           }`}>
             {isExclusion ? <Skull size={20} /> : <ArrowRightLeft size={20} />}
-            {isExclusion ? 'الاجراءات (استبعاد الحيوان)' : 'الاجراءات (نقل إلى قسم آخر)'}
+            {isExclusion ? tr("الاجراءات (استبعاد الحيوان)") : tr("الاجراءات (نقل إلى قسم آخر)")}
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors">
             <X size={24} />
@@ -211,29 +213,29 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
           
           {validTargets.length === 0 ? (
              <div className="text-center text-gray-500 dark:text-gray-400 py-4">
-               لا توجد أقسام أخرى في هذه الحظيرة للنقل إليها.
+               {tr("لا توجد أقسام أخرى في هذه الحظيرة للنقل إليها.")}
              </div>
           ) : (
             <div className="relative" ref={dropdownRef}>
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">اختر القسم المستهدف</label>
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">{tr("اختر القسم المستهدف")}</label>
               <button
                 type="button"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="w-full px-4 py-3 bg-white dark:bg-slate-850 text-gray-900 dark:text-white border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-orange-500 dark:focus:ring-orange-600 outline-none flex items-center justify-between transition-colors shadow-sm"
+                className="w-full px-4 py-3 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-orange-500 dark:focus:ring-orange-600 outline-none flex items-center justify-between transition-colors shadow-sm"
               >
                 <span className="font-bold">
                   {targetPenId 
                     ? (() => {
                         const p = validTargets.find(t => t.id === targetPenId);
-                        return p ? (p.id.includes('mortality') ? p.name : `${p.name} (السعة: ${p.currentCount || 0}/${p.capacity || 0})`) : '-- اختر القسم --';
+                        return p ? (p.id.includes('mortality') ? p.name : tr('{0} (السعة: {1}/{2})', p.name, p.currentCount || 0, p.capacity || 0)) : tr('-- اختر القسم --');
                       })()
-                    : '-- اختر القسم --'}
+                    : tr("-- اختر القسم --")}
                 </span>
                 <div className="text-gray-400 dark:text-gray-500 text-[10px]">▼</div>
               </button>
 
               {isDropdownOpen && (
-                <div className="absolute top-full right-0 left-0 mt-1.5 bg-white dark:bg-slate-850 border border-gray-100 dark:border-slate-700 rounded-2xl shadow-2xl z-50 max-h-48 overflow-y-auto custom-scrollbar animate-scale-in">
+                <div className="absolute top-full start-0 end-0 mt-1.5 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl shadow-2xl z-50 max-h-48 overflow-y-auto custom-scrollbar animate-scale-in">
                   <div className="p-2 space-y-1">
                     {validTargets.map(pen => (
                       <button
@@ -247,13 +249,13 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
                             setReason('');
                           }
                         }}
-                        className={`w-full text-right px-4 py-2.5 rounded-xl text-[12px] font-black transition-all ${
+                        className={`w-full text-start px-4 py-2.5 rounded-xl text-[12px] font-black transition-all ${
                           targetPenId === pen.id
                             ? 'bg-orange-600 dark:bg-orange-700 text-white shadow-md'
                             : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800'
                         }`}
                       >
-                        {pen.id.includes('mortality') ? pen.name : `${pen.name} (السعة: ${pen.currentCount || 0}/${pen.capacity || 0})`}
+                        {pen.id.includes('mortality') ? pen.name : tr("{0} (السعة: {1}/{2})", pen.name, pen.currentCount || 0, pen.capacity || 0)}
                       </button>
                     ))}
                   </div>
@@ -264,7 +266,7 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
 
           {isExclusion && (
             <div className="animate-fade-in space-y-4">
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">نوع الاستبعاد</label>
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">{tr("نوع الاستبعاد")}</label>
               
               <div className="grid grid-cols-2 gap-3">
                 {/* 1. ذبح */}
@@ -284,7 +286,7 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
                     <Skull size={22} />
                     <CleaverIcon size={22} />
                   </div>
-                  <span className="text-xs font-black">ذبح</span>
+                  <span className="text-xs font-black">{tr("ذبح")}</span>
                 </button>
 
                 {/* 2. ميت */}
@@ -301,7 +303,7 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
                   }`}
                 >
                   <SkullCrossbonesIcon />
-                  <span className="text-xs font-black">ميت</span>
+                  <span className="text-xs font-black">{tr("ميت")}</span>
                 </button>
 
                 {/* 3. بيع */}
@@ -318,7 +320,7 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
                   }`}
                 >
                   <FlyingCashIcon />
-                  <span className="text-xs font-black">بيع</span>
+                  <span className="text-xs font-black">{tr("بيع")}</span>
                 </button>
 
                 {/* 4. آخر */}
@@ -335,26 +337,26 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
                   }`}
                 >
                   <FileText size={24} />
-                  <span className="text-xs font-black">آخر</span>
+                  <span className="text-xs font-black">{tr("آخر")}</span>
                 </button>
               </div>
 
               {exclusionType === 'آخر' && (
                 <div className="animate-fade-in space-y-2">
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">سبب الاستبعاد (إجباري)</label>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">{tr("سبب الاستبعاد (إجباري)")}</label>
                   <textarea
                     required
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
-                    placeholder="اكتب سبب استبعاد الحيوان هنا..."
-                    className="w-full px-4 py-3 bg-white dark:bg-slate-850 text-gray-900 dark:text-white border border-gray-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-red-500 outline-none resize-none h-24 shadow-sm"
+                    placeholder={tr("اكتب سبب استبعاد الحيوان هنا...")}
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-red-500 outline-none resize-none h-24 shadow-sm"
                   />
                 </div>
               )}
 
               {exclusionType === 'بيع' && (
                 <div className="animate-fade-in space-y-2">
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">مبلغ البيع (ريال) (إجباري)</label>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">{tr("مبلغ البيع (ريال) (إجباري)")}</label>
                   <input
                     required
                     type="number"
@@ -363,8 +365,8 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
                     step="any"
                     value={saleAmount}
                     onChange={(e) => setSaleAmount(e.target.value)}
-                    placeholder="أدخل مبلغ البيع بالريال..."
-                    className="w-full px-4 py-3 bg-white dark:bg-slate-850 text-gray-900 dark:text-white border border-gray-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-green-500 outline-none shadow-sm font-bold text-center text-lg text-green-600 dark:text-green-400 focus:border-green-500"
+                    placeholder={tr("أدخل مبلغ البيع بالريال...")}
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800 text-gray-900 dark:text-white border border-gray-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-green-500 outline-none shadow-sm font-bold text-center text-lg text-green-600 dark:text-green-400 focus:border-green-500"
                   />
                 </div>
               )}
@@ -380,8 +382,8 @@ export const MoveSheepModal: React.FC<MoveSheepModalProps> = ({ isOpen, onClose,
               {submitBtnTheme.icon}
               <span>
                 {isExclusion 
-                  ? `تأكيد الاستبعاد${exclusionType ? ` (${exclusionType})` : ''}` 
-                  : 'تأكيد النقل'}
+                  ? tr("تأكيد الاستبعاد{0}", exclusionType ? ` (${exclusionType})` : '') 
+                  : tr("تأكيد النقل")}
               </span>
             </button>
           </div>

@@ -1,6 +1,8 @@
 import React, { ErrorInfo, ReactNode } from 'react';
 import { AlertOctagon, RotateCcw, Home } from 'lucide-react';
 
+import { tr } from '../constants/i18n';
+
 interface Props {
   children: ReactNode;
 }
@@ -54,7 +56,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
       
       return (
         <div 
-          className="min-h-screen flex items-center justify-center p-6 bg-[#fcfbf4] dark:bg-slate-950 text-gray-800 dark:text-gray-100 font-sans"
+          className="min-h-screen flex items-center justify-center p-6 bg-paper dark:bg-slate-950 text-gray-800 dark:text-gray-100 font-sans"
           dir={isArabic ? 'rtl' : 'ltr'}
         >
           <div className="w-full max-w-lg bg-white dark:bg-slate-900 border border-red-100 dark:border-red-950/30 rounded-[2.5rem] p-8 md:p-10 shadow-2xl flex flex-col items-center text-center">
@@ -64,22 +66,22 @@ export class ErrorBoundary extends React.Component<Props, State> {
             </div>
 
             {/* Error Title */}
-            <h1 className="text-2xl md:text-3xl font-black text-[#3E2723] dark:text-white tracking-tight mb-3">
-              {isArabic ? 'عذراً، حدث خطأ غير متوقع' : 'Oops, an unexpected error occurred'}
+            <h1 className="text-2xl md:text-3xl font-black text-brand-900 dark:text-white tracking-tight mb-3">
+              {isArabic ? tr("عذراً، حدث خطأ غير متوقع") : 'Oops, an unexpected error occurred'}
             </h1>
 
             {/* Explanation */}
             <p className="text-sm font-medium text-gray-500 dark:text-slate-400 leading-relaxed mb-6">
               {isArabic 
-                ? 'لقد واجه التطبيق مشكلة مفاجئة أثناء تشغيل الصفحة. لا داعي للقلق، يمكنك محاولة إعادة تشغيل الصفحة أو إعادة تعيين التطبيق بأمان.'
+                ? tr("لقد واجه التطبيق مشكلة مفاجئة أثناء تشغيل الصفحة. لا داعي للقلق، يمكنك محاولة إعادة تشغيل الصفحة أو إعادة تعيين التطبيق بأمان.")
                 : 'The application encountered an unexpected issue. Don\'t worry, you can try reloading the page or resetting the application safely.'}
             </p>
 
             {/* Error Message Details (collapsible or small) */}
             {this.state.error && (
-              <div className="w-full bg-gray-50 dark:bg-slate-950/50 border border-gray-100 dark:border-slate-800 rounded-2xl p-4 text-right mb-8 max-h-32 overflow-y-auto font-mono text-[10px] text-red-600 dark:text-red-400">
+              <div className="w-full bg-gray-50 dark:bg-slate-950/50 border border-gray-100 dark:border-slate-800 rounded-2xl p-4 text-start mb-8 max-h-32 overflow-y-auto font-mono text-[10px] text-red-600 dark:text-red-400">
                 <span className="font-black text-gray-400 block mb-1 text-[9px] uppercase tracking-wider">
-                  {isArabic ? 'تفاصيل الخطأ البرمجي' : 'Error Details'}
+                  {isArabic ? tr("تفاصيل الخطأ البرمجي") : 'Error Details'}
                 </span>
                 <p className="whitespace-pre-wrap break-all leading-normal">{this.state.error.toString()}</p>
               </div>
@@ -89,10 +91,10 @@ export class ErrorBoundary extends React.Component<Props, State> {
             <div className="flex flex-col sm:flex-row gap-3 w-full">
               <button
                 onClick={this.handleReload}
-                className="flex-1 py-4 bg-[#795548] hover:bg-[#5d4037] text-white rounded-2xl font-black shadow-lg shadow-[#795548]/10 flex items-center justify-center gap-2 transition-all active:scale-95 text-sm"
+                className="flex-1 py-4 bg-brand-500 hover:bg-brand-700 text-white rounded-2xl font-black shadow-lg shadow-brand-500/10 flex items-center justify-center gap-2 transition-all active:scale-95 text-sm"
               >
                 <RotateCcw size={18} />
-                <span>{isArabic ? 'إعادة تحميل الصفحة' : 'Reload Page'}</span>
+                <span>{isArabic ? tr("إعادة تحميل الصفحة") : 'Reload Page'}</span>
               </button>
               
               <button
@@ -100,13 +102,13 @@ export class ErrorBoundary extends React.Component<Props, State> {
                 className="flex-1 py-4 bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-200 rounded-2xl font-black flex items-center justify-center gap-2 transition-all active:scale-95 text-sm"
               >
                 <Home size={18} />
-                <span>{isArabic ? 'إعادة تعيين الجلسة والبيانات' : 'Reset Session & Data'}</span>
+                <span>{isArabic ? tr("إعادة تعيين الجلسة والبيانات") : 'Reset Session & Data'}</span>
               </button>
             </div>
 
             {/* Footer */}
             <span className="text-[10px] text-gray-400 font-bold mt-6 uppercase tracking-wider">
-              Raai App • {isArabic ? 'مدير الحظائر الذكي' : 'Smart Barn Manager'}
+              Raai App • {isArabic ? tr("مدير الحظائر الذكي") : 'Smart Barn Manager'}
             </span>
           </div>
         </div>

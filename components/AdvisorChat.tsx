@@ -3,12 +3,14 @@ import { Send, Bot, User, Sparkles, Loader2 } from 'lucide-react';
 import { getSheepAdvice } from '../services/geminiService';
 import { ChatMessage } from '../types';
 
+import { tr } from '../constants/i18n';
+
 export const AdvisorChat: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
       role: 'model',
-      text: 'مرحباً بك! أنا مستشارك الزراعي الذكي. كيف يمكنني مساعدتك اليوم في إدارة قطيعك أو تحسين الحظائر؟',
+      text: tr("مرحباً بك! أنا مستشارك الزراعي الذكي. كيف يمكنني مساعدتك اليوم في إدارة قطيعك أو تحسين الحظائر؟"),
       timestamp: Date.now()
     }
   ]);
@@ -65,8 +67,8 @@ export const AdvisorChat: React.FC = () => {
           <Sparkles className="w-5 h-5 text-yellow-300" />
         </div>
         <div>
-          <h3 className="font-bold">المستشار الذكي</h3>
-          <p className="text-xs text-emerald-100 opacity-90">مدعوم بواسطة Gemini AI</p>
+          <h3 className="font-bold">{tr("المستشار الذكي")}</h3>
+          <p className="text-xs text-emerald-100 opacity-90">{tr("مدعوم بواسطة Gemini AI")}</p>
         </div>
       </div>
 
@@ -83,8 +85,8 @@ export const AdvisorChat: React.FC = () => {
             </div>
             <div className={`max-w-[80%] p-3 rounded-2xl text-sm leading-relaxed ${
               msg.role === 'user' 
-                ? 'bg-blue-600 text-white rounded-tr-none' 
-                : 'bg-white text-gray-800 border border-gray-200 rounded-tl-none shadow-sm'
+                ? 'bg-blue-600 text-white rounded-ss-none' 
+                : 'bg-white text-gray-800 border border-gray-200 rounded-se-none shadow-sm'
             }`}>
               {msg.text}
             </div>
@@ -95,7 +97,7 @@ export const AdvisorChat: React.FC = () => {
             <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
               <Bot size={16} />
             </div>
-            <div className="bg-white p-3 rounded-2xl rounded-tl-none border border-gray-200 shadow-sm">
+            <div className="bg-white p-3 rounded-2xl rounded-se-none border border-gray-200 shadow-sm">
               <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
             </div>
           </div>
@@ -110,7 +112,7 @@ export const AdvisorChat: React.FC = () => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
-            placeholder="اكتب سؤالك هنا... (مثال: ما أفضل غذاء للنعيمي؟)"
+            placeholder={tr("اكتب سؤالك هنا... (مثال: ما أفضل غذاء للنعيمي؟)")}
             className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition"
             disabled={isLoading}
           />

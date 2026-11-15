@@ -2,6 +2,7 @@ import { initializeApp, getApp, getApps } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAnalytics } from "firebase/analytics";
+import { getAuth } from "firebase/auth";
 import { safeStorage } from "./utils/storage";
 
 // Helper to construct configuration dynamically
@@ -34,6 +35,14 @@ const firebaseConfig = getFirebaseConfig();
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+export const auth = getAuth(app);
+
+// A second app instance lets the owner create a worker's Auth account without being signed out.
+export const getSecondaryAuth = () => {
+  const name = 'worker-provisioning';
+  const secondary = getApps().find(a => a.name === name) || initializeApp(firebaseConfig, name);
+  return getAuth(secondary);
+};
 
 let analyticsInstance = null;
 if (typeof window !== 'undefined') {

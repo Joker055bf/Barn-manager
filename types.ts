@@ -187,7 +187,6 @@ export interface WorkerPermissions {
   canEditFeed: boolean;
   canAddMedical: boolean;
   canViewReports: boolean;
-  canManagePens: boolean;
   canViewDeaths: boolean;
   canAddDeath: boolean;
   canMoveAnimals: boolean;
@@ -221,7 +220,8 @@ export interface ActivityEntry {
 export interface User {
   id: string;
   username: string;
-  password: string;
+  /** Legacy only: plaintext password from before Firebase Auth. Removed when the account migrates. */
+  password?: string;
   role: 'owner' | 'worker';
   name: string;
   createdAt: string;
@@ -235,6 +235,10 @@ export interface User {
   email?: string;
   vapidKey?: string;
   firebaseApiKey?: string;
+  /** Firebase Auth uid currently allowed to act as this user (see services/authService.ts). */
+  authUid?: string;
+  /** Email of that Auth account (the owner's real email, or a private synthetic one). */
+  authEmail?: string;
 }
 
 export const DEFAULT_WORKER_PERMISSIONS: WorkerPermissions = {
@@ -246,7 +250,6 @@ export const DEFAULT_WORKER_PERMISSIONS: WorkerPermissions = {
   canEditFeed: false,
   canAddMedical: true,
   canViewReports: false,
-  canManagePens: false,
   canViewDeaths: true,
   canAddDeath: false,
   canMoveAnimals: true,

@@ -8,6 +8,8 @@ import { db } from '../firebase';
 import { doc, setDoc, collection } from 'firebase/firestore';
 import { safeStorage } from '../utils/storage';
 
+import { tr, isEnglish } from '../constants/i18n';
+
 interface SettingsModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -19,6 +21,9 @@ interface SettingsModalProps {
     onUpdateProfile: (name: string, username?: string, password?: string, email?: string, vapidKey?: string, firebaseApiKey?: string) => Promise<void>;
     onShowAlert?: (type: 'success' | 'error' | 'warning' | 'info', title: string, message: string | React.ReactNode) => void;
     onTestNotifications?: () => Promise<void>;
+    /** Re-authenticates with Firebase; true when the password is correct. */
+    onVerifyPassword: (password: string) => Promise<boolean>;
+    onSendPasswordReset: (email: string) => Promise<void>;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -31,7 +36,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     currentUser,
     onUpdateProfile,
     onShowAlert,
-    onTestNotifications
+    onTestNotifications,
+    onVerifyPassword,
+    onSendPasswordReset
 }) => {
     const [showDataSection, setShowDataSection] = useState(false);
     const [versionTapCount, setVersionTapCount] = useState(0);
@@ -83,20 +90,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             
             if (previousApiKey !== newApiKey) {
                 if (onShowAlert) {
-                    onShowAlert('success', 'تم الحفظ وتحديث الاتصال', 'تم حفظ الإعدادات بنجاح. سيتم إعادة تحميل الصفحة الآن لتطبيق الاتصال الجديد.');
+                    onShowAlert('success', tr("تم الحفظ وتحديث الاتصال"), tr("تم حفظ الإعدادات بنجاح. سيتم إعادة تحميل الصفحة الآن لتطبيق الاتصال الجديد."));
                 }
                 setTimeout(() => {
                     window.location.reload();
                 }, 2000);
             } else {
                 if (onShowAlert) {
-                    onShowAlert('success', 'تم الحفظ', 'تم تحديث إعدادات الإشعارات المتقدمة بنجاح.');
+                    onShowAlert('success', tr("تم الحفظ"), tr("تم تحديث إعدادات الإشعارات المتقدمة بنجاح."));
                 }
             }
         } catch (e: any) {
             console.error('Failed to save FCM settings:', e);
             if (onShowAlert) {
-                onShowAlert('error', 'فشل الحفظ', e.message || 'تعذر حفظ إعدادات الإشعارات المتقدمة.');
+                onShowAlert('error', tr("فشل الحفظ"), e.message || tr("تعذر حفظ إعدادات الإشعارات المتقدمة."));
             }
         } finally {
             setIsSavingFcm(false);
@@ -169,8 +176,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                     // Share using native dialog
                     await Share.share({
-                        title: 'نسخة احتياطية - تطبيق راعي',
-                        text: 'ملف البيانات والنسخة الاحتياطية لتطبيق إدارة الحظائر',
+                        title: tr("نسخة احتياطية - تطبيق راعي"),
+                        text: tr("ملف البيانات والنسخة الاحتياطية لتطبيق إدارة الحظائر"),
                         url: fileUri.uri,
                         dialogTitle: 'مشاركة النسخة الاحتياطية'
                     });
@@ -188,8 +195,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     const file = new File([jsonString], fileName, { type: 'application/json' });
                     await navigator.share({
                         files: [file],
-                        title: 'نسخة احتياطية - تطبيق راعي',
-                        text: 'ملف البيانات والنسخة الاحتياطية لتطبيق إدارة الحظائر'
+                        title: tr("نسخة احتياطية - تطبيق راعي"),
+                        text: tr("ملف البيانات والنسخة الاحتياطية لتطبيق إدارة الحظائر")
                     });
                     return; // Successfully shared
                 } catch (shareError) {
@@ -208,7 +215,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         } catch (e) {
-            if (onShowAlert) onShowAlert('error', 'فشل التصدير', 'حدث خطأ أثناء تصدير البيانات');
+            if (onShowAlert) onShowAlert('error', tr("فشل التصدير"), tr("حدث خطأ أثناء تصدير البيانات"));
         }
     };
 
@@ -217,7 +224,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         const file = e.target.files?.[0];
         if (!file) return;
 
-        setImportStatus('⏳ جاري استيراد البيانات...');
+        setImportStatus(tr("⏳ جاري استيراد البيانات..."));
         
         const reader = new FileReader();
         reader.onload = async (ev) => {
@@ -255,12 +262,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     }
                 });
 
-                setImportStatus('✅ تم استيراد البيانات ومزامنتها بنجاح!');
+                setImportStatus(tr("✅ تم استيراد البيانات ومزامنتها بنجاح!"));
                 setTimeout(() => window.location.reload(), 2000);
 
             } catch (err) {
                 console.error('Import Error:', err);
-                setImportStatus('❌ فشل الملف، تأكد من اختيار ملف نسخة احتياطية صحيح');
+                setImportStatus(tr("❌ فشل الملف، تأكد من اختيار ملف نسخة احتياطية صحيح"));
             }
         };
         reader.readAsText(file);
@@ -271,7 +278,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" dir="rtl">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" dir={isEnglish ? 'ltr' : 'rtl'}>
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity"
@@ -279,21 +286,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             />
 
             {/* Modal Content */}
-            <div className="bg-[#FCFBF4] rounded-[2.5rem] w-full max-w-sm shadow-2xl scale-100 relative overflow-hidden dark:bg-slate-900 dark:border dark:border-slate-800 max-h-[90vh] flex flex-col animate-scale-in">
+            <div className="bg-paper rounded-[2.5rem] w-full max-w-sm shadow-2xl scale-100 relative overflow-hidden dark:bg-slate-900 dark:border dark:border-slate-800 max-h-[90vh] flex flex-col animate-scale-in">
 
                 {/* Header */}
-                <div className="bg-gradient-to-br from-[#795548] to-[#3E2723] p-8 text-white text-center relative dark:from-slate-800 dark:to-slate-950 shrink-0">
+                <div className="bg-gradient-to-br from-brand-500 to-brand-900 p-8 text-white text-center relative dark:from-slate-800 dark:to-slate-950 shrink-0">
                     <button
                         onClick={handleClose}
-                        className="absolute top-6 right-6 text-white/60 hover:text-white hover:bg-white/10 p-2 rounded-full transition"
+                        className="absolute top-6 start-6 text-white/60 hover:text-white hover:bg-white/10 p-2 rounded-full transition"
                     >
                         <X size={24} />
                     </button>
                     <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 border border-white/20 shadow-xl">
                         <Settings className="w-8 h-8 text-orange-100" />
                     </div>
-                    <h2 className="text-3xl font-black mb-1 tracking-tight">{language === 'en' ? 'Settings' : 'الإعدادات'}</h2>
-                    <p className="text-orange-100/60 text-xs font-bold uppercase tracking-widest">{language === 'en' ? 'Core Preferences' : 'تفضيلات النظام'}</p>
+                    <h2 className="text-3xl font-black mb-1 tracking-tight">{language === 'en' ? 'Settings' : tr("الإعدادات")}</h2>
+                    <p className="text-orange-100/60 text-xs font-bold uppercase tracking-widest">{language === 'en' ? 'Core Preferences' : tr("تفضيلات النظام")}</p>
                 </div>
 
                 <div className="p-6 space-y-10 overflow-y-auto custom-scrollbar flex-1">
@@ -302,15 +309,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     {currentUser?.role === 'owner' ? (
                         <div className="space-y-5">
                             <h3 className="font-black text-gray-900 flex items-center gap-3 dark:text-gray-100 tracking-tight">
-                                <User size={22} className="text-[#795548] dark:text-orange-500" />
-                                الملف الشخصي
+                                <User size={22} className="text-brand-500 dark:text-orange-500" />
+                                {tr("الملف الشخصي")}
                             </h3>
                             
                             {activeAction === null && (
                                 <div className="space-y-4 animate-fade-in">
                                     <div className="bg-white/50 border border-gray-100/80 rounded-[2rem] p-5 dark:bg-slate-800/40 dark:border-slate-700/30">
                                         <div className="flex justify-between items-center text-sm">
-                                            <span className="text-gray-400 font-bold">اسم المالك:</span>
+                                            <span className="text-gray-400 font-bold">{tr("اسم المالك:")}</span>
                                             <span className="text-gray-800 font-black dark:text-gray-200">{currentUser?.name}</span>
                                         </div>
                                     </div>
@@ -320,32 +327,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                             onClick={() => { setActiveAction('editName'); setStep('askPassword'); }}
                                             className="flex flex-col items-center justify-center p-4 bg-white border border-gray-100 rounded-2xl text-xs font-black text-gray-700 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200 transition-all gap-2 cursor-pointer shadow-sm"
                                         >
-                                            <User size={18} className="text-[#795548] dark:text-orange-500" />
-                                            <span>تغيير اسم المالك</span>
+                                            <User size={18} className="text-brand-500 dark:text-orange-500" />
+                                            <span>{tr("تغيير اسم المالك")}</span>
                                         </button>
 
                                         <button
                                             onClick={() => { setActiveAction('editUsername'); setStep('askPassword'); }}
                                             className="flex flex-col items-center justify-center p-4 bg-white border border-gray-100 rounded-2xl text-xs font-black text-gray-700 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200 transition-all gap-2 cursor-pointer shadow-sm"
                                         >
-                                            <Edit size={18} className="text-[#795548] dark:text-orange-500" />
-                                            <span>تغيير اسم المستخدم</span>
+                                            <Edit size={18} className="text-brand-500 dark:text-orange-500" />
+                                            <span>{tr("تغيير اسم المستخدم")}</span>
                                         </button>
 
                                         <button
-                                            onClick={() => { setActiveAction('editPassword'); setStep('askEmail'); }}
+                                            onClick={() => { setActiveAction('editPassword'); setStep('askPassword'); }}
                                             className="flex flex-col items-center justify-center p-4 bg-white border border-gray-100 rounded-2xl text-xs font-black text-gray-700 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200 transition-all gap-2 cursor-pointer shadow-sm"
                                         >
-                                            <Lock size={18} className="text-[#795548] dark:text-orange-500" />
-                                            <span>تغيير كلمة المرور</span>
+                                            <Lock size={18} className="text-brand-500 dark:text-orange-500" />
+                                            <span>{tr("تغيير كلمة المرور")}</span>
                                         </button>
 
                                         <button
                                             onClick={() => { setActiveAction('editEmail'); setStep('askPassword'); }}
                                             className="flex flex-col items-center justify-center p-4 bg-white border border-gray-100 rounded-2xl text-xs font-black text-gray-700 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-200 transition-all gap-2 cursor-pointer shadow-sm"
                                         >
-                                            <Mail size={18} className="text-[#795548] dark:text-orange-500" />
-                                            <span>تغيير البريد الإلكتروني</span>
+                                            <Mail size={18} className="text-brand-500 dark:text-orange-500" />
+                                            <span>{tr("تغيير البريد الإلكتروني")}</span>
                                         </button>
                                     </div>
                                 </div>
@@ -353,12 +360,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                             {activeAction !== null && step === 'askPassword' && (
                                 <div className="space-y-4 p-5 bg-orange-50/40 rounded-[2rem] border border-orange-100 dark:bg-slate-800/40 dark:border-slate-700/50 animate-scale-in">
-                                    <div className="flex items-center gap-3 text-[#795548] dark:text-orange-400 mb-1">
+                                    <div className="flex items-center gap-3 text-brand-500 dark:text-orange-400 mb-1">
                                         <Lock size={20} />
                                         <h4 className="font-black text-sm">
-                                            {activeAction === 'editName' && 'تأكيد كلمة المرور لتغيير اسم المالك'}
-                                            {activeAction === 'editUsername' && 'تأكيد كلمة المرور لتغيير اسم المستخدم'}
-                                            {activeAction === 'editEmail' && 'تأكيد كلمة المرور لتغيير البريد الإلكتروني'}
+                                            {activeAction === 'editName' && tr("تأكيد كلمة المرور لتغيير اسم المالك")}
+                                            {activeAction === 'editUsername' && tr("تأكيد كلمة المرور لتغيير اسم المستخدم")}
+                                            {activeAction === 'editEmail' && tr("تأكيد كلمة المرور لتغيير البريد الإلكتروني")}
+                                            {activeAction === 'editPassword' && tr("أدخل كلمة المرور الحالية")}
                                         </h4>
                                     </div>
                                     <div className="relative group">
@@ -366,12 +374,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                             type={showInputPass ? 'text' : 'password'}
                                             value={inputPassword}
                                             onChange={e => setInputPassword(e.target.value)}
-                                            placeholder="أدخل كلمة المرور الحالية..."
-                                            className="w-full border border-gray-100 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:ring-4 focus:ring-[#795548]/10 focus:border-[#795548] bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-white pr-12 transition-all text-right"
+                                            placeholder={tr("أدخل كلمة المرور الحالية...")}
+                                            className="w-full border border-gray-100 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-white pe-12 transition-all text-start"
                                         />
                                         <button
                                             onClick={() => setShowInputPass(!showInputPass)}
-                                            className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#795548] transition p-1 cursor-pointer"
+                                            className="absolute end-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-brand-500 transition p-1 cursor-pointer"
                                         >
                                             {showInputPass ? <EyeOff size={18} /> : <Eye size={18} />}
                                         </button>
@@ -379,146 +387,57 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                                     <div className="flex flex-col gap-2 pt-2">
                                         <button
-                                            onClick={() => {
-                                                if (inputPassword === currentUser?.password) {
+                                            onClick={async () => {
+                                                setIsSavingProfile(true);
+                                                try {
+                                                    const ok = await onVerifyPassword(inputPassword);
+                                                    if (!ok) {
+                                                        if (onShowAlert) onShowAlert('error', tr("خطأ"), tr("كلمة المرور غير صحيحة"));
+                                                        return;
+                                                    }
+                                                    setInputPassword('');
                                                     setStep('editField');
                                                     if (activeAction === 'editName') setNewValue(currentUser?.name || '');
                                                     if (activeAction === 'editUsername') setNewValue(currentUser?.username || '');
                                                     if (activeAction === 'editEmail') setNewValue(currentUser?.email || '');
-                                                } else {
-                                                    if (onShowAlert) onShowAlert('error', 'خطأ', 'كلمة المرور غير صحيحة');
+                                                    if (activeAction === 'editPassword') setNewValue('');
+                                                } catch (e: any) {
+                                                    if (onShowAlert) onShowAlert('error', tr("خطأ"), e?.message || tr("تعذر التحقق من كلمة المرور"));
+                                                } finally {
+                                                    setIsSavingProfile(false);
                                                 }
                                             }}
-                                            className="w-full py-3.5 bg-[#795548] text-white rounded-2xl font-black text-xs hover:bg-[#5D4037] transition shadow-lg cursor-pointer"
+                                            disabled={isSavingProfile}
+                                            className="w-full py-3.5 bg-brand-500 text-white rounded-2xl font-black text-xs hover:bg-brand-700 transition shadow-lg cursor-pointer disabled:opacity-50"
                                         >
-                                            تحقق
+                                            {isSavingProfile ? tr("جاري التحقق...") : tr("تحقق")}
                                         </button>
 
                                         <button
-                                            onClick={() => {
-                                                setStep('askEmail');
-                                                setInputPassword('');
+                                            onClick={async () => {
+                                                const email = currentUser?.email;
+                                                if (!email) {
+                                                    if (onShowAlert) onShowAlert('warning', tr("تنبيه"), tr("لا يوجد بريد إلكتروني مسجل لهذا الحساب."));
+                                                    return;
+                                                }
+                                                try {
+                                                    await onSendPasswordReset(email);
+                                                    if (onShowAlert) onShowAlert('success', tr("تم الإرسال"), tr("أرسلنا رابط تعيين كلمة المرور إلى {0}", email));
+                                                    resetProfileFlow();
+                                                } catch (e: any) {
+                                                    if (onShowAlert) onShowAlert('error', tr("خطأ"), e?.message || tr("تعذر إرسال رابط الاستعادة"));
+                                                }
                                             }}
                                             className="text-xs text-orange-600 hover:text-orange-700 font-bold py-2 transition cursor-pointer text-center"
                                         >
-                                            هل نسيت كلمة المرور؟
+                                            {tr("هل نسيت كلمة المرور؟")}
                                         </button>
 
                                         <button
                                             onClick={resetProfileFlow}
                                             className="w-full py-3.5 bg-gray-100 text-gray-500 rounded-2xl font-black text-xs hover:bg-gray-200 transition dark:bg-slate-800 dark:text-gray-400 cursor-pointer"
                                         >
-                                            تراجع
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {activeAction !== null && step === 'askEmail' && (
-                                <div className="space-y-4 p-5 bg-orange-50/40 rounded-[2rem] border border-orange-100 dark:bg-slate-800/40 dark:border-slate-700/50 animate-scale-in">
-                                    <div className="flex items-center gap-3 text-[#795548] dark:text-orange-400 mb-1">
-                                        <Mail size={20} />
-                                        <h4 className="font-black text-sm">
-                                            {activeAction === 'editPassword' 
-                                                ? 'تغيير كلمة المرور - البريد الإلكتروني المتوفر' 
-                                                : 'استعادة كلمة المرور - البريد الإلكتروني المسجل'}
-                                        </h4>
-                                    </div>
-                                    <input
-                                        type="email"
-                                        value={inputEmail}
-                                        onChange={e => setInputEmail(e.target.value)}
-                                        placeholder="أدخل البريد الإلكتروني..."
-                                        className="w-full border border-gray-100 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:ring-4 focus:ring-[#795548]/10 focus:border-[#795548] bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-white transition-all text-right"
-                                    />
-
-                                    <div className="flex gap-3 pt-2">
-                                        <button
-                                            onClick={() => {
-                                                if (!currentUser?.email) {
-                                                    if (onShowAlert) onShowAlert('warning', 'تنبيه', 'لا يوجد بريد إلكتروني مسجل لهذا الحساب. يرجى إضافة بريد إلكتروني أولاً.');
-                                                    return;
-                                                }
-                                                if (inputEmail.trim().toLowerCase() === currentUser.email.toLowerCase()) {
-                                                    setStep('changePasswordDirect');
-                                                    setNewValue('');
-                                                } else {
-                                                    if (onShowAlert) onShowAlert('error', 'خطأ', 'البريد الإلكتروني غير متطابق أو غير مسجل');
-                                                }
-                                            }}
-                                            className="flex-1 py-3.5 bg-[#795548] text-white rounded-2xl font-black text-xs hover:bg-[#5D4037] transition shadow-lg cursor-pointer"
-                                        >
-                                            تحقق
-                                        </button>
-
-                                        <button
-                                            onClick={() => {
-                                                if (activeAction === 'editPassword') {
-                                                    resetProfileFlow();
-                                                } else {
-                                                    setStep('askPassword');
-                                                }
-                                            }}
-                                            className="flex-1 py-3.5 bg-gray-100 text-gray-500 rounded-2xl font-black text-xs hover:bg-gray-200 transition dark:bg-slate-800 dark:text-gray-400 cursor-pointer"
-                                        >
-                                            تراجع
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {activeAction !== null && step === 'changePasswordDirect' && (
-                                <div className="space-y-4 p-5 bg-orange-50/40 rounded-[2rem] border border-orange-100 dark:bg-slate-800/40 dark:border-slate-700/50 animate-scale-in">
-                                    <div className="flex items-center gap-3 text-[#795548] dark:text-orange-400 mb-1">
-                                        <Lock size={20} />
-                                        <h4 className="font-black text-sm">تغيير كلمة المرور</h4>
-                                    </div>
-                                    
-                                    <div className="relative group">
-                                        <input
-                                            type={showInputPass ? 'text' : 'password'}
-                                            value={newValue}
-                                            onChange={e => setNewValue(e.target.value)}
-                                            placeholder="أدخل كلمة المرور الجديدة..."
-                                            className="w-full border border-gray-100 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:ring-4 focus:ring-[#795548]/10 focus:border-[#795548] bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-white pr-12 transition-all text-right"
-                                        />
-                                        <button
-                                            onClick={() => setShowInputPass(!showInputPass)}
-                                            className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#795548] transition p-1 cursor-pointer"
-                                        >
-                                            {showInputPass ? <EyeOff size={18} /> : <Eye size={18} />}
-                                        </button>
-                                    </div>
-
-                                    <div className="flex gap-3 pt-2">
-                                        <button
-                                            onClick={async () => {
-                                                if (!newValue.trim()) {
-                                                    if (onShowAlert) onShowAlert('warning', 'تنبيه', 'يرجى إدخال كلمة المرور الجديدة');
-                                                    return;
-                                                }
-                                                setIsSavingProfile(true);
-                                                try {
-                                                    await onUpdateProfile(currentUser?.name || '', undefined, newValue.trim(), undefined);
-                                                    if (onShowAlert) onShowAlert('success', 'تم التحديث', 'تم تغيير كلمة المرور بنجاح');
-                                                    resetProfileFlow();
-                                                } catch (e) {
-                                                    if (onShowAlert) onShowAlert('error', 'فشل التحديث', 'حدث خطأ أثناء حفظ كلمة المرور');
-                                                } finally {
-                                                    setIsSavingProfile(false);
-                                                }
-                                            }}
-                                            disabled={isSavingProfile}
-                                            className="flex-1 py-3.5 bg-[#795548] text-white rounded-2xl font-black text-xs hover:bg-[#5D4037] transition shadow-lg disabled:opacity-50 cursor-pointer"
-                                        >
-                                            {isSavingProfile ? 'جاري الحفظ...' : 'حفظ كلمة المرور'}
-                                        </button>
-
-                                        <button
-                                            onClick={() => setStep('askEmail')}
-                                            className="flex-1 py-3.5 bg-gray-100 text-gray-500 rounded-2xl font-black text-xs hover:bg-gray-200 transition dark:bg-slate-800 dark:text-gray-400 cursor-pointer"
-                                        >
-                                            تراجع
+                                            {tr("تراجع")}
                                         </button>
                                     </div>
                                 </div>
@@ -526,17 +445,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                             {activeAction !== null && step === 'editField' && (
                                 <div className="space-y-4 p-5 bg-orange-50/40 rounded-[2rem] border border-orange-100 dark:bg-slate-800/40 dark:border-slate-700/50 animate-scale-in">
-                                    <div className="flex items-center gap-3 text-[#795548] dark:text-orange-400 mb-1">
+                                    <div className="flex items-center gap-3 text-brand-500 dark:text-orange-400 mb-1">
                                         {activeAction === 'editName' && <User size={20} />}
                                         {activeAction === 'editUsername' && <User size={20} />}
                                         {activeAction === 'editEmail' && <Mail size={20} />}
                                         {activeAction === 'editPassword' && <Lock size={20} />}
                                         
                                         <h4 className="font-black text-sm">
-                                            {activeAction === 'editName' && 'تعديل اسم المالك'}
-                                            {activeAction === 'editUsername' && 'تعديل اسم المستخدم'}
-                                            {activeAction === 'editEmail' && 'تعديل البريد الإلكتروني'}
-                                            {activeAction === 'editPassword' && 'تعديل كلمة المرور'}
+                                            {activeAction === 'editName' && tr("تعديل اسم المالك")}
+                                            {activeAction === 'editUsername' && tr("تعديل اسم المستخدم")}
+                                            {activeAction === 'editEmail' && tr("تعديل البريد الإلكتروني")}
+                                            {activeAction === 'editPassword' && tr("تعديل كلمة المرور")}
                                         </h4>
                                     </div>
 
@@ -546,12 +465,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                                 type={showInputPass ? 'text' : 'password'}
                                                 value={newValue}
                                                 onChange={e => setNewValue(e.target.value)}
-                                                placeholder="أدخل كلمة المرور الجديدة..."
-                                                className="w-full border border-gray-100 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:ring-4 focus:ring-[#795548]/10 focus:border-[#795548] bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-white pr-12 transition-all text-right"
+                                                placeholder={tr("أدخل كلمة المرور الجديدة...")}
+                                                className="w-full border border-gray-100 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-white pe-12 transition-all text-start"
                                             />
                                             <button
                                                 onClick={() => setShowInputPass(!showInputPass)}
-                                                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#795548] transition p-1 cursor-pointer"
+                                                className="absolute end-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-brand-500 transition p-1 cursor-pointer"
                                             >
                                                 {showInputPass ? <EyeOff size={18} /> : <Eye size={18} />}
                                             </button>
@@ -562,11 +481,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                             value={newValue}
                                             onChange={e => setNewValue(e.target.value)}
                                             placeholder={
-                                                activeAction === 'editName' ? 'أدخل الاسم الجديد...' :
-                                                activeAction === 'editUsername' ? 'أدخل اسم المستخدم الجديد...' :
-                                                'أدخل البريد الإلكتروني الجديد...'
+                                                activeAction === 'editName' ? tr("أدخل الاسم الجديد...") :
+                                                activeAction === 'editUsername' ? tr("أدخل اسم المستخدم الجديد...") :
+                                                tr("أدخل البريد الإلكتروني الجديد...")
                                             }
-                                            className="w-full border border-gray-100 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:ring-4 focus:ring-[#795548]/10 focus:border-[#795548] bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-white transition-all text-right"
+                                            className="w-full border border-gray-100 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-white transition-all text-start"
                                         />
                                     )}
 
@@ -574,7 +493,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                         <button
                                             onClick={async () => {
                                                 if (!newValue.trim()) {
-                                                    if (onShowAlert) onShowAlert('warning', 'تنبيه', 'الرجاء إدخال القيمة الجديدة');
+                                                    if (onShowAlert) onShowAlert('warning', tr("تنبيه"), tr("الرجاء إدخال القيمة الجديدة"));
                                                     return;
                                                 }
                                                 setIsSavingProfile(true);
@@ -588,31 +507,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                                     } else if (activeAction === 'editPassword') {
                                                         await onUpdateProfile(currentUser?.name || '', undefined, newValue.trim(), undefined);
                                                     }
-                                                    if (onShowAlert) onShowAlert('success', 'تم التحديث', 'تم حفظ التغييرات بنجاح');
+                                                    if (onShowAlert) onShowAlert('success', tr("تم التحديث"), tr("تم حفظ التغييرات بنجاح"));
                                                     resetProfileFlow();
-                                                } catch (e) {
-                                                    if (onShowAlert) onShowAlert('error', 'فشل التحديث', 'حدث خطأ أثناء حفظ التغييرات');
+                                                } catch (e: any) {
+                                                    if (onShowAlert) onShowAlert('error', tr("فشل التحديث"), e?.message || tr("حدث خطأ أثناء حفظ التغييرات"));
                                                 } finally {
                                                     setIsSavingProfile(false);
                                                 }
                                             }}
                                             disabled={isSavingProfile}
-                                            className="flex-1 py-3.5 bg-[#795548] text-white rounded-2xl font-black text-xs hover:bg-[#5D4037] transition shadow-lg disabled:opacity-50 cursor-pointer"
+                                            className="flex-1 py-3.5 bg-brand-500 text-white rounded-2xl font-black text-xs hover:bg-brand-700 transition shadow-lg disabled:opacity-50 cursor-pointer"
                                         >
-                                            {isSavingProfile ? 'جاري الحفظ...' : 'حفظ'}
+                                            {isSavingProfile ? tr("جاري الحفظ...") : tr("حفظ")}
                                         </button>
 
                                         <button
                                             onClick={() => {
                                                 if (activeAction === 'editPassword') {
-                                                    setStep('askEmail');
+                                                    resetProfileFlow();
                                                 } else {
                                                     setStep('askPassword');
                                                 }
                                             }}
                                             className="flex-1 py-3.5 bg-gray-100 text-gray-500 rounded-2xl font-black text-xs hover:bg-gray-200 transition dark:bg-slate-800 dark:text-gray-400 cursor-pointer"
                                         >
-                                            تراجع
+                                            {tr("تراجع")}
                                         </button>
                                     </div>
                                 </div>
@@ -623,27 +542,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             <div className="w-16 h-16 bg-white rounded-2xl shadow-sm mx-auto mb-4 flex items-center justify-center text-gray-300 dark:bg-slate-700 dark:text-slate-500">
                                 <User size={32} />
                             </div>
-                            <p className="text-xl font-black text-gray-800 dark:text-gray-100">مرحباً {currentUser?.name}</p>
-                            <p className="text-xs text-gray-400 mt-2 font-bold uppercase tracking-widest">نمط التشغيل: عامل</p>
+                            <p className="text-xl font-black text-gray-800 dark:text-gray-100">{tr("مرحباً")} {currentUser?.name}</p>
+                            <p className="text-xs text-gray-400 mt-2 font-bold uppercase tracking-widest">{tr("نمط التشغيل: عامل")}</p>
                         </div>
                     )}
 
                     {/* Language Section */}
                     <div className="space-y-5">
                         <h3 className="font-black text-gray-900 flex items-center gap-3 dark:text-gray-100 tracking-tight">
-                            <Globe size={22} className="text-[#795548] dark:text-orange-500" />
-                            {language === 'en' ? 'Language' : 'لغة الواجهة'}
+                            <Globe size={22} className="text-brand-500 dark:text-orange-500" />
+                            {language === 'en' ? 'Language' : tr("لغة الواجهة")}
                         </h3>
                         <div className="grid grid-cols-2 gap-4">
                             <button
                                 type="button"
                                 onClick={() => setLanguage('ar')}
                                 className={`flex items-center justify-center gap-3 py-4 rounded-2xl border-2 transition-all cursor-pointer ${language === 'ar'
-                                    ? 'border-[#795548] bg-[#795548]/5 text-[#795548] font-black shadow-lg dark:bg-[#795548]/20 dark:text-orange-400 dark:border-orange-400'
+                                    ? 'border-brand-500 bg-brand-500/5 text-brand-500 font-black shadow-lg dark:bg-brand-500/20 dark:text-orange-400 dark:border-orange-400'
                                     : 'border-gray-100 text-gray-400 hover:border-gray-200 dark:border-slate-700 dark:text-slate-500 dark:hover:border-slate-600 font-bold'
                                     }`}
                             >
-                                <span>العربية</span>
+                                <span>{tr("العربية")}</span>
                                 {language === 'ar' && <Check size={18} />}
                             </button>
 
@@ -651,7 +570,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 type="button"
                                 onClick={() => setLanguage('en')}
                                 className={`flex items-center justify-center gap-3 py-4 rounded-2xl border-2 transition-all cursor-pointer ${language === 'en'
-                                    ? 'border-[#795548] bg-[#795548]/5 text-[#795548] font-black shadow-lg dark:bg-[#795548]/20 dark:text-orange-400 dark:border-orange-400'
+                                    ? 'border-brand-500 bg-brand-500/5 text-brand-500 font-black shadow-lg dark:bg-brand-500/20 dark:text-orange-400 dark:border-orange-400'
                                     : 'border-gray-100 text-gray-400 hover:border-gray-200 dark:border-slate-700 dark:text-slate-500 dark:hover:border-slate-600 font-bold'
                                     }`}
                             >
@@ -664,8 +583,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     {/* Theme Section */}
                     <div className="space-y-5">
                         <h3 className="font-black text-gray-900 flex items-center gap-3 dark:text-gray-100 tracking-tight">
-                            <Moon size={22} className="text-[#795548] dark:text-orange-500" />
-                            {language === 'en' ? 'Visual Theme' : 'السمة البصرية'}
+                            <Moon size={22} className="text-brand-500 dark:text-orange-500" />
+                            {language === 'en' ? 'Visual Theme' : tr("السمة البصرية")}
                         </h3>
                         <div className="grid grid-cols-2 gap-4">
                             <button
@@ -677,7 +596,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                     }`}
                             >
                                 <Sun size={28} className={theme === 'light' ? 'text-orange-500' : 'text-gray-300 dark:text-slate-700'} />
-                                <span className="text-xs uppercase tracking-widest">النهار</span>
+                                <span className="text-xs uppercase tracking-widest">{tr("النهار")}</span>
                             </button>
 
                             <button
@@ -689,7 +608,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                     }`}
                             >
                                 <Moon size={28} className={theme === 'dark' ? 'text-indigo-400' : 'text-gray-300 dark:text-slate-700'} />
-                                <span className="text-xs uppercase tracking-widest">الليل</span>
+                                <span className="text-xs uppercase tracking-widest">{tr("الليل")}</span>
                             </button>
                         </div>
                     </div>
@@ -697,13 +616,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     {/* Notifications Section */}
                     <div className="space-y-5">
                         <h3 className="font-black text-gray-900 flex items-center gap-3 dark:text-gray-100 tracking-tight">
-                            <Info size={22} className="text-[#795548] dark:text-orange-500" />
-                            {language === 'en' ? 'Push Notifications' : 'إشعارات الهاتف الفورية'}
+                            <Info size={22} className="text-brand-500 dark:text-orange-500" />
+                            {language === 'en' ? 'Push Notifications' : tr("إشعارات الهاتف الفورية")}
                         </h3>
                         
                         <div className="p-5 bg-orange-50/40 rounded-[1.5rem] border border-orange-100 dark:bg-slate-800 dark:border-slate-700 space-y-4">
                             <div className="flex justify-between items-center text-xs font-bold text-gray-600 dark:text-gray-300">
-                                <span>{language === 'en' ? 'Browser Permission:' : 'حالة صلاحية المتصفح:'}</span>
+                                <span>{language === 'en' ? 'Browser Permission:' : tr("حالة صلاحية المتصفح:")}</span>
                                 <span className={`px-3 py-1 rounded-full font-black ${
                                     typeof Notification !== 'undefined'
                                         ? Notification.permission === 'granted'
@@ -715,18 +634,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 }`}>
                                     {typeof Notification !== 'undefined'
                                         ? Notification.permission === 'granted'
-                                            ? (language === 'en' ? 'Active ✅' : 'مفعّلة ✅')
+                                            ? (language === 'en' ? 'Active ✅' : tr("مفعّلة ✅"))
                                             : Notification.permission === 'denied'
-                                                ? (language === 'en' ? 'Blocked ❌' : 'مرفوضة ❌')
-                                                : (language === 'en' ? 'Pending 🔔' : 'بانتظار الموافقة 🔔')
-                                        : (language === 'en' ? 'Not Supported ⚠️' : 'غير مدعوم ⚠️')}
+                                                ? (language === 'en' ? 'Blocked ❌' : tr("مرفوضة ❌"))
+                                                : (language === 'en' ? 'Pending 🔔' : tr("بانتظار الموافقة 🔔"))
+                                        : (language === 'en' ? 'Not Supported ⚠️' : tr("غير مدعوم ⚠️"))}
                                 </span>
                             </div>
 
                             <p className="text-[10px] text-gray-500 leading-relaxed dark:text-slate-400 font-bold">
                                 {language === 'en'
                                     ? 'To receive instant push notifications for new chat messages, activate notifications and trigger a test to confirm.'
-                                    : 'لتلقي إشعارات فورية عند وصول رسائل جديدة، تأكد من الضغط على زر التفعيل واختبار وصول التنبيهات مباشرة لهاتفك.'}
+                                    : tr("لتلقي إشعارات فورية عند وصول رسائل جديدة، تأكد من الضغط على زر التفعيل واختبار وصول التنبيهات مباشرة لهاتفك.")}
                             </p>
 
                             {onTestNotifications && (
@@ -744,10 +663,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                             if (onShowAlert) {
                                                 onShowAlert(
                                                     'warning', 
-                                                    language === 'en' ? 'Unsaved Settings Detected' : 'تنبيه: إعدادات غير محفوظة', 
+                                                    language === 'en' ? 'Unsaved Settings Detected' : tr("تنبيه: إعدادات غير محفوظة"), 
                                                     language === 'en' 
                                                         ? 'You have typed a new API Key or VAPID Key. Please click the "Save Advanced Settings" button below first, then let the page reload to apply the new keys before testing.'
-                                                        : 'لقد قمت بإدخال مفتاح جديد ولكنك لم تقم بحفظه. يرجى الضغط على زر "حفظ الإعدادات المتقدمة" بالأسفل أولاً لكي يتم حفظ المفتاح وتحديث الاتصال تلقائياً، ثم قم بالاختبار.'
+                                                        : tr("لقد قمت بإدخال مفتاح جديد ولكنك لم تقم بحفظه. يرجى الضغط على زر \"حفظ الإعدادات المتقدمة\" بالأسفل أولاً لكي يتم حفظ المفتاح وتحديث الاتصال تلقائياً، ثم قم بالاختبار.")
                                                 );
                                             }
                                             return;
@@ -762,13 +681,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                             setIsTestingNotifications(false);
                                         }
                                     }}
-                                    className={`w-full flex items-center justify-center gap-3 py-3.5 bg-gradient-to-br from-[#795548] to-[#3E2723] text-white rounded-2xl font-black text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-lg dark:from-slate-700 dark:to-slate-800 cursor-pointer ${
+                                    className={`w-full flex items-center justify-center gap-3 py-3.5 bg-gradient-to-br from-brand-500 to-brand-900 text-white rounded-2xl font-black text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-lg dark:from-slate-700 dark:to-slate-800 cursor-pointer ${
                                         isTestingNotifications ? 'opacity-60 cursor-not-allowed' : ''
                                     }`}
                                 >
                                     <span>{isTestingNotifications 
-                                        ? (language === 'en' ? '⏳ Activating...' : '⏳ جاري التفعيل والاختبار...') 
-                                        : (language === 'en' ? '🔔 Activate & Test Now' : '🔔 تفعيل واختبار الإشعارات الآن')
+                                        ? (language === 'en' ? '⏳ Activating...' : tr("⏳ جاري التفعيل والاختبار...")) 
+                                        : (language === 'en' ? '🔔 Activate & Test Now' : tr("🔔 تفعيل واختبار الإشعارات الآن"))
                                     }</span>
                                 </button>
                             )}
@@ -778,62 +697,62 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                     <button
                                         type="button"
                                         onClick={() => setShowAdvancedFcm(!showAdvancedFcm)}
-                                        className="flex items-center justify-between w-full text-xs font-black text-[#795548] dark:text-orange-400 hover:opacity-80 transition-all cursor-pointer"
+                                        className="flex items-center justify-between w-full text-xs font-black text-brand-500 dark:text-orange-400 hover:opacity-80 transition-all cursor-pointer"
                                     >
-                                        <span>{language === 'en' ? '🛠️ Advanced Notification Settings' : '🛠️ إعدادات الإشعارات المتقدمة'}</span>
+                                        <span>{language === 'en' ? '🛠️ Advanced Notification Settings' : tr("🛠️ إعدادات الإشعارات المتقدمة")}</span>
                                         <span className="text-[10px]">{showAdvancedFcm ? '▲' : '▼'}</span>
                                     </button>
 
                                     {showAdvancedFcm && (
-                                        <div className="mt-3 space-y-3 animate-fade-in text-right" dir="rtl">
+                                        <div className="mt-3 space-y-3 animate-fade-in text-start" dir={isEnglish ? 'ltr' : 'rtl'}>
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-black text-gray-500 dark:text-slate-400 block text-right">
-                                                    {language === 'en' ? 'Firebase API Key (unrestricted if custom):' : 'مفتاح API الخاص بـ Firebase (غير مقيد):'}
+                                                <label className="text-[10px] font-black text-gray-500 dark:text-slate-400 block text-start">
+                                                    {language === 'en' ? 'Firebase API Key (unrestricted if custom):' : tr("مفتاح API الخاص بـ Firebase (غير مقيد):")}
                                                 </label>
                                                 <input
                                                     type="text"
                                                     value={customApiKey}
                                                     onChange={(e) => setCustomApiKey(e.target.value)}
-                                                    placeholder="أدخل مفتاح API غير مقيد (من منصة Google Cloud)"
-                                                    className="w-full text-right px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[10px] font-bold text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#795548]"
+                                                    placeholder={tr("أدخل مفتاح API غير مقيد (من منصة Google Cloud)")}
+                                                    className="w-full text-start px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[10px] font-bold text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
                                                 />
-                                                <p className="text-[9px] text-gray-400 leading-normal text-right font-medium">
+                                                <p className="text-[9px] text-gray-400 leading-normal text-start font-medium">
                                                     {language === 'en'
                                                         ? 'Leave empty to use the default API key. If default is restricted, enter custom key here.'
-                                                        : 'اتركه فارغاً للاعتماد على المفتاح الافتراضي للمشروع. يمكن إضافة مفتاح مخصص هنا.'}
+                                                        : tr("اتركه فارغاً للاعتماد على المفتاح الافتراضي للمشروع. يمكن إضافة مفتاح مخصص هنا.")}
                                                 </p>
-                                                <div className="text-[9px] font-bold text-gray-400 text-right mt-1">
-                                                    {language === 'en' ? 'Currently active key: ' : 'المفتاح المفعل حالياً: '}
-                                                    <span className="text-[#795548] dark:text-orange-400 font-mono bg-orange-50/80 dark:bg-slate-800 px-2 py-0.5 rounded">
+                                                <div className="text-[9px] font-bold text-gray-400 text-start mt-1">
+                                                    {language === 'en' ? 'Currently active key: ' : tr("المفتاح المفعل حالياً: ")}
+                                                    <span className="text-brand-500 dark:text-orange-400 font-mono bg-orange-50/80 dark:bg-slate-800 px-2 py-0.5 rounded">
                                                         {safeStorage.getItem('rai_firebase_api_key') 
-                                                            ? `مخصص (***${safeStorage.getItem('rai_firebase_api_key')?.slice(-6)})` 
-                                                            : (language === 'en' ? 'Default (Restricted)' : 'الافتراضي للمشروع (مقيد)')}
+                                                            ? tr("مخصص (***{0})", safeStorage.getItem('rai_firebase_api_key')?.slice(-6)) 
+                                                            : (language === 'en' ? 'Default (Restricted)' : tr("الافتراضي للمشروع (مقيد)"))}
                                                     </span>
                                                 </div>
                                             </div>
 
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-black text-gray-500 dark:text-slate-400 block text-right">
-                                                    {language === 'en' ? 'FCM VAPID Public Key (Web Push):' : 'مفتاح VAPID العام (لإشعارات الويب):'}
+                                                <label className="text-[10px] font-black text-gray-500 dark:text-slate-400 block text-start">
+                                                    {language === 'en' ? 'FCM VAPID Public Key (Web Push):' : tr("مفتاح VAPID العام (لإشعارات الويب):")}
                                                 </label>
                                                 <input
                                                     type="text"
                                                     value={customVapidKey}
                                                     onChange={(e) => setCustomVapidKey(e.target.value)}
-                                                    placeholder="أدخل مفتاح VAPID العام (المولد في كونسول Firebase)"
-                                                    className="w-full text-right px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[10px] font-bold text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#795548]"
+                                                    placeholder={tr("أدخل مفتاح VAPID العام (المولد في كونسول Firebase)")}
+                                                    className="w-full text-start px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[10px] font-bold text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
                                                 />
-                                                <p className="text-[9px] text-gray-400 leading-normal text-right font-medium">
+                                                <p className="text-[9px] text-gray-400 leading-normal text-start font-medium">
                                                     {language === 'en'
                                                         ? 'Leave empty to use the project’s default key. Generate this key in Firebase Console -> Project Settings -> Cloud Messaging -> Web Push certificates.'
-                                                        : 'اتركه فارغاً للاعتماد على المفتاح الافتراضي للمشروع. يمكنك توليد هذا المفتاح من إعدادات مشروع Firebase -> إعدادات المشروع -> السحابة -> شهادات الويب.'}
+                                                        : tr("اتركه فارغاً للاعتماد على المفتاح الافتراضي للمشروع. يمكنك توليد هذا المفتاح من إعدادات مشروع Firebase -> إعدادات المشروع -> السحابة -> شهادات الويب.")}
                                                 </p>
-                                                <div className="text-[9px] font-bold text-gray-400 text-right mt-1 font-medium">
-                                                    {language === 'en' ? 'Currently active: ' : 'مفتاح VAPID المفعل حالياً: '}
-                                                    <span className="text-[#795548] dark:text-orange-400 font-mono bg-orange-50/80 dark:bg-slate-800 px-2 py-0.5 rounded">
+                                                <div className="text-[9px] font-bold text-gray-400 text-start mt-1 font-medium">
+                                                    {language === 'en' ? 'Currently active: ' : tr("مفتاح VAPID المفعل حالياً: ")}
+                                                    <span className="text-brand-500 dark:text-orange-400 font-mono bg-orange-50/80 dark:bg-slate-800 px-2 py-0.5 rounded">
                                                         {safeStorage.getItem('rai_vapid_key') 
-                                                            ? `مخصص (***${safeStorage.getItem('rai_vapid_key')?.slice(-8)})` 
-                                                            : (language === 'en' ? 'Default' : 'الافتراضي')}
+                                                            ? tr("مخصص (***{0})", safeStorage.getItem('rai_vapid_key')?.slice(-8)) 
+                                                            : (language === 'en' ? 'Default' : tr("الافتراضي"))}
                                                     </span>
                                                 </div>
                                             </div>
@@ -842,13 +761,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                                 type="button"
                                                 disabled={isSavingFcm}
                                                 onClick={handleSaveFcmSettings}
-                                                className={`w-full py-2.5 bg-[#795548] dark:bg-slate-700 hover:bg-[#5D4037] dark:hover:bg-slate-600 text-white rounded-xl font-black text-xs transition-all active:scale-[0.98] cursor-pointer ${
+                                                className={`w-full py-2.5 bg-brand-500 dark:bg-slate-700 hover:bg-brand-700 dark:hover:bg-slate-600 text-white rounded-xl font-black text-xs transition-all active:scale-[0.98] cursor-pointer ${
                                                     isSavingFcm ? 'opacity-60 cursor-not-allowed' : ''
                                                 }`}
                                             >
                                                 {isSavingFcm
-                                                     ? (language === 'en' ? 'Saving...' : 'جاري الحفظ...')
-                                                     : (language === 'en' ? 'Save Settings' : 'حفظ الإعدادات المتقدمة')}
+                                                     ? (language === 'en' ? 'Saving...' : tr("جاري الحفظ..."))
+                                                     : (language === 'en' ? 'Save Settings' : tr("حفظ الإعدادات المتقدمة"))}
                                             </button>
                                         </div>
                                     )}
@@ -861,8 +780,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     {(currentUser?.role === 'owner' && (showDataSection || versionTapCount >= 5)) && (
                         <div className="space-y-4 pb-4 animate-fade-in">
                             <h3 className="font-black text-gray-900 flex items-center gap-3 dark:text-gray-100 tracking-tight">
-                                <Database size={22} className="text-[#795548] dark:text-orange-500" />
-                                إدارة البيانات
+                                <Database size={22} className="text-brand-500 dark:text-orange-500" />
+                                {tr("إدارة البيانات")}
                             </h3>
 
                             {importStatus && (
@@ -874,18 +793,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             <div className="space-y-3">
                                 <button
                                     onClick={handleExportData}
-                                    className="w-full flex items-center justify-between p-5 bg-white border border-gray-100 rounded-[1.5rem] hover:bg-gray-50 hover:border-[#795548]/30 transition-all group shadow-sm dark:bg-slate-800 dark:border-slate-700"
+                                    className="w-full flex items-center justify-between p-5 bg-white border border-gray-100 rounded-[1.5rem] hover:bg-gray-50 hover:border-brand-500/30 transition-all group shadow-sm dark:bg-slate-800 dark:border-slate-700"
                                 >
                                     <div className="flex items-center gap-4">
-                                        <div className="p-3 bg-orange-100 text-[#795548] rounded-[1.25rem] shadow-sm group-hover:scale-110 transition-transform dark:bg-slate-700 dark:text-orange-400">
+                                        <div className="p-3 bg-orange-100 text-brand-500 rounded-[1.25rem] shadow-sm group-hover:scale-110 transition-transform dark:bg-slate-700 dark:text-orange-400">
                                             <Download size={22} />
                                         </div>
-                                        <div className="text-right">
-                                            <span className="font-black text-sm text-[#3E2723] block dark:text-gray-100">تصدير النسخة الاحتياطية</span>
+                                        <div className="text-start">
+                                            <span className="font-black text-sm text-brand-900 block dark:text-gray-100">{tr("تصدير النسخة الاحتياطية")}</span>
                                             <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Download Data (.json)</span>
                                         </div>
                                     </div>
-                                    <Share2 size={18} className="text-gray-300 group-hover:text-[#795548] dark:text-slate-600" />
+                                    <Share2 size={18} className="text-gray-300 group-hover:text-brand-500 dark:text-slate-600" />
                                 </button>
 
                                 <button
@@ -896,8 +815,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                         <div className="p-3 bg-indigo-50 text-indigo-600 rounded-[1.25rem] shadow-sm group-hover:scale-110 transition-transform dark:bg-slate-700 dark:text-indigo-400">
                                             <Upload size={22} />
                                         </div>
-                                        <div className="text-right">
-                                            <span className="font-black text-sm text-[#3E2723] block dark:text-gray-100">استيراد بيانات خارجية</span>
+                                        <div className="text-start">
+                                            <span className="font-black text-sm text-brand-900 block dark:text-gray-100">{tr("استيراد بيانات خارجية")}</span>
                                             <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Restore from Backup</span>
                                         </div>
                                     </div>
@@ -916,7 +835,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             <div className="flex items-start gap-3 p-4 bg-red-50/50 rounded-2xl border border-red-100 dark:bg-red-900/10 dark:border-red-900/20">
                                 <Info size={16} className="text-red-400 shrink-0 mt-0.5" />
                                 <p className="text-[10px] text-red-700 font-black leading-relaxed dark:text-red-400">
-                                    تنبيه: استعادة نسخة احتياطية سيؤدي إلى مسح جميع البيانات الحالية واستبدالها بالكامل. يرجى الحذر.
+                                    {tr("تنبيه: استعادة نسخة احتياطية سيؤدي إلى مسح جميع البيانات الحالية واستبدالها بالكامل. يرجى الحذر.")}
                                 </p>
                             </div>
                         </div>

@@ -3,6 +3,8 @@ import { Wallet, Save, Calendar, Tag, Trash2, PlusCircle, ChevronDown, X, Trendi
 import { Expense, Sale, Sheep, SheepType } from '../types';
 import { generateId } from '../utils/animalHelpers';
 
+import { tr, isEnglish } from '../constants/i18n';
+
 interface FinanceManagerProps {
     penId: string;
     expenses: Expense[];
@@ -14,26 +16,27 @@ interface FinanceManagerProps {
     onDeleteExpense: (id: string) => Promise<void>;
     onDeleteSale: (id: string) => Promise<void>;
     onSellAnimal?: (animalId: string, saleData: Partial<Sale>) => Promise<void>;
-    isOwner: boolean;
+    canAdd: boolean;
+    canDelete: boolean;
     onShowAlert: (type: any, title: string, message: string) => void;
     onShowConfirm: (title: string, message: string, onConfirm: () => void) => void;
 }
 
 const colorNames: { [key: string]: string } = {
-    '#EF4444': 'أحمر',
-    '#F59E0B': 'برتقالي',
-    '#10B981': 'أخضر',
-    '#3B82F6': 'أزرق',
-    '#6366F1': 'نيلي',
-    '#8B5CF6': 'بنفسجي',
-    '#EC4899': 'وردي',
-    '#FACC15': 'أصفر',
-    '#000000': 'أسود',
-    '#FFFFFF': 'أبيض'
+    '#EF4444': tr('أحمر'),
+    '#F59E0B': tr('برتقالي'),
+    '#10B981': tr('أخضر'),
+    '#3B82F6': tr('أزرق'),
+    '#6366F1': tr('نيلي'),
+    '#8B5CF6': tr('بنفسجي'),
+    '#EC4899': tr('وردي'),
+    '#FACC15': tr('أصفر'),
+    '#000000': tr('أسود'),
+    '#FFFFFF': tr('أبيض')
 };
 
 export const FinanceManager: React.FC<FinanceManagerProps> = ({
-    penId, expenses, sales, animals, animalType, onSaveExpense, onSaveSale, onDeleteExpense, onDeleteSale, isOwner,
+    penId, expenses, sales, animals, animalType, onSaveExpense, onSaveSale, onDeleteExpense, onDeleteSale, canAdd, canDelete,
     onShowAlert, onShowConfirm
 }) => {
     const [activeTab, setActiveTab] = useState<'expenses' | 'sales'>('expenses');
@@ -91,11 +94,11 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!title.trim()) {
-            if (onShowAlert) onShowAlert('warning', 'تنبيه', 'يرجى إدخال العنوان / البيان');
+            if (onShowAlert) onShowAlert('warning', tr("تنبيه"), tr("يرجى إدخال العنوان / البيان"));
             return;
         }
         if (!amount || Number(amount) <= 0) {
-            if (onShowAlert) onShowAlert('warning', 'تنبيه', 'يرجى إدخال مبلغ صحيح');
+            if (onShowAlert) onShowAlert('warning', tr("تنبيه"), tr("يرجى إدخال مبلغ صحيح"));
             return;
         }
 
@@ -147,7 +150,7 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
         } catch (error: any) {
             console.error('Submit Error:', error);
             const msg = 'عذراً، فشل الحفظ: ' + (error.message || 'خطأ غير معروف');
-            if (onShowAlert) onShowAlert('error', 'خطأ', msg);
+            if (onShowAlert) onShowAlert('error', tr("خطأ"), msg);
         } finally {
             setIsSaving(false);
         }
@@ -159,29 +162,29 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
             <div className="bg-white rounded-[2rem] p-4 shadow-sm border border-gray-100 dark:bg-slate-900 dark:border-slate-800">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                     <div className="flex items-center gap-3">
-                        <div className="bg-[#795548] p-2 rounded-xl text-white">
+                        <div className="bg-brand-500 p-2 rounded-xl text-white">
                             <Wallet size={20} />
                         </div>
                         <div>
-                            <h2 className="text-lg font-black text-gray-800 dark:text-gray-100">الإدارة المالية</h2>
-                            <p className="text-gray-400 text-[10px]">تتبع الأرباح، المبيعات والمصاريف</p>
+                            <h2 className="text-lg font-black text-gray-800 dark:text-gray-100">{tr("الإدارة المالية")}</h2>
+                            <p className="text-gray-400 text-[10px]">{tr("تتبع الأرباح، المبيعات والمصاريف")}</p>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-6 text-center bg-gray-50/50 dark:bg-slate-800 p-3 rounded-2xl border border-gray-100 dark:border-slate-700">
                         <div>
-                            <span className="text-[9px] font-bold text-red-400 block">المصاريف</span>
-                            <span className="text-base font-black text-red-600" dir="ltr">{totalExpenses} <small className="text-[8px]">ريال</small></span>
+                            <span className="text-[9px] font-bold text-red-400 block">{tr("المصاريف")}</span>
+                            <span className="text-base font-black text-red-600" dir="ltr">{totalExpenses} <small className="text-[8px]">{tr("ريال")}</small></span>
                         </div>
                         <div className="w-px h-6 bg-gray-200 dark:bg-slate-700"></div>
                         <div>
-                            <span className="text-[9px] font-bold text-emerald-400 block">المبيعات</span>
-                            <span className="text-base font-black text-emerald-600" dir="ltr">{totalSales} <small className="text-[8px]">ريال</small></span>
+                            <span className="text-[9px] font-bold text-emerald-400 block">{tr("المبيعات")}</span>
+                            <span className="text-base font-black text-emerald-600" dir="ltr">{totalSales} <small className="text-[8px]">{tr("ريال")}</small></span>
                         </div>
                         <div className="w-px h-6 bg-gray-200 dark:bg-slate-700"></div>
                         <div>
-                            <span className="text-[9px] font-bold text-[#795548] block">صافي الربح</span>
-                            <span className={`text-lg font-black ${profit >= 0 ? 'text-emerald-700' : 'text-red-700'}`} dir="ltr">{profit} <small className="text-[8px]">ريال</small></span>
+                            <span className="text-[9px] font-bold text-brand-500 block">{tr("صافي الربح")}</span>
+                            <span className={`text-lg font-black ${profit >= 0 ? 'text-emerald-700' : 'text-red-700'}`} dir="ltr">{profit} <small className="text-[8px]">{tr("ريال")}</small></span>
                         </div>
                     </div>
                 </div>
@@ -195,14 +198,14 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                         className={`flex-1 py-3 rounded-xl font-bold text-sm transition flex items-center justify-center gap-2 ${activeTab === 'expenses' ? 'bg-red-50 text-red-600 dark:bg-red-900/20' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-800'}`}
                     >
                         <TrendingDown size={18} />
-                        المصاريف
+                        {tr("المصاريف")}
                     </button>
                     <button 
                         onClick={() => setActiveTab('sales')}
                         className={`flex-1 py-3 rounded-xl font-bold text-sm transition flex items-center justify-center gap-2 ${activeTab === 'sales' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-800'}`}
                     >
                         <TrendingUp size={18} />
-                        المبيعات
+                        {tr("المبيعات")}
                     </button>
                 </div>
 
@@ -211,9 +214,9 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                     <div className="flex items-center justify-between px-2">
                         <h3 className="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
                             {activeTab === 'expenses' ? <Receipt size={18} className="text-red-500" /> : <ShoppingBag size={18} className="text-emerald-500" />}
-                            سجل {activeTab === 'expenses' ? 'المصاريف' : 'المبيعات'}
+                            {tr("سجل")} {activeTab === 'expenses' ? tr("المصاريف") : tr("المبيعات")}
                         </h3>
-                        <button 
+                        {canAdd && <button
                             onClick={() => {
                                 setCategory(activeTab === 'expenses' ? 'feed' : 'sheep');
                                 setIsFormOpen(true);
@@ -221,15 +224,15 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                             className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border font-bold text-[10px] transition ${activeTab === 'expenses' ? 'bg-red-600 text-white border-red-600 hover:bg-red-700' : 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'}`}
                         >
                             <PlusCircle size={14} />
-                            إضافة {activeTab === 'expenses' ? 'مصروف' : 'بيع'}
-                        </button>
+                            {tr("إضافة")} {activeTab === 'expenses' ? tr("مصروف") : tr("بيع")}
+                        </button>}
                     </div>
 
                     <div className="bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm">
                         {(activeTab === 'expenses' ? currentExpenses : currentSales).length === 0 ? (
                             <div className="p-12 text-center text-gray-400">
                                 <Wallet size={48} className="mx-auto mb-4 opacity-10" />
-                                <p className="text-sm">لا توجد سجلات {activeTab === 'expenses' ? 'مصاريف' : 'مبيعات'} حالياً</p>
+                                <p className="text-sm">{tr("لا توجد سجلات")} {activeTab === 'expenses' ? tr("مصاريف") : tr("مبيعات")} {tr("حالياً")}</p>
                             </div>
                         ) : (
                             <div className="divide-y divide-gray-50 dark:divide-slate-800">
@@ -250,11 +253,11 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-4">
-                                            <div className="text-right">
-                                                <span className={`text-base font-black ${activeTab === 'expenses' ? 'text-red-600' : 'text-emerald-600'}`} dir="ltr">{item.amount} <small className="text-[10px] font-normal">ريال</small></span>
-                                                {item.buyer && <span className="block text-[9px] text-gray-400">المشتري: {item.buyer}</span>}
+                                            <div className="text-start">
+                                                <span className={`text-base font-black ${activeTab === 'expenses' ? 'text-red-600' : 'text-emerald-600'}`} dir="ltr">{item.amount} <small className="text-[10px] font-normal">{tr("ريال")}</small></span>
+                                                {item.buyer && <span className="block text-[9px] text-gray-400">{tr("المشتري:")} {item.buyer}</span>}
                                             </div>
-                                            {isOwner && (
+                                            {canDelete && (
                                                 <button 
                                                     onClick={() => activeTab === 'expenses' ? onDeleteExpense(item.id) : onDeleteSale(item.id)}
                                                     className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition opacity-0 group-hover:opacity-100"
@@ -273,10 +276,10 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
 
             {/* Form Modal */}
             {isFormOpen && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl">
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir={isEnglish ? 'ltr' : 'rtl'}>
                     <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative">
                         <div className={`p-8 pb-6 text-white text-center relative ${activeTab === 'expenses' ? 'bg-red-600' : 'bg-emerald-600'}`}>
-                            <button onClick={() => setIsFormOpen(false)} className="absolute top-6 left-6 p-2 bg-white/10 hover:bg-white/20 rounded-full transition shadow-sm">
+                            <button onClick={() => setIsFormOpen(false)} className="absolute top-6 end-6 p-2 bg-white/10 hover:bg-white/20 rounded-full transition shadow-sm">
                                 <X size={20} />
                             </button>
                             <div className="flex flex-col items-center gap-2">
@@ -284,9 +287,9 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                                     {activeTab === 'expenses' ? <Receipt size={28} /> : <ShoppingBag size={28} />}
                                 </div>
                                 <h3 className="text-2xl font-black">
-                                    {activeTab === 'expenses' ? 'إضافة مصروف' : 'إضافة مبيعات'}
+                                    {activeTab === 'expenses' ? tr("إضافة مصروف") : tr("إضافة مبيعات")}
                                 </h3>
-                                <p className="text-white/60 text-[10px] font-bold">أدخل بيانات العملية المالية بدقة</p>
+                                <p className="text-white/60 text-[10px] font-bold">{tr("أدخل بيانات العملية المالية بدقة")}</p>
                             </div>
                         </div>
 
@@ -294,16 +297,16 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                             {activeTab === 'sales' && (
                                 <div className="space-y-3 animate-fade-in bg-gray-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-gray-100 dark:border-slate-800">
                                     <div>
-                                        <label className="text-[10px] font-bold text-gray-400 block mb-1">رأس محدد (اختياري)</label>
+                                        <label className="text-[10px] font-bold text-gray-400 block mb-1">{tr("رأس محدد (اختياري)")}</label>
                                         <select 
                                             value={relatedAnimalId}
                                             onChange={e => handleAnimalSelect(e.target.value)}
-                                            className="w-full border border-gray-100 dark:border-slate-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#795548] bg-white dark:bg-slate-800 dark:text-white appearance-none"
+                                            className="w-full border border-gray-100 dark:border-slate-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-500 bg-white dark:bg-slate-800 dark:text-white appearance-none"
                                         >
-                                            <option value="">-- اختر من الحظيرة --</option>
+                                            <option value="">{tr("-- اختر من الحظيرة --")}</option>
                                             {animals.filter(a => !a.penId.includes('mortality')).map(a => (
                                                 <option key={a.id} value={a.id}>
-                                                    {a.type} | {colorNames[a.tagColor || ''] || a.tagColor || 'بدون لون'} | {a.serialNumber}
+                                                    {tr(a.type)} | {colorNames[a.tagColor || ''] || a.tagColor || tr("بدون لون")} | {a.serialNumber}
                                                 </option>
                                             ))}
                                         </select>
@@ -312,47 +315,47 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                             )}
 
                             <div>
-                                <label className="text-[10px] font-bold text-gray-400 block mb-1">العنوان / البيان</label>
+                                <label className="text-[10px] font-bold text-gray-400 block mb-1">{tr("العنوان / البيان")}</label>
                                 <input 
                                     type="text" required value={title} onChange={e => setTitle(e.target.value)}
-                                    placeholder={activeTab === 'expenses' ? "شراء أعلاف، صيانة..." : "بيع أغنام، مبيع إنتاج..."}
-                                    className="w-full border border-gray-100 dark:border-slate-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#795548] bg-gray-50 dark:bg-slate-800 dark:text-white"
+                                    placeholder={activeTab === 'expenses' ? tr("شراء أعلاف، صيانة...") : tr("بيع أغنام، مبيع إنتاج...")}
+                                    className="w-full border border-gray-100 dark:border-slate-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-500 bg-gray-50 dark:bg-slate-800 dark:text-white"
                                 />
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-[10px] font-bold text-gray-400 block mb-1">المبلغ (ريال)</label>
+                                    <label className="text-[10px] font-bold text-gray-400 block mb-1">{tr("المبلغ (ريال)")}</label>
                                     <input 
                                         type="number" required value={amount} onChange={e => setAmount(e.target.value)}
-                                        className="w-full border border-gray-100 dark:border-slate-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#795548] bg-gray-50 dark:bg-slate-800 dark:text-white"
+                                        className="w-full border border-gray-100 dark:border-slate-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-500 bg-gray-50 dark:bg-slate-800 dark:text-white"
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-bold text-gray-400 block mb-1">التاريخ</label>
+                                    <label className="text-[10px] font-bold text-gray-400 block mb-1">{tr("التاريخ")}</label>
                                     <input 
                                         type="date" required value={date} onChange={e => setDate(e.target.value)}
-                                        className="w-full border border-gray-100 dark:border-slate-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#795548] bg-gray-50 dark:bg-slate-800 dark:text-white"
+                                        className="w-full border border-gray-100 dark:border-slate-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-500 bg-gray-50 dark:bg-slate-800 dark:text-white"
                                     />
                                 </div>
                             </div>
 
                             {activeTab === 'sales' && (
                                 <div>
-                                    <label className="text-[10px] font-bold text-gray-400 block mb-1">المشتري (اختياري)</label>
+                                    <label className="text-[10px] font-bold text-gray-400 block mb-1">{tr("المشتري (اختياري)")}</label>
                                     <input 
                                         type="text" value={buyer} onChange={e => setBuyer(e.target.value)}
-                                        placeholder="اسم العميل"
-                                        className="w-full border border-gray-100 dark:border-slate-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#795548] bg-gray-50 dark:bg-slate-800 dark:text-white"
+                                        placeholder={tr("اسم العميل")}
+                                        className="w-full border border-gray-100 dark:border-slate-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-500 bg-gray-50 dark:bg-slate-800 dark:text-white"
                                     />
                                 </div>
                             )}
 
                             <div>
-                                <label className="text-[10px] font-bold text-gray-400 block mb-1">ملاحظات إضافية</label>
+                                <label className="text-[10px] font-bold text-gray-400 block mb-1">{tr("ملاحظات إضافية")}</label>
                                 <textarea 
                                     value={notes} onChange={e => setNotes(e.target.value)}
-                                    className="w-full border border-gray-100 dark:border-slate-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#795548] bg-gray-50 dark:bg-slate-800 dark:text-white h-20 resize-none"
+                                    className="w-full border border-gray-100 dark:border-slate-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-500 bg-gray-50 dark:bg-slate-800 dark:text-white h-20 resize-none"
                                 />
                             </div>
 
@@ -362,7 +365,7 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                                 className={`w-full py-4 rounded-2xl font-black text-sm text-white shadow-lg transition active:scale-95 flex items-center justify-center gap-2 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''} ${activeTab === 'expenses' ? 'bg-red-600 hover:bg-red-700 shadow-red-200' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200'}`}
                             >
                                 <Save size={20} />
-                                {isSaving ? 'جاري الحفظ...' : 'حفظ العملية'}
+                                {isSaving ? tr("جاري الحفظ...") : tr("حفظ العملية")}
                             </button>
                         </form>
                     </div>

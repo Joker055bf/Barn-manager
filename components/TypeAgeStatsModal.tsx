@@ -3,6 +3,8 @@ import { X, Trophy, AlertCircle } from 'lucide-react';
 import { Sheep } from '../types';
 import { getAnimalAgeLabel, getPossibleAgeLabels } from '../utils/animalHelpers';
 
+import { tr, isEnglish } from '../constants/i18n';
+
 interface TypeAgeStatsModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -45,17 +47,17 @@ export const TypeAgeStatsModal: React.FC<TypeAgeStatsModalProps> = ({ isOpen, on
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/55 backdrop-blur-md animate-fade-in" dir="rtl">
-            <div className="bg-[#FCFBF4] rounded-[2.5rem] w-full max-w-lg max-h-[85vh] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.4)] flex flex-col overflow-hidden animate-scale-in dark:bg-slate-900 border border-gray-100/10">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/55 backdrop-blur-md animate-fade-in" dir={isEnglish ? 'ltr' : 'rtl'}>
+            <div className="bg-paper rounded-[2.5rem] w-full max-w-lg max-h-[85vh] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.4)] flex flex-col overflow-hidden animate-scale-in dark:bg-slate-900 border border-gray-100/10">
                 {/* Header */}
-                <div className="bg-gradient-to-br from-[#3E2723] to-[#795548] p-6 text-white relative overflow-hidden dark:from-slate-800 dark:to-slate-950 shrink-0">
+                <div className="bg-gradient-to-br from-brand-900 to-brand-500 p-6 text-white relative overflow-hidden dark:from-slate-800 dark:to-slate-950 shrink-0">
                     <div className="flex justify-between items-center relative z-10">
                         <div className="flex items-center gap-3">
                             <div className="p-2.5 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10">
                                 <Trophy size={22} className="text-orange-200" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-black tracking-tight">تفاصيل الأعمار</h2>
+                                <h2 className="text-xl font-black tracking-tight">{tr("تفاصيل الأعمار")}</h2>
                             </div>
                         </div>
                         <button 
@@ -65,7 +67,7 @@ export const TypeAgeStatsModal: React.FC<TypeAgeStatsModalProps> = ({ isOpen, on
                             <X size={20} />
                         </button>
                     </div>
-                    <div className="absolute -right-10 -bottom-10 w-36 h-36 bg-white/5 rounded-full blur-2xl pointer-events-none" />
+                    <div className="absolute -start-10 -bottom-10 w-36 h-36 bg-white/5 rounded-full blur-2xl pointer-events-none" />
                 </div>
 
                 {/* Content */}
@@ -80,15 +82,15 @@ export const TypeAgeStatsModal: React.FC<TypeAgeStatsModalProps> = ({ isOpen, on
                                 <div 
                                     key={breed} 
                                     onClick={() => onSelectBreed?.(breed)}
-                                    className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm dark:bg-slate-800 dark:border-slate-700/50 space-y-4 cursor-pointer hover:scale-[1.01] hover:border-orange-250 dark:hover:border-orange-500/30 transition-all"
+                                    className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm dark:bg-slate-800 dark:border-slate-700/50 space-y-4 cursor-pointer hover:scale-[1.01] hover:border-orange-300 dark:hover:border-orange-500/30 transition-all"
                                 >
                                     {/* Breed Name & Total */}
                                     <div className="flex justify-between items-center pb-2 border-b border-gray-50 dark:border-slate-700/50">
                                         <h3 className="text-sm font-black text-gray-800 dark:text-gray-100 flex items-center gap-2">
                                             {breed}
                                         </h3>
-                                        <span className="text-[10px] font-black bg-[#795548]/10 text-[#795548] px-2.5 py-0.5 rounded-full dark:bg-orange-500/10 dark:text-orange-400">
-                                            العدد الإجمالي: {total} رأس
+                                        <span className="text-[10px] font-black bg-brand-500/10 text-brand-500 px-2.5 py-0.5 rounded-full dark:bg-orange-500/10 dark:text-orange-400">
+                                            {tr("العدد الإجمالي:")} {total} {tr("رأس")}
                                         </span>
                                     </div>
 
@@ -102,11 +104,11 @@ export const TypeAgeStatsModal: React.FC<TypeAgeStatsModalProps> = ({ isOpen, on
                                                 <span className="text-[9px] font-bold text-gray-400 dark:text-slate-500 mb-0.5">
                                                     {category}
                                                 </span>
-                                                <span className="text-base font-black text-[#3E2723] dark:text-orange-200 leading-tight">
+                                                <span className="text-base font-black text-brand-900 dark:text-orange-200 leading-tight">
                                                     {ageCounts[category]}
                                                 </span>
                                                 <span className="text-[7.5px] font-bold text-gray-400 dark:text-slate-500">
-                                                    رأس
+                                                    {tr("رأس")}
                                                 </span>
                                             </div>
                                         ))}
@@ -117,14 +119,14 @@ export const TypeAgeStatsModal: React.FC<TypeAgeStatsModalProps> = ({ isOpen, on
                     ) : (
                         <div className="flex flex-col items-center justify-center py-16 text-center text-gray-400 dark:text-slate-500">
                             <AlertCircle size={40} className="mb-3 opacity-40 shrink-0" />
-                            <p className="font-bold text-sm">لا يتوفر حلال في الوقت الحالي لحساب إحصائيات الأعمار.</p>
+                            <p className="font-bold text-sm">{tr("لا يتوفر حلال في الوقت الحالي لحساب إحصائيات الأعمار.")}</p>
                         </div>
                     )}
                 </div>
                 
                 {/* Footer info/legend */}
                 <div className="bg-gray-50 dark:bg-slate-900/30 py-3 px-6 text-center text-[10px] font-bold text-gray-400 dark:text-slate-500 border-t border-gray-100 dark:border-slate-800 shrink-0">
-                    * يتم احتساب وتصنيف السن تلقائياً.
+                    {tr("* يتم احتساب وتصنيف السن تلقائياً.")}
                 </div>
             </div>
         </div>

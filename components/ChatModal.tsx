@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, Mic, Square, Loader2, Play, Pause, User, MessageCircle } from 'lucide-react';
 import { collection, addDoc, query, where, onSnapshot, updateDoc } from 'firebase/firestore';
+import { sendPush } from '../services/pushService';
 import { db } from '../firebase';
 import { User as UserType, UserMessage } from '../types';
+
+import { tr, isEnglish, appLocale } from '../constants/i18n';
 
 interface ChatModalProps {
   isOpen: boolean;
@@ -110,15 +113,15 @@ const AudioPlayer = ({ url, isMe, peaks }: { url: string; isMe: boolean; peaks?:
   };
 
   return (
-    <div className="flex flex-col gap-0.5 w-[140px] select-none" dir="rtl">
+    <div className="flex flex-col gap-0.5 w-[140px] select-none" dir={isEnglish ? 'ltr' : 'rtl'}>
       <div className="flex items-center gap-1.5">
         <button 
           onClick={togglePlay}
           className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 hover:scale-105 active:scale-95 transition-all shadow cursor-pointer ${
-            isMe ? 'bg-white text-[#795548]' : 'bg-[#795548] text-white'
+            isMe ? 'bg-white text-brand-500' : 'bg-brand-500 text-white'
           }`}
         >
-          {isPlaying ? <Pause size={10} fill="currentColor" stroke="none" /> : <Play size={10} className="mr-0.5" fill="currentColor" stroke="none" />}
+          {isPlaying ? <Pause size={10} fill="currentColor" stroke="none" /> : <Play size={10} className="ms-0.5" fill="currentColor" stroke="none" />}
         </button>
 
         <div className="flex-1 flex items-center gap-[2px] h-6 px-1 relative justify-center shrink-0">
@@ -129,7 +132,7 @@ const AudioPlayer = ({ url, isMe, peaks }: { url: string; isMe: boolean; peaks?:
             if (isMe) {
               barColor = isPlayed ? 'bg-white' : 'bg-white/40';
             } else {
-              barColor = isPlayed ? 'bg-[#795548] dark:bg-orange-500' : 'bg-gray-300 dark:bg-slate-700';
+              barColor = isPlayed ? 'bg-brand-500 dark:bg-orange-500' : 'bg-gray-300 dark:bg-slate-700';
             }
 
             return (
@@ -204,11 +207,8 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
       snapshot.docs.forEach(docSnap => {
         const data = docSnap.data();
         if (data.receiverId === currentUser?.id && data.read === false) {
-          try {
-            updateDoc(docSnap.ref, { read: true });
-          } catch (e) {
-            console.error("Failed to mark as read", e);
-          }
+          // updateDoc is async, so a try/catch around it never sees the rejection.
+          updateDoc(docSnap.ref, { read: true }).catch(e => console.error("Failed to mark as read", e));
         }
       });
 
@@ -245,15 +245,8 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
   const notifyUser = (receiverId: string, text: string) => {
     const receiver = users?.find(u => u.id === receiverId);
     if (receiver?.fcmToken) {
-      fetch('/api/sendPush', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: receiver.fcmToken,
-          title: `رسالة جديدة من ${currentUser.name}`,
-          body: text
-        })
-      }).catch(err => console.error('Failed to trigger push:', err));
+      sendPush(receiverId, tr('رسالة جديدة من {0}', currentUser.name), text)
+        .catch(err => console.error('Failed to trigger push:', err));
     }
   };
 
@@ -360,7 +353,7 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
       setIsRecording(true);
     } catch (error) {
       console.error("Error accessing microphone:", error);
-      alert("لا يمكن الوصول إلى الميكروفون. تأكد من إعطاء الصلاحيات.");
+      alert(tr("لا يمكن الوصول إلى الميكروفون. تأكد من إعطاء الصلاحيات."));
     }
   };
 
@@ -402,17 +395,17 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
             timestamp: new Date().toISOString(),
             read: false
           });
-          notifyUser(selectedUserId, 'رسالة صوتية 🎤');
+          notifyUser(selectedUserId, tr('رسالة صوتية 🎤'));
         } catch (dbError) {
           console.error("Error saving audio base64 to firestore:", dbError);
-          alert("فشل في حفظ المقطع الصوتي في قاعدة البيانات.");
+          alert(tr("فشل في حفظ المقطع الصوتي في قاعدة البيانات."));
         } finally {
           setIsUploading(false);
         }
       };
     } catch (error) {
       console.error("Error converting audio to base64:", error);
-      alert("فشل في معالجة المقطع الصوتي.");
+      alert(tr("فشل في معالجة المقطع الصوتي."));
       setIsUploading(false);
     }
   };
@@ -427,12 +420,12 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
   if (isOwner && !selectedUserId) {
     const workers = users.filter(u => u.role === 'worker');
     return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl">
-        <div className="bg-[#fcfbf4] w-full max-w-md h-[70vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col dark:bg-slate-950">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir={isEnglish ? 'ltr' : 'rtl'}>
+        <div className="bg-paper w-full max-w-md h-[70vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col dark:bg-slate-950">
           <div className="p-5 border-b border-gray-100 bg-white dark:bg-slate-900 flex justify-between items-center shrink-0">
             <h3 className="font-extrabold text-lg text-gray-800 dark:text-white flex items-center gap-2">
-              <MessageCircle className="text-[#3E2723] dark:text-orange-500" />
-              الرسائل النشطة
+              <MessageCircle className="text-brand-900 dark:text-orange-500" />
+              {tr("الرسائل النشطة")}
             </h3>
             <button onClick={onClose} className="p-2 bg-gray-50 hover:bg-red-50 rounded-full text-gray-500 transition-colors cursor-pointer">
               <X size={20} />
@@ -440,14 +433,14 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
           </div>
           <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-slate-50 dark:bg-slate-900/40">
             {workers.length === 0 ? (
-              <div className="text-center py-12 text-gray-400 text-xs font-bold">لا يوجد عمال مضافين حالياً للمراسلة.</div>
+              <div className="text-center py-12 text-gray-400 text-xs font-bold">{tr("لا يوجد عمال مضافين حالياً للمراسلة.")}</div>
             ) : (
               <div className="space-y-2.5">
                 {workers.map(worker => (
                   <button
                     key={worker.id}
                     onClick={() => setSelectedUserId(worker.id)}
-                    className="w-full flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all dark:bg-slate-900 dark:border-slate-800 text-right cursor-pointer"
+                    className="w-full flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all dark:bg-slate-900 dark:border-slate-800 text-start cursor-pointer"
                   >
                     {isValidAvatar(worker.avatar) ? (
                       <img 
@@ -456,13 +449,13 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
                         alt={worker.name} 
                       />
                     ) : (
-                      <div className="w-11 h-11 bg-orange-100 text-[#795548] rounded-full flex items-center justify-center shrink-0">
+                      <div className="w-11 h-11 bg-orange-100 text-brand-500 rounded-full flex items-center justify-center shrink-0">
                         <User size={22} />
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
                       <h4 className="font-extrabold text-gray-800 dark:text-gray-100 text-sm truncate">{worker.name}</h4>
-                      <p className="text-[10px] text-gray-400 mt-1">اضغط لفتح المحادثة والدردشة</p>
+                      <p className="text-[10px] text-gray-400 mt-1">{tr("اضغط لفتح المحادثة والدردشة")}</p>
                     </div>
                     {unreadCounts[worker.id] > 0 && (
                       <div className="bg-red-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full shrink-0 animate-pulse">
@@ -482,8 +475,8 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
   const selectedUser = users.find(u => u.id === selectedUserId);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl">
-      <div className="bg-[#fcfbf4] w-full max-w-md h-[80vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col dark:bg-slate-950">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir={isEnglish ? 'ltr' : 'rtl'}>
+      <div className="bg-paper w-full max-w-md h-[80vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col dark:bg-slate-950">
         
         {/* Header */}
         <div className="p-4 border-b border-gray-100 bg-white dark:bg-slate-900 flex justify-between items-center shrink-0 shadow-sm z-10">
@@ -501,13 +494,13 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
                 alt="Owner" 
               />
             ) : (
-              <div className="w-9 h-9 bg-orange-100 text-[#795548] rounded-full flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 bg-orange-100 text-brand-500 rounded-full flex items-center justify-center shrink-0">
                 <User size={18} />
               </div>
             )}
             <div>
               <h3 className="font-extrabold text-sm text-gray-800 dark:text-white">
-                {isOwner ? selectedUser?.name : 'المالك والمشرف'}
+                {isOwner ? selectedUser?.name : tr("المالك والمشرف")}
               </h3>
             </div>
           </div>
@@ -526,8 +519,8 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
                   msg.type === 'audio' ? 'w-[150px] max-w-full' : 'max-w-[80%]'
                 } ${
                   isMe 
-                    ? 'bg-gradient-to-br from-[#795548] to-[#5D4037] text-white rounded-tr-sm shadow-premium-sm' 
-                    : 'bg-white border border-gray-150 text-gray-800 rounded-tl-sm dark:bg-slate-900 dark:border-slate-800 dark:text-gray-100'
+                    ? 'bg-gradient-to-br from-brand-500 to-brand-700 text-white rounded-ss-sm shadow-premium-sm' 
+                    : 'bg-white border border-gray-200 text-gray-800 rounded-se-sm dark:bg-slate-900 dark:border-slate-800 dark:text-gray-100'
                 }`}>
                   {msg.type === 'text' ? (
                     <p className="text-xs font-semibold leading-relaxed break-words whitespace-pre-wrap">{msg.content}</p>
@@ -536,7 +529,7 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
                   )}
                   <div className={`flex items-center justify-end gap-1 mt-1.5 ${isMe ? 'text-white/60' : 'text-gray-400'}`}>
                     <span className="text-[8px] font-bold">
-                      {new Date(msg.timestamp).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', numberingSystem: 'latn' })}
+                      {new Date(msg.timestamp).toLocaleTimeString(appLocale, { hour: '2-digit', minute: '2-digit', numberingSystem: 'latn' })}
                     </span>
                     {isMe && <DoubleCheck read={msg.read} isMe={isMe} />}
                   </div>
@@ -546,9 +539,9 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
           })}
           {isUploading && (
             <div className="flex justify-end">
-              <div className="bg-gradient-to-br from-[#795548] to-[#5D4037] text-white rounded-[1.25rem] p-3 rounded-tr-sm flex items-center gap-2 shadow-sm opacity-90 animate-pulse">
+              <div className="bg-gradient-to-br from-brand-500 to-brand-700 text-white rounded-[1.25rem] p-3 rounded-ss-sm flex items-center gap-2 shadow-sm opacity-90 animate-pulse">
                 <Loader2 size={12} className="animate-spin" />
-                <span className="text-[10px] font-bold">جاري إرسال التسجيل...</span>
+                <span className="text-[10px] font-bold">{tr("جاري إرسال التسجيل...")}</span>
               </div>
             </div>
           )}
@@ -559,7 +552,7 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
         <div className="p-3 bg-white border-t border-gray-100 dark:bg-slate-900 dark:border-slate-800 shrink-0">
           {isRecording ? (
             <div className="flex items-center gap-3 p-1.5 bg-red-50 dark:bg-red-950/20 rounded-2xl border border-red-100 dark:border-red-900/30 animate-pulse">
-              <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping ml-1 shrink-0"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping me-1 shrink-0"></div>
               <span className="text-red-500 font-extrabold flex-1 text-xs">{formatTime(recordingTime)}</span>
               <button onClick={stopRecording} className="w-10 h-10 rounded-xl bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition shrink-0 cursor-pointer shadow-sm">
                 <Square size={16} fill="currentColor" />
@@ -579,16 +572,16 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
                   value={inputText}
                   onChange={e => setInputText(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSendText()}
-                  placeholder="اكتب رسالة هنا..."
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:border-[#795548] focus:ring-1 focus:ring-[#795548] dark:bg-slate-800 dark:border-slate-700 dark:text-white h-11"
+                  placeholder={tr("اكتب رسالة هنا...")}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white h-11"
                 />
               </div>
               <button 
                 onClick={handleSendText}
                 disabled={!inputText.trim()}
-                className="w-11 h-11 bg-[#795548] hover:bg-[#5D4037] text-white rounded-xl transition shrink-0 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer shadow-md"
+                className="w-11 h-11 bg-brand-500 hover:bg-brand-700 text-white rounded-xl transition shrink-0 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer shadow-md"
               >
-                <Send size={18} className="rotate-180 ml-0.5" />
+                <Send size={18} className="rotate-180 me-0.5" />
               </button>
             </div>
           )}

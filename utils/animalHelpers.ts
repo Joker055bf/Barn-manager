@@ -128,6 +128,8 @@ export const getAnimalMetadata = (type: string = 'sheep'): AnimalMetadata => {
 export const getAnimalAgeLabel = (birthDateStr: string | undefined, type: string = 'sheep', gender: 'male' | 'female' = 'female'): string => {
     if (!birthDateStr) return 'غير معروف';
     const birth = new Date(birthDateStr);
+    // An unparseable date makes every comparison below false and would fall through to the oldest label.
+    if (isNaN(birth.getTime())) return 'غير معروف';
     const now = new Date();
 
     // Calculate difference in days and months
