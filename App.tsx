@@ -1088,7 +1088,7 @@ function App() {
                     try {
                       new Notification(payload.notification?.title || 'رسالة جديدة', {
                         body: payload.notification?.body || 'لديك رسالة جديدة في مدير الحظائر',
-                        icon: new URL('assets/logo.jpg', document.baseURI).href,
+                        icon: new URL('icons/icon-192.png', document.baseURI).href,
                       });
                     } catch (e) {
                       console.error('Failed to show foreground notification:', e);

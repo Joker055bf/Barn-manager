@@ -154,7 +154,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       token: receiver.fcmToken,
       notification,
       webpush: {
-        // Web push needs an absolute icon URL; set APP_ICON_URL on Vercel (e.g. https://<site>/assets/logo.jpg).
+        // Web push needs an absolute icon URL; set APP_ICON_URL on Vercel (e.g. https://<site>/icons/icon-192.png).
         notification: { ...notification, dir: 'rtl' as const, ...(process.env.APP_ICON_URL ? { icon: process.env.APP_ICON_URL } : {}) },
       },
       android: { priority: 'high' },
