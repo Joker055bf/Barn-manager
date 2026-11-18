@@ -48,7 +48,7 @@ import {
   resetWorkerPassword, changeOwnPassword, changeUsername, changeOwnerEmail, verifyCurrentPassword,
   sendOwnerPasswordReset, logout as authLogout, authErrorMessage,
 } from './services/authService';
-import { sendPush } from './services/pushService';
+import { sendPush, saveDeviceToken, removeDeviceToken, savePushPrefs } from './services/pushService';
 import { useAuthSession } from './hooks/useAuthSession';
 import { useFarmData } from './hooks/useFarmData';
 
@@ -176,7 +176,7 @@ function App() {
 
     // Tell the owner's phone when a worker does something they would want to know about right away.
     if (currentUser.role === 'worker' && OWNER_PUSH_ACTIONS.has(action)) {
-      sendPush(ownerId, `${currentUser.name}: ${action}`, detail).catch(err => console.warn('Owner push failed:', err));
+      sendPush(ownerId, `${currentUser.name}: ${action}`, detail, 'activity').catch(err => console.warn('Owner push failed:', err));
     }
   };
 
@@ -244,8 +244,9 @@ function App() {
           console.log('FCM Token الموحد للجهاز:', token.value);
           
           if (currentUser) {
+            await saveDeviceToken(currentUser.id, token.value);
             await updateDoc(doc(db, 'users', currentUser.id), { 
-              fcmToken: token.value,
+
               platform: Capacitor.getPlatform(),
               updatedAt: new Date().toISOString()
             });
@@ -389,7 +390,7 @@ function App() {
 
         // Save token to Firestore
         if (currentUser) {
-          await updateDoc(doc(db, 'users', currentUser.id), { fcmToken: currentToken });
+          await saveDeviceToken(currentUser.id, currentToken);
           setCurrentUser(prev => prev ? { ...prev, fcmToken: currentToken } : null);
           const saved = safeStorage.getItem('rai_session');
           if (saved) {
@@ -495,6 +496,7 @@ function App() {
 
   const handleLogout = async () => {
     safeStorage.removeItem('rai_session');
+    if (currentUser) await removeDeviceToken(currentUser.id, currentUser.fcmToken);
     try { await authLogout(); } catch (e) { console.error('Logout failed:', e); }
     setCurrentUser(null);
     window.location.reload();
@@ -738,31 +740,7 @@ function App() {
       .map(f => ({ id: `feed_${f.id}`, type: 'danger', message: tr("نقص حاد في العلف: {0} ({1} {2})", f.name, f.quantity, f.unit) }))
   ];
 
-  // Push feed shortages and upcoming vaccinations to the owner's phone, at most once a day per alert.
-  // Whoever has the app open (usually a worker) triggers it; farms/{ownerId}/meta/push_alerts
-  // records what was already sent so several devices don't repeat it.
-  const alertKey = alerts.map(a => a.id).sort().join(',');
-  useEffect(() => {
-    if (!ownerId || !currentUser || isOwner || alerts.length === 0) return;
-    const today = new Date().toISOString().slice(0, 10);
-    const ref = doc(db, 'farms', ownerId, 'meta', 'push_alerts');
-    let cancelled = false;
-    (async () => {
-      try {
-        const snap = await getDoc(ref);
-        const sent: Record<string, string> = snap.exists() ? (snap.data() as Record<string, string>) : {};
-        const fresh = alerts.filter(a => sent[a.id] !== today);
-        if (cancelled || fresh.length === 0) return;
-        const body = fresh.slice(0, 4).map(a => a.message).join('\n') + (fresh.length > 4 ? `\n+${fresh.length - 4}` : '');
-        await sendPush(ownerId, tr('تنبيهات المزرعة'), body);
-        await setDoc(ref, Object.fromEntries(fresh.map(a => [a.id, today])), { merge: true });
-      } catch (e) {
-        console.warn('Daily alert push failed:', e);
-      }
-    })();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [alertKey, ownerId, isOwner]);
+  // Daily feed/vaccine/birth notifications are sent by the server: api/dailyAlerts.ts (Vercel Cron).
 
   const isAnyFeedLowOrEmpty = React.useMemo(() => {
     return feedItems.some(f => {
@@ -1066,7 +1044,7 @@ function App() {
                 handleTokenRetrieve()
                   .then(async (currentToken) => {
                     if (currentToken && currentUser.fcmToken !== currentToken) {
-                      await updateDoc(doc(db, 'users', currentUser.id), { fcmToken: currentToken });
+                      await saveDeviceToken(currentUser.id, currentToken);
                       setCurrentUser(prev => prev ? { ...prev, fcmToken: currentToken } : null);
                       const saved = safeStorage.getItem('rai_session');
                       if (saved) {
@@ -4579,6 +4557,7 @@ function App() {
         onUpdateProfile={handleUpdateProfile}
         onVerifyPassword={verifyCurrentPassword}
         onSendPasswordReset={handleSendPasswordReset}
+        onSavePushPrefs={currentUser ? (prefs) => savePushPrefs(currentUser.id, prefs) : undefined}
         onShowAlert={showAlert}
         onTestNotifications={handleTestNotifications}
       />

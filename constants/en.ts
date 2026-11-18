@@ -994,4 +994,12 @@ export const en: Record<string, string> = {
   "مواشي": "Livestock",
   "تحت العلاج": "Under treatment",
   "تنبيهات المزرعة": "Farm alerts",
+  "الإشعارات التي تصلك": "Notifications you receive",
+  "نقص العلف": "Feed running low",
+  "التطعيمات المستحقة": "Vaccinations due",
+  "الولادات المتوقعة": "Expected births",
+  "الرسائل الجديدة": "New messages",
+  "إجراءات العمال المهمة": "Important worker actions",
+  "تعذر حفظ إعدادات الإشعارات": "Couldn't save notification settings",
+  "تنبيهات العلف والتطعيمات والولادات تصل يومياً الساعة 8 صباحاً تقريباً.": "Feed, vaccination and birth alerts arrive daily at about 8 AM.",
 };

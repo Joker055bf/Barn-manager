@@ -245,7 +245,7 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, currentUs
   const notifyUser = (receiverId: string, text: string) => {
     const receiver = users?.find(u => u.id === receiverId);
     if (receiver?.fcmToken) {
-      sendPush(receiverId, tr('رسالة جديدة من {0}', currentUser.name), text)
+      sendPush(receiverId, tr('رسالة جديدة من {0}', currentUser.name), text, 'chat')
         .catch(err => console.error('Failed to trigger push:', err));
     }
   };

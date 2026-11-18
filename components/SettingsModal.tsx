@@ -9,6 +9,7 @@ import { doc, setDoc, collection } from 'firebase/firestore';
 import { safeStorage } from '../utils/storage';
 
 import { tr, isEnglish } from '../constants/i18n';
+import type { PushKind, PushPrefs } from '../utils/alertRules';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -24,7 +25,16 @@ interface SettingsModalProps {
     /** Re-authenticates with Firebase; true when the password is correct. */
     onVerifyPassword: (password: string) => Promise<boolean>;
     onSendPasswordReset: (email: string) => Promise<void>;
+    onSavePushPrefs?: (prefs: PushPrefs) => Promise<void>;
 }
+
+const PUSH_KIND_OPTIONS: { kind: PushKind; icon: string; label: string }[] = [
+    { kind: 'feed', icon: '🌾', label: 'نقص العلف' },
+    { kind: 'vaccines', icon: '💉', label: 'التطعيمات المستحقة' },
+    { kind: 'births', icon: '🐑', label: 'الولادات المتوقعة' },
+    { kind: 'chat', icon: '💬', label: 'الرسائل الجديدة' },
+    { kind: 'activity', icon: '👷', label: 'إجراءات العمال المهمة' },
+];
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
     isOpen,
@@ -38,8 +48,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     onShowAlert,
     onTestNotifications,
     onVerifyPassword,
-    onSendPasswordReset
+    onSendPasswordReset,
+    onSavePushPrefs
 }) => {
+    const [pushPrefs, setPushPrefs] = useState<PushPrefs>(currentUser?.pushPrefs || {});
+    useEffect(() => { setPushPrefs(currentUser?.pushPrefs || {}); }, [currentUser?.pushPrefs]);
     const [showDataSection, setShowDataSection] = useState(false);
     const [versionTapCount, setVersionTapCount] = useState(0);
     const [importStatus, setImportStatus] = useState<string | null>(null);
@@ -690,6 +703,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                         : (language === 'en' ? '🔔 Activate & Test Now' : tr("🔔 تفعيل واختبار الإشعارات الآن"))
                                     }</span>
                                 </button>
+                            )}
+
+                            {/* Which notifications this account receives (saved on the user doc; the server honours it) */}
+                            {onSavePushPrefs && (
+                                <div className="mt-4 pt-4 border-t border-orange-100/50 dark:border-slate-700/50 space-y-2">
+                                    <p className="text-xs font-black text-gray-700 dark:text-gray-200">{tr('الإشعارات التي تصلك')}</p>
+                                    {PUSH_KIND_OPTIONS
+                                        .filter(o => o.kind !== 'activity' || currentUser?.role === 'owner')
+                                        .map(o => {
+                                            const on = pushPrefs[o.kind] !== false;
+                                            return (
+                                                <label key={o.kind} className="flex items-center justify-between gap-3 py-1.5 cursor-pointer">
+                                                    <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{o.icon} {tr(o.label)}</span>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={on}
+                                                        onChange={async () => {
+                                                            const next = { ...pushPrefs, [o.kind]: !on };
+                                                            setPushPrefs(next);
+                                                            try {
+                                                                await onSavePushPrefs(next);
+                                                            } catch {
+                                                                setPushPrefs(pushPrefs);
+                                                                onShowAlert?.('error', tr('خطأ'), tr('تعذر حفظ إعدادات الإشعارات'));
+                                                            }
+                                                        }}
+                                                        className="w-5 h-5 accent-brand-500 cursor-pointer"
+                                                    />
+                                                </label>
+                                            );
+                                        })}
+                                    <p className="text-[10px] text-gray-400 leading-relaxed">{tr('تنبيهات العلف والتطعيمات والولادات تصل يومياً الساعة 8 صباحاً تقريباً.')}</p>
+                                </div>
                             )}
 
                             {currentUser?.role === 'owner' && (

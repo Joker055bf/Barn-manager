@@ -1,5 +1,8 @@
 {
   "buildCommand": "vite build",
   "outputDirectory": "dist",
-  "framework": "vite"
+  "framework": "vite",
+  "crons": [
+    { "path": "/api/dailyAlerts", "schedule": "0 5 * * *" }
+  ]
 }

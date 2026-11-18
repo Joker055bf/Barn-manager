@@ -4,6 +4,7 @@ import { Sheep, MedicalRecord } from '../types';
 import { getAnimalMetadata } from '../utils/animalHelpers';
 
 import { tr, isEnglish } from '../constants/i18n';
+import { parseVaccineAgeToDays } from '../constants/vaccines';
 
 interface MedicalModalProps {
   isOpen: boolean;
@@ -24,23 +25,7 @@ const getAnimalAgeInDays = (birthDateStr: string | undefined): number => {
   return Math.floor(diffTime / (1000 * 60 * 60 * 24));
 };
 
-const parseVaccineAgeToDays = (ageStr: string): number => {
-  const normalized = ageStr.toLowerCase().trim();
-  const num = parseInt(normalized.replace(/[^0-9]/g, '')) || 0;
-  if (normalized.includes('يوم') || normalized.includes('day')) {
-    return num;
-  }
-  if (normalized.includes('أسبوع') || normalized.includes('اسبوع') || normalized.includes('week')) {
-    return num * 7;
-  }
-  if (normalized.includes('شهر') || normalized.includes('month')) {
-    return num * 30;
-  }
-  if (normalized.includes('سنة') || normalized.includes('year')) {
-    return num * 365;
-  }
-  return 0;
-};
+// parseVaccineAgeToDays lives in constants/vaccines.ts (shared with the daily push job).
 
 export const MedicalModal: React.FC<MedicalModalProps> = ({ 
   isOpen, 
