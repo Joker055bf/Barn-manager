@@ -5,12 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Rai - مدير الحظائر</title>
 
-    <link rel="icon" type="image/jpeg" href="./assets/logo.jpg" />
+    <!-- Files in public/ are referenced from "/" so Vite copies them unchanged; with base './'
+         the build rewrites these to "./…", which works at a domain root (Vercel) and under
+         /Barn-manager/ (GitHub Pages). -->
+    <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
     <link rel="manifest" href="./manifest.json" />
     <meta name="theme-color" content="#3E2723" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="راعي" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <link rel="apple-touch-icon" href="./assets/logo.jpg" />
+    <!-- 180x180, opaque background: iOS turns transparency black -->
+    <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
 
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <style>
@@ -102,7 +109,7 @@
       })();
     </script>
 
-  <script type="module" crossorigin src="./assets/index-D4cjSlnc.js"></script>
+  <script type="module" crossorigin src="./assets/index-lsYL0tTA.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-BA4wTXQf.css">
 </head>
   <body>

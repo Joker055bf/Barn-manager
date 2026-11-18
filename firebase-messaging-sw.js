@@ -16,7 +16,7 @@ const messaging = firebase.messaging();
 
 // Resolved against this worker's scope so it works at a domain root and under a GitHub Pages subpath.
 const APP_URL = self.registration.scope;
-const ICON_URL = new URL('assets/logo.jpg', APP_URL).href;
+const ICON_URL = new URL('icons/icon-192.png', APP_URL).href;
 
 messaging.onBackgroundMessage((payload) => {
   if ('setAppBadge' in navigator) {
