@@ -1,6 +1,6 @@
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
-import { adminReady, sendToUser } from './_firebaseAdmin.js';
+import { adminReady, lastSendErrors, sendToUser, userTokens } from './_firebaseAdmin.js';
 import { pushKindEnabled, PushKind } from '../utils/alertRules.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
@@ -64,7 +64,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const delivered = await sendToUser(receiverSnap.id, receiver, {
       title: clip(title, 120), body: clip(body, 500), tag: kind ? `${kind}-${caller.farmId}` : undefined,
     });
-    if (delivered === 0) return res.status(409).json({ error: 'Receiver has no registered device' });
+    if (delivered === 0) {
+      const devices = userTokens(receiver).length;
+      return res.status(devices ? 502 : 409).json({
+        error: devices ? 'Push service rejected the message' : 'Receiver has no registered device',
+        devices, details: lastSendErrors.get(receiverSnap.id) || [],
+      });
+    }
     res.status(200).json({ success: true, delivered });
   } catch (error: any) {
     console.error('Error sending message:', error);

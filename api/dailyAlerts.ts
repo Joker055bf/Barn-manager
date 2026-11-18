@@ -6,7 +6,7 @@
 // weekly owner summary on any day (normally Saturdays only).
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getFirestore } from 'firebase-admin/firestore';
-import { adminReady, sendToUser, userTokens } from './_firebaseAdmin.js';
+import { adminReady, lastSendErrors, sendToUser, userTokens } from './_firebaseAdmin.js';
 import { alertsForUser, buildMessages, computeFarmAlerts, isSummaryDay, pushKindEnabled, weeklySummary } from '../utils/alertRules.js';
 import type { Death, Expense, FeedItem, Pen, Sale, Sheep, User } from '../types.js';
 
@@ -26,9 +26,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const farmsInfo: any[] = []; // dry-run diagnostics, no personal data
   let sent = 0;
 
+  const onlyFarm = typeof req.query.farm === 'string' ? req.query.farm : '';
   const owners = await db.collection('users').where('role', '==', 'owner').get();
   for (const ownerDoc of owners.docs) {
     const farmId = ownerDoc.id;
+    if (onlyFarm && !farmId.startsWith(onlyFarm)) continue;
     try {
       const members = await db.collection('users').where('ownerId', '==', farmId).get();
       const recipients = members.docs
@@ -80,7 +82,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const mine = alertsForUser(r.data, alerts, pensList).filter(a => pushKindEnabled(r.data.pushPrefs, a.kind));
         for (const msg of buildMessages(mine, farmId)) {
           report.push({ farm: farmId.slice(0, 6), user: r.data.name, role: r.data.role, ...msg });
-          if (!dryRun) sent += await sendToUser(r.id, r.data, { title: msg.title, body: msg.body, tag: msg.tag, link: SITE_URL });
+          if (!dryRun) {
+            const n = await sendToUser(r.id, r.data, { title: msg.title, body: msg.body, tag: msg.tag, link: SITE_URL });
+            sent += n;
+            if (!n) report[report.length - 1].errors = lastSendErrors.get(r.id);
+          }
         }
       }
     } catch (e: any) {

@@ -99,7 +99,10 @@ export const adminReady = () => getApps().length > 0;
 export const userTokens = (data: any): string[] =>
   Array.from(new Set([...(Array.isArray(data?.fcmTokens) ? data.fcmTokens : []), data?.fcmToken].filter(Boolean)));
 
-const DEAD_TOKEN = new Set(['messaging/registration-token-not-registered', 'messaging/invalid-registration-token', 'messaging/invalid-argument']);
+const DEAD_TOKEN = new Set(['messaging/registration-token-not-registered', 'messaging/invalid-registration-token']);
+
+/** Error codes from the last sendToUser call per user, for diagnostics in API responses. */
+export const lastSendErrors = new Map<string, string[]>();
 
 /**
  * Sends one notification to all of a user's devices. Tokens Google reports as dead are removed
@@ -123,6 +126,9 @@ export async function sendToUser(userId: string, userData: any, msg: { title: st
     },
     android: { priority: 'high' },
   });
+  const errors = res.responses.filter(r => !r.success).map(r => `${r.error?.code}: ${r.error?.message}`.slice(0, 300));
+  lastSendErrors.set(userId, errors);
+  if (errors.length) console.warn('push failures for', userId, errors);
   const dead = tokens.filter((_, i) => !res.responses[i].success && DEAD_TOKEN.has(res.responses[i].error?.code || ''));
   if (dead.length) {
     const update: Record<string, unknown> = { fcmTokens: FieldValue.arrayRemove(...dead) };
