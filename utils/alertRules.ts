@@ -7,9 +7,9 @@
 // Reminders fire on set days only (7 days before, the day before, the day, then weekly while
 // overdue for 4 weeks); empty feed is reminded daily because it needs action.
 
-import type { FeedItem, Pen, Sheep, User, WorkerPermissions } from '../types';
-import { DEFAULT_WORKER_PERMISSIONS } from '../types';
-import { vaccinesForType, parseVaccineAgeToDays } from '../constants/vaccines';
+import type { FeedItem, Pen, Sheep, User, WorkerPermissions } from '../types.js';
+import { DEFAULT_WORKER_PERMISSIONS } from '../types.js';
+import { vaccinesForType, parseVaccineAgeToDays } from '../constants/vaccines.js';
 
 export type AlertKind = 'feed' | 'vaccines' | 'births';
 export const ALERT_KINDS: AlertKind[] = ['feed', 'vaccines', 'births'];

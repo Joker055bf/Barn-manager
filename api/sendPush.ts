@@ -1,7 +1,7 @@
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
-import { adminReady, sendToUser } from './_firebaseAdmin';
-import { pushKindEnabled, PushKind } from '../utils/alertRules';
+import { adminReady, sendToUser } from './_firebaseAdmin.js';
+import { pushKindEnabled, PushKind } from '../utils/alertRules.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Resolves the Firebase Auth caller to their users doc (same mapping the Firestore rules use).

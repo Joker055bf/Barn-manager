@@ -5,9 +5,9 @@
 // dry=1 computes and returns the messages without sending anything.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getFirestore } from 'firebase-admin/firestore';
-import { adminReady, sendToUser, userTokens } from './_firebaseAdmin';
-import { alertsForUser, buildMessages, computeFarmAlerts, pushKindEnabled } from '../utils/alertRules';
-import type { FeedItem, Pen, Sheep, User } from '../types';
+import { adminReady, sendToUser, userTokens } from './_firebaseAdmin.js';
+import { alertsForUser, buildMessages, computeFarmAlerts, pushKindEnabled } from '../utils/alertRules.js';
+import type { FeedItem, Pen, Sheep, User } from '../types.js';
 
 const SITE_URL = process.env.SITE_URL || 'https://barn-manager-eight.vercel.app/';
 
