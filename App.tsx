@@ -48,7 +48,7 @@ import {
   resetWorkerPassword, changeOwnPassword, changeUsername, changeOwnerEmail, verifyCurrentPassword,
   sendOwnerPasswordReset, logout as authLogout, authErrorMessage,
 } from './services/authService';
-import { sendPush, saveDeviceToken, removeDeviceToken, savePushPrefs } from './services/pushService';
+import { sendPush, saveDeviceToken, removeDeviceToken, savePushPrefs, getWebPushToken } from './services/pushService';
 import { useAuthSession } from './hooks/useAuthSession';
 import { useFarmData } from './hooks/useFarmData';
 
@@ -325,31 +325,8 @@ function App() {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
 
-        const { getToken } = await import('firebase/messaging');
-        
-        const vapidKey = WEB_PUSH_VAPID_KEY;
-        
-        let currentToken = '';
-        try {
-          console.log('Attempting FCM subscription with VAPID key:', vapidKey);
-          currentToken = await getToken(messaging, {
-            vapidKey,
-            serviceWorkerRegistration: registration
-          });
-        } catch (firstErr: any) {
-          console.warn('FCM registration with primary VAPID key failed, trying fallback default key...', firstErr);
-          try {
-            // Fallback Stage: Try without specifying a vapidKey to let Firebase use the default key
-            currentToken = await getToken(messaging, {
-              serviceWorkerRegistration: registration
-            });
-            console.log('FCM subscription succeeded with default VAPID key fallback.');
-          } catch (secondErr: any) {
-            console.error('FCM subscription failed in both stages:', secondErr);
-            // Throw the primary error to show the troubleshooting UI
-            throw firstErr;
-          }
-        }
+        // No fallback without a key: a subscription made with another key can never receive pushes.
+        const currentToken = await getWebPushToken(messaging, registration, WEB_PUSH_VAPID_KEY);
 
         if (!currentToken) {
           showAlert('error', tr("فشل جلب الرمز"), tr("لم نتمكن من الحصول على رمز التنبيهات من خوادم Google Cloud."));
@@ -982,29 +959,8 @@ function App() {
           navigator.serviceWorker.register(new URL('firebase-messaging-sw.js', document.baseURI).href)
             .then((registration) => {
               console.log('FCM SW registered in auto-setup:', registration);
-              import('firebase/messaging').then(({ getToken, onMessage }) => {
-                const vapidKey = WEB_PUSH_VAPID_KEY;
-                
-                const handleTokenRetrieve = async () => {
-                  let currentToken = '';
-                  try {
-                    currentToken = await getToken(messaging, { 
-                      vapidKey,
-                      serviceWorkerRegistration: registration
-                    });
-                  } catch (firstErr: any) {
-                    console.warn('FCM auto-registration with VAPID key failed, trying fallback default key...', firstErr);
-                    try {
-                      currentToken = await getToken(messaging, {
-                        serviceWorkerRegistration: registration
-                      });
-                    } catch (secondErr: any) {
-                      console.error('FCM auto-registration failed in both stages:', secondErr);
-                      throw firstErr;
-                    }
-                  }
-                  return currentToken;
-                };
+              import('firebase/messaging').then(({ onMessage }) => {
+                const handleTokenRetrieve = () => getWebPushToken(messaging, registration, WEB_PUSH_VAPID_KEY);
 
                 handleTokenRetrieve()
                   .then(async (currentToken) => {

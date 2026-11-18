@@ -28,6 +28,50 @@ export const sendPush = async (receiverId: string, title: string, body: string, 
   }
 };
 
+// ---- web push subscription ----------------------------------------------------------------
+// The browser keeps one push subscription per service worker, bound to the VAPID key it was
+// created with, and Firebase's getToken() reuses whatever subscription exists. Subscriptions
+// created with an older/wrong key register fine but every send then fails with
+// "Permission denied by the third party webpush service". So: if the existing subscription was
+// not made with the current key (or we can't tell and haven't checked this device yet), drop it
+// and let getToken() create a fresh one.
+const PUSH_KEY_MARK = 'rai_push_vapid';
+
+const keyBytes = (b64url: string) => {
+  const b64 = (b64url + '='.repeat((4 - (b64url.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/');
+  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+};
+const sameBytes = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((v, i) => v === b[i]);
+
+/**
+ * An existing subscription is kept only if it was made with this VAPID key and this device has
+ * already been through a successful getWebPushToken() with it (some browsers hide the key).
+ */
+export const subscriptionNeedsRenewal = (subscriptionKey: ArrayBuffer | null, vapidKey: string, checked: boolean) => {
+  if (!checked) return true;
+  // Key visible: it must be this one. Hidden: trust the earlier successful check on this device.
+  return subscriptionKey ? !sameBytes(new Uint8Array(subscriptionKey), keyBytes(vapidKey)) : false;
+};
+
+export const getWebPushToken = async (
+  messaging: import('firebase/messaging').Messaging,
+  registration: ServiceWorkerRegistration,
+  vapidKey: string,
+): Promise<string> => {
+  const { getToken, deleteToken } = await import('firebase/messaging');
+  const existing = await registration.pushManager.getSubscription();
+  if (existing) {
+    const checked = safeStorage.getItem(PUSH_KEY_MARK) === vapidKey;
+    if (subscriptionNeedsRenewal(existing.options?.applicationServerKey ?? null, vapidKey, checked)) {
+      await deleteToken(messaging).catch(() => {});
+      await existing.unsubscribe().catch(() => {});
+    }
+  }
+  const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration });
+  if (token) safeStorage.setItem(PUSH_KEY_MARK, vapidKey);
+  return token;
+};
+
 // ---- this device's token ------------------------------------------------------------------
 // A user can enable notifications on several devices; each token is added to users/{id}.fcmTokens.
 const DEVICE_TOKEN_KEY = 'rai_push_token';

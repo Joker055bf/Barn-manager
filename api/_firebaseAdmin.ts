@@ -129,7 +129,11 @@ export async function sendToUser(userId: string, userData: any, msg: { title: st
   const errors = res.responses.filter(r => !r.success).map(r => `${r.error?.code}: ${r.error?.message}`.slice(0, 300));
   lastSendErrors.set(userId, errors);
   if (errors.length) console.warn('push failures for', userId, errors);
-  const dead = tokens.filter((_, i) => !res.responses[i].success && DEAD_TOKEN.has(res.responses[i].error?.code || ''));
+  // A subscription made with another VAPID key fails with THIRD_PARTY_AUTH_ERROR forever: drop it too
+  // (the device gets a fresh one next time notifications are enabled on it).
+  const isDead = (e?: { code?: string; message?: string }) =>
+    !!e && (DEAD_TOKEN.has(e.code || '') || /THIRD_PARTY_AUTH_ERROR|third party webpush/i.test(e.message || ''));
+  const dead = tokens.filter((_, i) => !res.responses[i].success && isDead(res.responses[i].error));
   if (dead.length) {
     const update: Record<string, unknown> = { fcmTokens: FieldValue.arrayRemove(...dead) };
     if (dead.includes(userData?.fcmToken)) update.fcmToken = FieldValue.delete();
