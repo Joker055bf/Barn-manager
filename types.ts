@@ -242,7 +242,7 @@ export interface User {
   /** Push tokens of every device this user enabled notifications on. */
   fcmTokens?: string[];
   /** Notification kinds switched off in Settings (missing = on). See utils/alertRules.ts. */
-  pushPrefs?: Partial<Record<'feed' | 'vaccines' | 'births' | 'chat' | 'activity', boolean>>;
+  pushPrefs?: Partial<Record<'feed' | 'vaccines' | 'births' | 'summary' | 'chat' | 'activity', boolean>>;
 }
 
 export const DEFAULT_WORKER_PERMISSIONS: WorkerPermissions = {

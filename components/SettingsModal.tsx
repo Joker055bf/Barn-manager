@@ -31,7 +31,8 @@ interface SettingsModalProps {
 const PUSH_KIND_OPTIONS: { kind: PushKind; icon: string; label: string }[] = [
     { kind: 'feed', icon: '🌾', label: 'نقص العلف' },
     { kind: 'vaccines', icon: '💉', label: 'التطعيمات المستحقة' },
-    { kind: 'births', icon: '🐑', label: 'الولادات المتوقعة' },
+    { kind: 'births', icon: '🐑', label: 'الولادات والفطام' },
+    { kind: 'summary', icon: '📊', label: 'ملخص الأسبوع (السبت)' },
     { kind: 'chat', icon: '💬', label: 'الرسائل الجديدة' },
     { kind: 'activity', icon: '👷', label: 'إجراءات العمال المهمة' },
 ];
@@ -59,69 +60,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const [isSavingProfile, setIsSavingProfile] = useState(false);
     const [isTestingNotifications, setIsTestingNotifications] = useState(false);
     
-    // FCM & Gemini Advanced Settings States
-    const [showAdvancedFcm, setShowAdvancedFcm] = useState(false);
-    const [customVapidKey, setCustomVapidKey] = useState('');
-    const [customApiKey, setCustomApiKey] = useState('');
-    const [customGeminiApiKey, setCustomGeminiApiKey] = useState('');
-    const [isSavingFcm, setIsSavingFcm] = useState(false);
-
-    useEffect(() => {
-        if (isOpen && currentUser) {
-            setCustomVapidKey(currentUser.vapidKey || safeStorage.getItem('rai_vapid_key') || '');
-            setCustomApiKey(currentUser.firebaseApiKey || safeStorage.getItem('rai_firebase_api_key') || '');
-            setCustomGeminiApiKey(safeStorage.getItem('rai_gemini_api_key') || '');
-        }
-    }, [isOpen, currentUser]);
-
-    const handleSaveFcmSettings = async () => {
-        if (!currentUser) return;
-        setIsSavingFcm(true);
-        try {
-            const previousApiKey = safeStorage.getItem('rai_firebase_api_key') || '';
-            const newApiKey = customApiKey.trim();
-
-            if (newApiKey) {
-                safeStorage.setItem('rai_firebase_api_key', newApiKey);
-            } else {
-                safeStorage.removeItem('rai_firebase_api_key');
-            }
-
-            if (customVapidKey.trim()) {
-                safeStorage.setItem('rai_vapid_key', customVapidKey.trim());
-            } else {
-                safeStorage.removeItem('rai_vapid_key');
-            }
-
-            if (customGeminiApiKey.trim()) {
-                safeStorage.setItem('rai_gemini_api_key', customGeminiApiKey.trim());
-            } else {
-                safeStorage.removeItem('rai_gemini_api_key');
-            }
-
-            await onUpdateProfile(currentUser.name, undefined, undefined, undefined, customVapidKey.trim() || '', newApiKey || '');
-            
-            if (previousApiKey !== newApiKey) {
-                if (onShowAlert) {
-                    onShowAlert('success', tr("تم الحفظ وتحديث الاتصال"), tr("تم حفظ الإعدادات بنجاح. سيتم إعادة تحميل الصفحة الآن لتطبيق الاتصال الجديد."));
-                }
-                setTimeout(() => {
-                    window.location.reload();
-                }, 2000);
-            } else {
-                if (onShowAlert) {
-                    onShowAlert('success', tr("تم الحفظ"), tr("تم تحديث إعدادات الإشعارات المتقدمة بنجاح."));
-                }
-            }
-        } catch (e: any) {
-            console.error('Failed to save FCM settings:', e);
-            if (onShowAlert) {
-                onShowAlert('error', tr("فشل الحفظ"), e.message || tr("تعذر حفظ إعدادات الإشعارات المتقدمة."));
-            }
-        } finally {
-            setIsSavingFcm(false);
-        }
-    };
 
     // Profile Secure Actions State
     const [activeAction, setActiveAction] = useState<'editName' | 'editUsername' | 'editPassword' | 'editEmail' | null>(null);
@@ -668,23 +606,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                     onClick={async () => {
                                         if (isTestingNotifications) return;
                                         
-                                        // Check if they typed a new API key or VAPID key but didn't click save
-                                        const savedApiKey = safeStorage.getItem('rai_firebase_api_key') || '';
-                                        const savedVapidKey = safeStorage.getItem('rai_vapid_key') || '';
-                                        
-                                        if (customApiKey.trim() !== savedApiKey || customVapidKey.trim() !== savedVapidKey) {
-                                            if (onShowAlert) {
-                                                onShowAlert(
-                                                    'warning', 
-                                                    language === 'en' ? 'Unsaved Settings Detected' : tr("تنبيه: إعدادات غير محفوظة"), 
-                                                    language === 'en' 
-                                                        ? 'You have typed a new API Key or VAPID Key. Please click the "Save Advanced Settings" button below first, then let the page reload to apply the new keys before testing.'
-                                                        : tr("لقد قمت بإدخال مفتاح جديد ولكنك لم تقم بحفظه. يرجى الضغط على زر \"حفظ الإعدادات المتقدمة\" بالأسفل أولاً لكي يتم حفظ المفتاح وتحديث الاتصال تلقائياً، ثم قم بالاختبار.")
-                                                );
-                                            }
-                                            return;
-                                        }
-
                                         setIsTestingNotifications(true);
                                         try {
                                             await onTestNotifications();
@@ -710,7 +631,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 <div className="mt-4 pt-4 border-t border-orange-100/50 dark:border-slate-700/50 space-y-2">
                                     <p className="text-xs font-black text-gray-700 dark:text-gray-200">{tr('الإشعارات التي تصلك')}</p>
                                     {PUSH_KIND_OPTIONS
-                                        .filter(o => o.kind !== 'activity' || currentUser?.role === 'owner')
+                                        .filter(o => (o.kind !== 'activity' && o.kind !== 'summary') || currentUser?.role === 'owner')
                                         .map(o => {
                                             const on = pushPrefs[o.kind] !== false;
                                             return (
@@ -738,87 +659,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 </div>
                             )}
 
-                            {currentUser?.role === 'owner' && (
-                                <div className="mt-4 pt-4 border-t border-orange-100/50 dark:border-slate-700/50">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowAdvancedFcm(!showAdvancedFcm)}
-                                        className="flex items-center justify-between w-full text-xs font-black text-brand-500 dark:text-orange-400 hover:opacity-80 transition-all cursor-pointer"
-                                    >
-                                        <span>{language === 'en' ? '🛠️ Advanced Notification Settings' : tr("🛠️ إعدادات الإشعارات المتقدمة")}</span>
-                                        <span className="text-[10px]">{showAdvancedFcm ? '▲' : '▼'}</span>
-                                    </button>
-
-                                    {showAdvancedFcm && (
-                                        <div className="mt-3 space-y-3 animate-fade-in text-start" dir={isEnglish ? 'ltr' : 'rtl'}>
-                                            <div className="space-y-1">
-                                                <label className="text-[10px] font-black text-gray-500 dark:text-slate-400 block text-start">
-                                                    {language === 'en' ? 'Firebase API Key (unrestricted if custom):' : tr("مفتاح API الخاص بـ Firebase (غير مقيد):")}
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={customApiKey}
-                                                    onChange={(e) => setCustomApiKey(e.target.value)}
-                                                    placeholder={tr("أدخل مفتاح API غير مقيد (من منصة Google Cloud)")}
-                                                    className="w-full text-start px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[10px] font-bold text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                                                />
-                                                <p className="text-[9px] text-gray-400 leading-normal text-start font-medium">
-                                                    {language === 'en'
-                                                        ? 'Leave empty to use the default API key. If default is restricted, enter custom key here.'
-                                                        : tr("اتركه فارغاً للاعتماد على المفتاح الافتراضي للمشروع. يمكن إضافة مفتاح مخصص هنا.")}
-                                                </p>
-                                                <div className="text-[9px] font-bold text-gray-400 text-start mt-1">
-                                                    {language === 'en' ? 'Currently active key: ' : tr("المفتاح المفعل حالياً: ")}
-                                                    <span className="text-brand-500 dark:text-orange-400 font-mono bg-orange-50/80 dark:bg-slate-800 px-2 py-0.5 rounded">
-                                                        {safeStorage.getItem('rai_firebase_api_key') 
-                                                            ? tr("مخصص (***{0})", safeStorage.getItem('rai_firebase_api_key')?.slice(-6)) 
-                                                            : (language === 'en' ? 'Default (Restricted)' : tr("الافتراضي للمشروع (مقيد)"))}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-1">
-                                                <label className="text-[10px] font-black text-gray-500 dark:text-slate-400 block text-start">
-                                                    {language === 'en' ? 'FCM VAPID Public Key (Web Push):' : tr("مفتاح VAPID العام (لإشعارات الويب):")}
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={customVapidKey}
-                                                    onChange={(e) => setCustomVapidKey(e.target.value)}
-                                                    placeholder={tr("أدخل مفتاح VAPID العام (المولد في كونسول Firebase)")}
-                                                    className="w-full text-start px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[10px] font-bold text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                                                />
-                                                <p className="text-[9px] text-gray-400 leading-normal text-start font-medium">
-                                                    {language === 'en'
-                                                        ? 'Leave empty to use the project’s default key. Generate this key in Firebase Console -> Project Settings -> Cloud Messaging -> Web Push certificates.'
-                                                        : tr("اتركه فارغاً للاعتماد على المفتاح الافتراضي للمشروع. يمكنك توليد هذا المفتاح من إعدادات مشروع Firebase -> إعدادات المشروع -> السحابة -> شهادات الويب.")}
-                                                </p>
-                                                <div className="text-[9px] font-bold text-gray-400 text-start mt-1 font-medium">
-                                                    {language === 'en' ? 'Currently active: ' : tr("مفتاح VAPID المفعل حالياً: ")}
-                                                    <span className="text-brand-500 dark:text-orange-400 font-mono bg-orange-50/80 dark:bg-slate-800 px-2 py-0.5 rounded">
-                                                        {safeStorage.getItem('rai_vapid_key') 
-                                                            ? tr("مخصص (***{0})", safeStorage.getItem('rai_vapid_key')?.slice(-8)) 
-                                                            : (language === 'en' ? 'Default' : tr("الافتراضي"))}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            <button
-                                                type="button"
-                                                disabled={isSavingFcm}
-                                                onClick={handleSaveFcmSettings}
-                                                className={`w-full py-2.5 bg-brand-500 dark:bg-slate-700 hover:bg-brand-700 dark:hover:bg-slate-600 text-white rounded-xl font-black text-xs transition-all active:scale-[0.98] cursor-pointer ${
-                                                    isSavingFcm ? 'opacity-60 cursor-not-allowed' : ''
-                                                }`}
-                                            >
-                                                {isSavingFcm
-                                                     ? (language === 'en' ? 'Saving...' : tr("جاري الحفظ..."))
-                                                     : (language === 'en' ? 'Save Settings' : tr("حفظ الإعدادات المتقدمة"))}
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
                         </div>
                     </div>
 

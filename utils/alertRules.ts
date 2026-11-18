@@ -4,20 +4,25 @@
 //              processAutoFeedDeduction) and days-left like isAnyFeedLowOrEmpty.
 //  - vaccines: recommended vaccine not yet recorded, due at birth + target age (MedicalModal.tsx).
 //  - births:   pregnant female, expected 150 days after mating (App.tsx reproduction card).
+//  - boosters: repeat dose of a yearly / 6-monthly / 3-monthly vaccine, from the last dose recorded.
+//  - weaning:  nursing mother, 90 days after birth (App.tsx turns her back to "empty" then).
+//  - summary:  weekly farm report for the owner on Saturdays (see weeklySummary below).
 // Reminders fire on set days only (7 days before, the day before, the day, then weekly while
 // overdue for 4 weeks); empty feed is reminded daily because it needs action.
 
-import type { FeedItem, Pen, Sheep, User, WorkerPermissions } from '../types.js';
+import type { Death, Expense, FeedItem, Pen, Sale, Sheep, User, WorkerPermissions } from '../types.js';
 import { DEFAULT_WORKER_PERMISSIONS } from '../types.js';
 import { vaccinesForType, parseVaccineAgeToDays } from '../constants/vaccines.js';
 
-export type AlertKind = 'feed' | 'vaccines' | 'births';
-export const ALERT_KINDS: AlertKind[] = ['feed', 'vaccines', 'births'];
+export type AlertKind = 'feed' | 'vaccines' | 'births' | 'weaning';
+export const ALERT_KINDS: AlertKind[] = ['feed', 'vaccines', 'births', 'weaning'];
 
 /** Kinds a user can switch off in Settings ("chat" and "activity" are sent live by api/sendPush). */
-export type PushKind = AlertKind | 'chat' | 'activity';
+export type PushKind = 'feed' | 'vaccines' | 'births' | 'summary' | 'chat' | 'activity';
 export type PushPrefs = Partial<Record<PushKind, boolean>>;
-export const pushKindEnabled = (prefs: PushPrefs | undefined, kind: PushKind) => prefs?.[kind] !== false;
+/** Weaning reminders follow the births switch (both are the breeding cycle). */
+const prefKey = (kind: AlertKind | PushKind): PushKind => (kind === 'weaning' ? 'births' : kind);
+export const pushKindEnabled = (prefs: PushPrefs | undefined, kind: AlertKind | PushKind) => prefs?.[prefKey(kind)] !== false;
 
 export interface FarmAlert {
   kind: AlertKind;
@@ -114,8 +119,17 @@ export function computeFarmAlerts(farm: { pens: Pen[]; sheep: Sheep[]; feed: Fee
       const records = s.medicalRecords || [];
       for (const v of vaccinesForType(s.type)) {
         if (s.gender === 'male' && v.notes?.includes('إناث فقط')) continue;
-        const taken = records.some(r => r.type === 'vaccine' && r.name?.toLowerCase().includes(v.name.toLowerCase()));
-        if (taken) continue;
+        const doses = records.filter(r => r.type === 'vaccine' && r.name?.toLowerCase().includes(v.name.toLowerCase()));
+        if (doses.length) {
+          // Booster: next dose of a repeating vaccine, counted from the most recent dose.
+          const every = repeatIntervalDays(v.frequency);
+          const last = Math.max(...doses.map(r => new Date(r.date).getTime()).filter(t => !isNaN(t)));
+          if (every && isFinite(last)) {
+            const days = daysFromToday(now, last + every * DAY);
+            if (isReminderDay(days)) alerts.push({ ...base, kind: 'vaccines', subject: `${v.name} — جرعة منشطة`, days });
+          }
+          continue;
+        }
         const days = daysFromToday(now, birth + parseVaccineAgeToDays(v.age) * DAY);
         if (isReminderDay(days)) alerts.push({ ...base, kind: 'vaccines', subject: v.name, days });
       }
@@ -131,8 +145,65 @@ export function computeFarmAlerts(farm: { pens: Pen[]; sheep: Sheep[]; feed: Fee
         if (isReminderDay(days)) alerts.push({ ...base, kind: 'births', subject: `#${s.serialNumber}`, days });
       }
     }
+
+    // weaning (no "overdue": the app ends nursing by itself on day 90)
+    if (s.gender === 'female' && s.reproductionStatus === 'mother' && s.lactationStartDate) {
+      const start = new Date(s.lactationStartDate).getTime();
+      if (!isNaN(start)) {
+        const days = daysFromToday(now, start + 90 * DAY);
+        if (days === 7 || days === 1 || days === 0) alerts.push({ ...base, kind: 'weaning', subject: `#${s.serialNumber}`, days });
+      }
+    }
   }
   return alerts;
+}
+
+/** "سنوي" -> 365, "كل 6 أشهر" -> 180, "كل 3 أشهر" -> 90; one-off vaccines -> null. */
+export const repeatIntervalDays = (frequency?: string): number | null => {
+  if (!frequency || frequency.includes('مرة واحدة')) return null;
+  if (frequency.includes('سنوي')) return 365;
+  const n = parseInt(frequency.replace(/[^0-9]/g, '')) || 0;
+  if (!n) return null;
+  if (frequency.includes('شهر') || frequency.includes('أشهر')) return n * 30;
+  if (frequency.includes('أسبوع') || frequency.includes('أسابيع')) return n * 7;
+  if (frequency.includes('يوم')) return n;
+  return null;
+};
+
+// ---------- weekly summary (owner) ----------
+
+/** Saturday in Saudi time: the start of the working week. */
+export const isSummaryDay = (now: number) => new Date(now + RIYADH_OFFSET).getUTCDay() === 6;
+
+const fmtMoney = (n: number) => Math.round(n).toLocaleString('en-US');
+
+/** The past 7 days for one farm, or null when nothing happened. */
+export function weeklySummary(
+  farm: { pens: Pen[]; sheep: Sheep[]; deaths: Death[]; sales: Sale[]; expenses: Expense[] },
+  now = Date.now(),
+): { title: string; body: string } | null {
+  const today = riyadhDay(now);
+  const inWeek = (d?: string) => {
+    const t = d ? new Date(d).getTime() : NaN;
+    return !isNaN(t) && today - riyadhDay(t) >= 1 && today - riyadhDay(t) <= 7;
+  };
+  const exclusionPens = new Set(farm.pens.filter(p => p.isExclusion).map(p => p.id));
+  const active = farm.sheep.filter(s => s.penId && !s.penId.startsWith('mortality') && !exclusionPens.has(s.penId) && !s.exclusionDate);
+  const born = farm.sheep.filter(s => s.source !== 'purchase' && inWeek(s.birthDate)).length;
+  const excluded = farm.deaths.filter(d => inWeek(d.date)).length;
+  const sales = farm.sales.filter(x => inWeek(x.date)).reduce((a, x) => a + Number(x.amount || 0), 0);
+  const expenses = farm.expenses.filter(x => inWeek(x.date)).reduce((a, x) => a + Number(x.amount || 0), 0);
+  const sick = active.filter(s => s.status === 'sick').length;
+  if (!born && !excluded && !sales && !expenses && active.length === 0) return null;
+
+  const parts = [
+    `القطيع: ${active.length} رأس${sick ? ` (${sick} مريض)` : ''}`,
+    born ? `مواليد: ${born}` : '',
+    excluded ? `مستبعدة: ${excluded}` : '',
+    sales ? `مبيعات: ${fmtMoney(sales)} ريال` : '',
+    expenses ? `مصاريف: ${fmtMoney(expenses)} ريال` : '',
+  ].filter(Boolean);
+  return { title: '📊 ملخص الأسبوع', body: parts.join(' · ') };
 }
 
 // ---------- who sees what ----------
@@ -200,6 +271,11 @@ export function buildMessages(alerts: FarmAlert[], farmId: string): PushMessage[
       body = [...byVaccine].slice(0, 3).map(([name, items]) =>
         `${name}: ${items.length} ${items.length === 1 ? 'رأس' : 'رؤوس'} (${when(Math.min(...items.map(i => i.days)))})`).join(' · ')
         + (byVaccine.size > 3 ? ' …' : '') + (oneBarn ? ` — ${list[0].barnName}` : ` — ${placeList(list)}`);
+    } else if (kind === 'weaning') {
+      title = single ? '🍼 موعد فطام' : `🍼 ${list.length} مواعيد فطام`;
+      body = single
+        ? `${single.subject} — ${single.barnName}: ${when(single.days)}`
+        : `${list.slice(0, 4).map(a => `${a.subject} (${when(a.days)})`).join('، ')}${list.length > 4 ? '…' : ''} — ${placeList(list)}`;
     } else {
       title = single ? '🐑 ولادة متوقعة' : `🐑 ${list.length} ولادات متوقعة`;
       body = single

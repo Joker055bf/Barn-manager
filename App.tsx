@@ -65,8 +65,17 @@ import { tr, isEnglish, appLocale, switchLanguage } from './constants/i18n';
 
 // ────────────────────────
 
+// Public web-push (VAPID) key of the Firebase project; safe to ship in the client.
+const WEB_PUSH_VAPID_KEY = 'BGMIAO07gwGiD4klhaaOlQzjBTF4qJg702MXtB5Or4rm2wjdrLkZ562L7AY6uWD9kE1zjm5bxpLM9643wBKWp1E';
+
 // Worker actions that also send a push notification to the owner's phone.
-const OWNER_PUSH_ACTIONS = new Set(['استبعاد حيوان', 'تسجيل وفاة', 'حذف حيوان', 'حذف حظيرة', 'حذف قسم', 'نقل جماعي', 'حذف صنف']);
+const OWNER_PUSH_ACTIONS = new Set([
+  'استبعاد حيوان', 'تسجيل وفاة', 'حذف حيوان', 'حذف حظيرة', 'حذف قسم', 'نقل جماعي', 'حذف صنف',
+  'إضافة مبيعات', 'إضافة مصروف', 'تأكيد ولادة', 'تحديث الحالة الصحية',
+]);
+// A health update is only worth a push when the animal became sick, not when it recovered.
+const shouldPushOwner = (action: string, detail: string) =>
+  OWNER_PUSH_ACTIONS.has(action) && !(action === 'تحديث الحالة الصحية' && detail.includes('(سليم)'));
 
 function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'pens' | 'sheepList' | 'vaccines' | 'feed' | 'expenses'>('pens');
@@ -75,47 +84,6 @@ function App() {
 
   const [users, setUsers] = useState<User[]>([]);
 
-  // Sync custom Firebase API Key & VAPID Key between database and local browser storage (for owner and workers)
-  useEffect(() => {
-    if (!currentUser) return;
-    
-    // Find the owner user to read the configuration from
-    const ownerUser = currentUser.role === 'owner' 
-      ? currentUser 
-      : users.find(u => u.role === 'owner');
-      
-    if (!ownerUser) return;
-    
-    const localApiKey = safeStorage.getItem('rai_firebase_api_key') || '';
-    const remoteApiKey = ownerUser.firebaseApiKey || '';
-    
-    const localVapidKey = safeStorage.getItem('rai_vapid_key') || '';
-    const remoteVapidKey = ownerUser.vapidKey || '';
-    
-    let needsReload = false;
-    
-    if (remoteApiKey !== localApiKey) {
-      if (remoteApiKey) {
-        safeStorage.setItem('rai_firebase_api_key', remoteApiKey);
-      } else {
-        safeStorage.removeItem('rai_firebase_api_key');
-      }
-      needsReload = true;
-    }
-    
-    if (remoteVapidKey !== localVapidKey) {
-      if (remoteVapidKey) {
-        safeStorage.setItem('rai_vapid_key', remoteVapidKey);
-      } else {
-        safeStorage.removeItem('rai_vapid_key');
-      }
-    }
-    
-    if (needsReload) {
-      console.log('Firebase API Key updated from owner Firestore record, reloading page to apply...');
-      window.location.reload();
-    }
-  }, [currentUser, users]);
 
   const isOwner = currentUser?.role === 'owner';
   const ownerId = isOwner ? currentUser?.id : currentUser?.ownerId;
@@ -175,7 +143,7 @@ function App() {
     }
 
     // Tell the owner's phone when a worker does something they would want to know about right away.
-    if (currentUser.role === 'worker' && OWNER_PUSH_ACTIONS.has(action)) {
+    if (currentUser.role === 'worker' && shouldPushOwner(action, detail)) {
       sendPush(ownerId, `${currentUser.name}: ${action}`, detail, 'activity').catch(err => console.warn('Owner push failed:', err));
     }
   };
@@ -359,7 +327,7 @@ function App() {
 
         const { getToken } = await import('firebase/messaging');
         
-        const vapidKey = currentUser?.vapidKey || safeStorage.getItem('rai_vapid_key') || 'BGMIAO07gwGiD4klhaaOlQzjBTF4qJg702MXtB5Or4rm2wjdrLkZ562L7AY6uWD9kE1zjm5bxpLM9643wBKWp1E';
+        const vapidKey = WEB_PUSH_VAPID_KEY;
         
         let currentToken = '';
         try {
@@ -433,9 +401,6 @@ function App() {
             <ol className="list-decimal list-inside space-y-2 text-[11px] text-gray-600 dark:text-slate-400 ps-2">
               <li>
                 <strong>{tr("قيود مفتاح API Key في GCP:")}</strong> {tr("اذهب إلى")} <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-brand-500 dark:text-orange-400 underline font-bold">{tr("منصة Google Cloud")} {"->"} Credentials</a> {tr("وقم بتعديل مفتاح المتصفح وتأكد من تفعيل صلاحية")} <strong>"FCM Registration API"</strong> {tr("و")} <strong>"Firebase Cloud Messaging API"</strong> {tr("للمفتاح.")}
-              </li>
-              <li>
-                <strong>{tr("مفتاح VAPID المخصص:")}</strong> {tr("توليد مفتاح جديد من إعدادات مشروع Firebase")} {"->"} Cloud Messaging {"->"} {tr("Web configuration، ثم وضعه في")} <strong>{tr("\"إعدادات الإشعارات المتقدمة\"")}</strong> {tr("أسفل نافذة الإعدادات.")}
               </li>
             </ol>
             <p className="text-[10px] text-red-500 font-bold mt-2 border-t pt-2 border-gray-100 dark:border-slate-800">
@@ -1018,7 +983,7 @@ function App() {
             .then((registration) => {
               console.log('FCM SW registered in auto-setup:', registration);
               import('firebase/messaging').then(({ getToken, onMessage }) => {
-                const vapidKey = currentUser?.vapidKey || safeStorage.getItem('rai_vapid_key') || 'BGMIAO07gwGiD4klhaaOlQzjBTF4qJg702MXtB5Or4rm2wjdrLkZ562L7AY6uWD9kE1zjm5bxpLM9643wBKWp1E';
+                const vapidKey = WEB_PUSH_VAPID_KEY;
                 
                 const handleTokenRetrieve = async () => {
                   let currentToken = '';

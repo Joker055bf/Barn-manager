@@ -7,16 +7,14 @@ import { safeStorage } from "./utils/storage";
 
 // Helper to construct configuration dynamically
 const getFirebaseConfig = () => {
-  let apiKey = "AIzaSyDN_EfGYKfKC7UKFnNkSN1X5Wy9CljQtpA";
+  const apiKey = "AIzaSyDN_EfGYKfKC7UKFnNkSN1X5Wy9CljQtpA";
   if (typeof window !== 'undefined') {
+    // Older versions let the owner override the API key from Settings; that option is gone,
+    // so drop any key a device still has saved.
     try {
-      const savedKey = safeStorage.getItem('rai_firebase_api_key');
-      if (savedKey && savedKey.trim()) {
-        apiKey = savedKey.trim();
-      }
-    } catch (e) {
-      console.warn("Failed to retrieve custom firebase API key from safeStorage:", e);
-    }
+      safeStorage.removeItem('rai_firebase_api_key');
+      safeStorage.removeItem('rai_vapid_key');
+    } catch { /* ignore */ }
   }
   return {
     apiKey: apiKey,
