@@ -23,6 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const db = getFirestore();
   const now = Date.now();
   const report: any[] = [];
+  const farmsInfo: any[] = []; // dry-run diagnostics, no personal data
   let sent = 0;
 
   const owners = await db.collection('users').where('role', '==', 'owner').get();
@@ -36,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!members.docs.some(d => d.id === farmId) && userTokens(ownerDoc.data()).length > 0) {
         recipients.push({ id: farmId, data: ownerDoc.data() as User }); // owner doc without ownerId field
       }
-      if (recipients.length === 0) continue;
+      if (recipients.length === 0 && !dryRun) continue;
 
       const farm = db.collection('farms').doc(farmId);
       const [pens, sheep, feed] = await Promise.all([
@@ -49,6 +50,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         sheep: sheepList,
         feed: feed.docs.map(d => ({ id: d.id, ...d.data() } as FeedItem)),
       }, now);
+
+      if (dryRun) {
+        const counts: Record<string, number> = {};
+        alerts.forEach(a => { counts[a.kind] = (counts[a.kind] || 0) + 1; });
+        farmsInfo.push({ farm: farmId.slice(0, 6), members: members.size, devices: recipients.length, animals: sheepList.length, alerts: counts });
+      }
 
       // Weekly summary: owner only, Saturdays.
       const owner = recipients.find(r => r.id === farmId);
@@ -81,5 +88,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       report.push({ farm: farmId.slice(0, 6), error: e?.message || String(e) });
     }
   }
-  res.status(200).json({ dryRun, farms: owners.size, messages: report.length, delivered: sent, report });
+  res.status(200).json({ dryRun, farms: owners.size, messages: report.length, delivered: sent, report, ...(dryRun ? { farmsInfo } : {}) });
 }
