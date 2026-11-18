@@ -66,7 +66,7 @@ import { tr, isEnglish, appLocale, switchLanguage } from './constants/i18n';
 // ────────────────────────
 
 // Public web-push (VAPID) key of the Firebase project; safe to ship in the client.
-const WEB_PUSH_VAPID_KEY = 'BGMIAO07gwGiD4klhaaOlQzjBTF4qJg702MXtB5Or4rm2wjdrLkZ562L7AY6uWD9kE1zjm5bxpLM9643wBKWp1E';
+const WEB_PUSH_VAPID_KEY = 'BGMIAO07gwGiD4kIhaa0lQzjBTF4qJg702MXtB50r4rm2wjdrLkZ562L7AY6uWD9kE1zjm5bxpLM9643wBKWp1E';
 
 // Worker actions that also send a push notification to the owner's phone.
 const OWNER_PUSH_ACTIONS = new Set([
