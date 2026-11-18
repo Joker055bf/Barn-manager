@@ -101,6 +101,47 @@ const ensureUsernameMapping = async (username: string, userId: string, authEmail
   }
 };
 
+// ---- Provisioning guard -------------------------------------------------------------------
+// Creating or signing in an Auth account fires onAuthStateChanged before the auth_links/users
+// writes that follow have landed. If the session listener resolved the profile then, it found no
+// link, signed the user out, and the remaining writes failed (half-migrated accounts). While a
+// login/registration is in flight the listener waits, and resolves once it is done.
+let provisioning = 0;
+const provisioningDone = new Set<() => void>();
+export const isProvisioning = () => provisioning > 0;
+export const onProvisioningDone = (fn: () => void) => {
+  provisioningDone.add(fn);
+  return () => { provisioningDone.delete(fn); };
+};
+const provision = async <T>(work: () => Promise<T>): Promise<T> => {
+  provisioning++;
+  try {
+    return await work();
+  } finally {
+    provisioning--;
+    if (provisioning === 0) provisioningDone.forEach(fn => fn());
+  }
+};
+
+/**
+ * Finishes an account whose migration stopped part-way: creates the missing auth_links entry,
+ * removes the temporary legacyClaim (it held the old password) and the username mapping.
+ */
+const repairAccount = async (authUid: string, userId: string) => {
+  const linkRef = doc(db, 'auth_links', authUid);
+  if (!(await getDoc(linkRef)).exists()) await setDoc(linkRef, { userId });
+  const userRef = doc(db, 'users', userId);
+  const snap = await getDoc(userRef);
+  if (!snap.exists()) return;
+  const data = snap.data();
+  if ('legacyClaim' in data) {
+    await updateDoc(userRef, { legacyClaim: deleteField() });
+  }
+  if (data.username && data.authEmail) {
+    await ensureUsernameMapping(data.username, userId, data.authEmail).catch(e => console.warn('username mapping', e));
+  }
+};
+
 /** Loads the profile behind a signed-in Auth account, repairing link/mapping/email drift. */
 export const resolveSessionUser = async (fbUser: FirebaseUser): Promise<User | null> => {
   const linkSnap = await getDoc(doc(db, 'auth_links', fbUser.uid));
@@ -155,7 +196,10 @@ const migrateLegacyAccount = async (userId: string, data: any, password: string)
 };
 
 /** Username or email + password. Throws an AuthError / Firebase error on failure. */
-export const loginWithCredentials = async (identifier: string, password: string): Promise<void> => {
+export const loginWithCredentials = (identifier: string, password: string): Promise<void> =>
+  provision(() => loginInner(identifier, password));
+
+const loginInner = async (identifier: string, password: string): Promise<void> => {
   const id = identifier.trim();
   if (!id || !password) throw new AuthError(tr('يرجى إدخال اسم المستخدم وكلمة المرور'));
 
@@ -168,7 +212,8 @@ export const loginWithCredentials = async (identifier: string, password: string)
   const mapping = await getDoc(doc(db, 'usernames', name));
   if (mapping.exists()) {
     try {
-      await signInFlexible(auth, mapping.data().authEmail, password);
+      const cred = await signInFlexible(auth, mapping.data().authEmail, password);
+      await repairAccount(cred.user.uid, mapping.data().userId);
       return;
     } catch (e) {
       if (!isBadCredential(e)) throw e;
@@ -185,15 +230,19 @@ export const loginWithCredentials = async (identifier: string, password: string)
   if (!legacy) throw new AuthError(tr('اسم المستخدم أو كلمة المرور غير صحيحة'));
 
   if (legacy.data.authEmail) {
-    // Already migrated, only the username mapping was missing.
-    await signInFlexible(auth, legacy.data.authEmail, password);
+    // Migrated, but possibly only part-way (no link / mapping yet): sign in and finish it.
+    const cred = await signInFlexible(auth, legacy.data.authEmail, password);
+    await repairAccount(cred.user.uid, legacy.id);
     return;
   }
   if (legacy.data.password !== password) throw new AuthError(tr('اسم المستخدم أو كلمة المرور غير صحيحة'));
   await migrateLegacyAccount(legacy.id, legacy.data, password);
 };
 
-export const registerOwner = async (username: string, password: string, name: string, email: string) => {
+export const registerOwner = (username: string, password: string, name: string, email: string) =>
+  provision(() => registerOwnerInner(username, password, name, email));
+
+const registerOwnerInner = async (username: string, password: string, name: string, email: string) => {
   const uname = normalizeUsername(username);
   if ((await getDoc(doc(db, 'usernames', uname))).exists()) throw new AuthError(tr('اسم المستخدم مستخدم بالفعل. اختر اسماً آخر.'));
   const authEmail = email.trim().toLowerCase();

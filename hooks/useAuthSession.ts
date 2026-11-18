@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { User } from '../types';
-import { loginWithCredentials, resolveSessionUser, logout as authLogout } from '../services/authService';
+import {
+  loginWithCredentials, resolveSessionUser, logout as authLogout, isProvisioning, onProvisioningDone,
+} from '../services/authService';
 import { safeStorage } from '../utils/storage';
 
 /**
@@ -16,7 +18,10 @@ export function useAuthSession() {
 
   useEffect(() => {
     let triedLegacySession = false;
-    const unsub = onAuthStateChanged(auth, async (fbUser) => {
+    let disposed = false;
+
+    const handle = async (fbUser: FirebaseUser | null) => {
+      if (disposed) return;
       try {
         if (fbUser) {
           const profile = await resolveSessionUser(fbUser);
@@ -54,8 +59,15 @@ export function useAuthSession() {
         setCurrentUser(null);
         setAuthReady(true);
       }
+    };
+
+    // While a login/registration is still writing auth_links/users, its sign-in event must not be
+    // resolved yet (the link isn't there, which used to sign the user straight back out).
+    const unsubAuth = onAuthStateChanged(auth, (fbUser) => {
+      if (!isProvisioning()) handle(fbUser);
     });
-    return () => unsub();
+    const unsubDone = onProvisioningDone(() => handle(auth.currentUser));
+    return () => { disposed = true; unsubAuth(); unsubDone(); };
   }, []);
 
   // Keep the profile live: permission or barn-access changes by the owner apply immediately,
